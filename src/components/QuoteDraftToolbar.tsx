@@ -8,7 +8,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuotes } from '@/contexts/QuoteContext';
 import { archiveQuoteDraft, listQuoteDrafts, type QuoteDraftRecord } from '@/services/quoteDrafts';
-import { Archive, Copy, FileText, FolderOpen, List, Loader2, Plus, Save, X } from 'lucide-react';
+import { AlertTriangle, Archive, Copy, FileText, FolderOpen, List, Loader2, Plus, Save, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 const STATUS_LABELS = {
@@ -43,15 +43,19 @@ const QuoteDraftToolbar = () => {
     draftSaveStatus,
     draftLastSavedAt,
     draftError,
+    anonymousDraftResolutionRequired,
     setDraftTitle,
     saveDraftNow,
     createDraft,
     loadDraft,
     duplicateActiveDraft,
     archiveActiveDraft,
+    importAnonymousDraft,
+    keepAnonymousDraftSeparate,
   } = useQuotes();
   const [drafts, setDrafts] = useState<QuoteDraftRecord[]>([]);
   const [loadingDrafts, setLoadingDrafts] = useState(false);
+  const [anonymousDraftAction, setAnonymousDraftAction] = useState<'import' | 'separate' | null>(null);
 
   const hasActiveDraftInList = activeDraftId ? drafts.some((draft) => draft.id === activeDraftId) : false;
   const shouldShowLocalDraftTab = !loadingDrafts && (!activeDraftId || !hasActiveDraftInList);
@@ -107,6 +111,41 @@ const QuoteDraftToolbar = () => {
     }
   };
 
+  const handleImportAnonymousDraft = async () => {
+    setAnonymousDraftAction('import');
+    try {
+      const imported = await importAnonymousDraft();
+      if (imported) {
+        toast.success('로그인 전 초안을 이 계정으로 가져왔습니다.');
+        await refreshDrafts();
+      } else {
+        toast.error('초안을 가져오지 못했습니다. 브라우저 임시본은 그대로 보관됩니다.');
+      }
+    } catch (error) {
+      console.error('Failed to import anonymous quote draft:', error);
+      toast.error('초안을 가져오는 중 오류가 발생했습니다. 브라우저 임시본은 그대로 보관됩니다.');
+    } finally {
+      setAnonymousDraftAction(null);
+    }
+  };
+
+  const handleKeepAnonymousDraftSeparate = () => {
+    setAnonymousDraftAction('separate');
+    try {
+      const separated = keepAnonymousDraftSeparate();
+      if (separated) {
+        toast.success('로그인 전 초안을 이 계정과 분리해 브라우저에 보관했습니다.');
+      } else {
+        toast.error('초안을 분리하지 못했습니다. 브라우저 임시본은 그대로 유지됩니다.');
+      }
+    } catch (error) {
+      console.error('Failed to separate anonymous quote draft:', error);
+      toast.error('초안을 분리하는 중 오류가 발생했습니다. 브라우저 임시본은 그대로 유지됩니다.');
+    } finally {
+      setAnonymousDraftAction(null);
+    }
+  };
+
   const handleCloseDraftTab = async (
     draft: QuoteDraftRecord,
     event: MouseEvent<HTMLButtonElement>,
@@ -138,6 +177,45 @@ const QuoteDraftToolbar = () => {
   return (
     <Card className="mb-4 overflow-hidden border-slate-200 bg-white/90 shadow-sm print:hidden">
       <CardContent className="p-2.5 sm:p-3">
+        {anonymousDraftResolutionRequired && (
+          <div
+            className="mb-3 flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950 lg:flex-row lg:items-center lg:justify-between"
+            role="alert"
+          >
+            <div className="flex min-w-0 items-start gap-2.5">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+              <div>
+                <p className="text-sm font-semibold">로그인 전에 작성한 견적 초안이 있습니다.</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-amber-800">
+                  공용 브라우저일 수 있으므로 현재 계정의 초안인지 확인해주세요. 선택하기 전에는 계정에 자동 저장되지 않습니다.
+                </p>
+              </div>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleImportAnonymousDraft}
+                disabled={anonymousDraftAction !== null}
+                className="gap-1.5"
+              >
+                {anonymousDraftAction === 'import' && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                이 계정으로 가져오기
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleKeepAnonymousDraftSeparate}
+                disabled={anonymousDraftAction !== null}
+                className="border-amber-300 bg-white text-amber-900 hover:bg-amber-100"
+              >
+                {anonymousDraftAction === 'separate' && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                계정과 분리해 보관
+              </Button>
+            </div>
+          </div>
+        )}
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-900">

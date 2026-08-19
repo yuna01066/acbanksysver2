@@ -3,8 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { BarChart3, TrendingDown, TrendingUp, FileSpreadsheet, Building2 } from 'lucide-react';
+import { AlertTriangle, BarChart3, TrendingDown, TrendingUp, FileSpreadsheet, Building2, RefreshCw } from 'lucide-react';
 import { formatPrice } from '@/utils/priceCalculations';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { format, subMonths } from 'date-fns';
@@ -49,14 +50,14 @@ const isQuoteLossAnalysisTarget = (quote: any) => Boolean(quote?.lost_recorded_a
 const QuoteStatisticsCard: React.FC = () => {
   const { user, isAdmin } = useAuth();
 
-  const { data: stats } = useQuery({
+  const { data: stats, error, isLoading, refetch } = useQuery({
     queryKey: ['quote-statistics', isAdmin],
     queryFn: async () => {
       // Fetch all quotes for statistics
       const sixMonthsAgo = subMonths(new Date(), 6).toISOString();
       let query = supabase
         .from('saved_quotes')
-        .select('id, quote_date, total, project_stage, quote_status, recipient_company')
+        .select('id, quote_date, total, project_stage, quote_status, recipient_company, lost_recorded_at, lost_reason_category')
         .gte('quote_date', sixMonthsAgo);
 
       if (!isAdmin) {
@@ -70,6 +71,32 @@ const QuoteStatisticsCard: React.FC = () => {
     enabled: !!user,
     staleTime: 5 * 60 * 1000,
   });
+
+  if (error) {
+    return (
+      <Card className="border-destructive/30 bg-destructive/5">
+        <CardContent className="flex flex-col items-start gap-3 py-6 sm:flex-row sm:items-center">
+          <AlertTriangle className="h-5 w-5 shrink-0 text-destructive" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-destructive">견적 통계를 불러오지 못했습니다.</p>
+            <p className="mt-1 text-xs text-muted-foreground">조회 실패를 데이터 없음으로 표시하지 않았습니다.</p>
+          </div>
+          <Button type="button" variant="outline" size="sm" onClick={() => void refetch()}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            다시 시도
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="py-8 text-center text-sm text-muted-foreground">견적 통계를 불러오는 중...</CardContent>
+      </Card>
+    );
+  }
 
   if (!stats || stats.length === 0) {
     return (

@@ -305,13 +305,35 @@ function eventOverlapsRange(startsAt: string, endsAt: string, rangeStart: string
     && new Date(endsAt).getTime() > new Date(rangeStart).getTime();
 }
 
-function withCalendarTimeout<T>(promise: Promise<T>, fallback: T, timeoutMs = 2500): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((resolve) => {
-      setTimeout(() => resolve(fallback), timeoutMs);
-    }),
-  ]);
+type CalendarSourceResult<T> = {
+  data: T;
+  warning: string | null;
+};
+
+async function loadOptionalCalendarSource<T>(
+  sourceLabel: string,
+  promise: Promise<T>,
+  fallback: T,
+  timeoutMs = 2500,
+): Promise<CalendarSourceResult<T>> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const data = await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error(`${sourceLabel} 응답 시간이 ${timeoutMs}ms를 초과했습니다.`)),
+          timeoutMs,
+        );
+      }),
+    ]);
+    return { data, warning: null };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '알 수 없는 오류';
+    return { data: fallback, warning: `${sourceLabel}: ${message}` };
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
 }
 
 async function fetchBirthdayEvents(rangeStart: string, rangeEnd: string): Promise<InternalCalendarEvent[]> {
@@ -320,7 +342,7 @@ async function fetchBirthdayEvents(rangeStart: string, rangeEnd: string): Promis
     .select('id, full_name, birthday')
     .eq('is_approved', true)
     .not('birthday', 'is', null);
-  if (error) return [];
+  if (error) throw error;
 
   const rangeStartDate = new Date(rangeStart);
   const rangeEndDate = new Date(rangeEnd);
@@ -368,71 +390,69 @@ async function fetchBirthdayEvents(rangeStart: string, rangeEnd: string): Promis
 }
 
 async function fetchNotionEvents(rangeStart: string, rangeEnd: string, scope: CalendarViewScope): Promise<InternalCalendarEvent[]> {
-  try {
-    const [{ data: authData }, { data, error }] = await Promise.all([
-      supabase.auth.getUser(),
-      supabase.functions.invoke('notion-projects'),
-    ]);
-    if (error) return [];
+  const [{ data: authData, error: authError }, { data, error }] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase.functions.invoke('notion-projects'),
+  ]);
+  if (authError) throw authError;
+  if (error) throw error;
 
-    const userId = authData.user?.id;
-    let currentUserName = '';
-    if (scope === 'my' && userId) {
-      const { data: profile } = await supabase
-        .from('profile_directory')
-        .select('full_name')
-        .eq('id', userId)
-        .maybeSingle();
-      currentUserName = profile?.full_name || '';
-    }
-
-    return ((data?.projects || []) as any[])
-      .filter((project) => {
-        if (scope !== 'my') return true;
-        if (!currentUserName) return false;
-        const assigneeNames = [project.assignee, ...(Array.isArray(project.assigneeList) ? project.assigneeList : [])].filter(Boolean);
-        return assigneeNames.some((name) => String(name).includes(currentUserName) || currentUserName.includes(String(name)));
-      })
-      .flatMap((project) => {
-        const dateValue = project.date || project.startDate || project.createdDate;
-        if (!dateValue) return [];
-        const startDate = new Date(dateValue);
-        if (Number.isNaN(startDate.getTime())) return [];
-        const endDate = project.endDate ? new Date(project.endDate) : startDate;
-        const normalizedEndDate = Number.isNaN(endDate.getTime()) || endDate < startDate ? startDate : endDate;
-        const startsAt = toSeoulDateTime(format(startDate, 'yyyy-MM-dd'), '00:00');
-        const endsAt = toSeoulDateTime(format(addDays(normalizedEndDate, 1), 'yyyy-MM-dd'), '00:00');
-        if (!eventOverlapsRange(startsAt, endsAt, rangeStart, rangeEnd)) return [];
-
-        return normalizeCalendarEvent({
-          id: `notion-${project.id}`,
-          title: `Notion · ${project.title || 'Untitled'}`,
-          starts_at: startsAt,
-          ends_at: endsAt,
-          all_day: true,
-          visibility: 'title_only',
-          status: 'scheduled',
-          source_type: 'notion',
-          source_id: UUID_PATTERN.test(project.id) ? project.id : null,
-          source_subtype: project.status || 'project',
-          source_path: project.url || null,
-          accent: '#7c3aed',
-          icon_type: 'notion',
-          created_by: null,
-          created_by_name: project.assignee || 'Notion',
-          participant_names: Array.isArray(project.assigneeList) ? project.assigneeList : [project.assignee].filter(Boolean),
-          can_edit: false,
-          metadata: {
-            notion_id: project.id,
-            status: project.status,
-            assignee: project.assignee,
-            calendar_kind: 'notion_project',
-          },
-        });
-      });
-  } catch {
-    return [];
+  const userId = authData.user?.id;
+  let currentUserName = '';
+  if (scope === 'my' && userId) {
+    const { data: profile, error: profileError } = await supabase
+      .from('profile_directory')
+      .select('full_name')
+      .eq('id', userId)
+      .maybeSingle();
+    if (profileError) throw profileError;
+    currentUserName = profile?.full_name || '';
   }
+
+  return ((data?.projects || []) as any[])
+    .filter((project) => {
+      if (scope !== 'my') return true;
+      if (!currentUserName) return false;
+      const assigneeNames = [project.assignee, ...(Array.isArray(project.assigneeList) ? project.assigneeList : [])].filter(Boolean);
+      return assigneeNames.some((name) => String(name).includes(currentUserName) || currentUserName.includes(String(name)));
+    })
+    .flatMap((project) => {
+      const dateValue = project.date || project.startDate || project.createdDate;
+      if (!dateValue) return [];
+      const startDate = new Date(dateValue);
+      if (Number.isNaN(startDate.getTime())) return [];
+      const endDate = project.endDate ? new Date(project.endDate) : startDate;
+      const normalizedEndDate = Number.isNaN(endDate.getTime()) || endDate < startDate ? startDate : endDate;
+      const startsAt = toSeoulDateTime(format(startDate, 'yyyy-MM-dd'), '00:00');
+      const endsAt = toSeoulDateTime(format(addDays(normalizedEndDate, 1), 'yyyy-MM-dd'), '00:00');
+      if (!eventOverlapsRange(startsAt, endsAt, rangeStart, rangeEnd)) return [];
+
+      return normalizeCalendarEvent({
+        id: `notion-${project.id}`,
+        title: `Notion · ${project.title || 'Untitled'}`,
+        starts_at: startsAt,
+        ends_at: endsAt,
+        all_day: true,
+        visibility: 'title_only',
+        status: 'scheduled',
+        source_type: 'notion',
+        source_id: UUID_PATTERN.test(project.id) ? project.id : null,
+        source_subtype: project.status || 'project',
+        source_path: project.url || null,
+        accent: '#7c3aed',
+        icon_type: 'notion',
+        created_by: null,
+        created_by_name: project.assignee || 'Notion',
+        participant_names: Array.isArray(project.assigneeList) ? project.assigneeList : [project.assignee].filter(Boolean),
+        can_edit: false,
+        metadata: {
+          notion_id: project.id,
+          status: project.status,
+          assignee: project.assignee,
+          calendar_kind: 'notion_project',
+        },
+      });
+    });
 }
 
 export function useCalendarEvents({
@@ -448,29 +468,39 @@ export function useCalendarEvents({
   includeCanceled?: boolean;
   enabled?: boolean;
 }) {
-  return useQuery<InternalCalendarEvent[]>({
+  const query = useQuery<{ events: InternalCalendarEvent[]; sourceWarnings: string[] }>({
     queryKey: ['calendar-events', rangeStart, rangeEnd, scope, includeCanceled],
     queryFn: async () => {
-      const [{ data, error }, birthdayEvents, notionEvents] = await Promise.all([
+      const [{ data, error }, birthdaySource, notionSource] = await Promise.all([
         supabaseAny.rpc('get_calendar_events', {
           range_start: rangeStart,
           range_end: rangeEnd,
           filters: { scope, includeCanceled },
         }),
-        withCalendarTimeout(fetchBirthdayEvents(rangeStart, rangeEnd), []),
-        withCalendarTimeout(fetchNotionEvents(rangeStart, rangeEnd, scope), []),
+        loadOptionalCalendarSource('생일 일정', fetchBirthdayEvents(rangeStart, rangeEnd), []),
+        loadOptionalCalendarSource('Notion 일정', fetchNotionEvents(rangeStart, rangeEnd, scope), []),
       ]);
       if (error) throw error;
-      return expandRecurringEvents([
+      const events = expandRecurringEvents([
         ...(data || []).map(normalizeCalendarEvent),
-        ...birthdayEvents,
-        ...notionEvents,
+        ...birthdaySource.data,
+        ...notionSource.data,
       ], rangeStart, rangeEnd);
+      return {
+        events,
+        sourceWarnings: [birthdaySource.warning, notionSource.warning].filter((warning): warning is string => Boolean(warning)),
+      };
     },
     enabled,
     retry: 1,
     staleTime: 60 * 1000,
   });
+
+  return {
+    ...query,
+    data: query.data?.events,
+    sourceWarnings: query.data?.sourceWarnings || [],
+  };
 }
 
 export function useCalendarTasks({

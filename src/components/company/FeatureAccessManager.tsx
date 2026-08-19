@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -6,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { Shield, Loader2, Eye, Pencil, Trash2, Users, FileText, DollarSign, BarChart3, ClipboardList, Settings } from 'lucide-react';
 import { ROLE_LABELS, type AppRole } from '@/contexts/AuthContext';
+import { NAVIGATION_PAGE_ACCESS_QUERY_KEY } from '@/hooks/useNavigationPageAccess';
 
 interface FeatureDef {
   key: string;
@@ -78,6 +80,7 @@ const ROLE_BADGE_STYLES: Record<string, string> = {
 };
 
 const FeatureAccessManager: React.FC = () => {
+  const queryClient = useQueryClient();
   const [roleMap, setRoleMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
@@ -103,6 +106,7 @@ const FeatureAccessManager: React.FC = () => {
         .upsert({ page_key: featureKey, min_role: value }, { onConflict: 'page_key' });
       if (error) throw error;
       setRoleMap(prev => ({ ...prev, [featureKey]: value }));
+      await queryClient.invalidateQueries({ queryKey: [NAVIGATION_PAGE_ACCESS_QUERY_KEY] });
       toast.success('권한이 변경되었습니다.');
     } catch (e: any) {
       toast.error('변경 실패: ' + (e.message || ''));

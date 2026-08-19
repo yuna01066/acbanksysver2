@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
-import { Send, XCircle, RefreshCw, FileText } from 'lucide-react';
+import { Send, XCircle, RefreshCw } from 'lucide-react';
 
 export interface InvoiceFormData {
   writeDate: string;
@@ -107,16 +107,13 @@ const TaxInvoiceCreateDialog: React.FC<TaxInvoiceCreateDialogProps> = ({
 
         <div className="space-y-6">
           {/* 기본정보 */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div>
-              <Label className="text-xs">매출/매입</Label>
-              <Select value={form.invoiceDirection} onValueChange={v => setForm(f => ({ ...f, invoiceDirection: v as any }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="sales">매출</SelectItem>
-                  <SelectItem value="purchase">매입</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label className="text-xs">발행 범위</Label>
+              <div className="flex h-10 items-center rounded-md border bg-muted/40 px-3 text-sm font-medium">
+                매출 · 정발행
+              </div>
+              <p className="mt-1 text-[11px] text-muted-foreground">매출 정발행만 지원합니다.</p>
             </div>
             <div>
               <Label className="text-xs">작성일자</Label>
@@ -134,16 +131,6 @@ const TaxInvoiceCreateDialog: React.FC<TaxInvoiceCreateDialogProps> = ({
                   <SelectItem value="taxable">과세</SelectItem>
                   <SelectItem value="zero_rate">영세</SelectItem>
                   <SelectItem value="exempt">면세</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs">발행유형</Label>
-              <Select value={form.issueType} onValueChange={v => setForm(f => ({ ...f, issueType: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="normal">정발행</SelectItem>
-                  <SelectItem value="reverse">역발행</SelectItem>
                 </SelectContent>
               </Select>
             </div>

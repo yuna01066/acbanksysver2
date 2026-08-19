@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  addMessageChronologically,
+  mergeChronologicalMessages,
+  toChronologicalMessages,
+} from '@/lib/chat/messageOrdering';
 
 export interface DirectMessage {
   id: string;
@@ -26,20 +31,40 @@ export const useDirectMessages = (partnerId: string | null) => {
   const { user } = useAuth();
   const [messages, setMessages] = useState<DirectMessage[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const fetchRequestIdRef = useRef(0);
 
   const fetchMessages = useCallback(async () => {
-    if (!user || !partnerId) return;
-    setLoading(true);
+    if (!user || !partnerId) {
+      setMessages([]);
+      setLoadError(null);
+      setLoading(false);
+      return;
+    }
 
-    const { data } = await supabase
+    const requestId = ++fetchRequestIdRef.current;
+    setLoading(true);
+    setLoadError(null);
+
+    const { data, error } = await supabase
       .from('direct_messages')
       .select('*')
       .or(`and(sender_id.eq.${user.id},receiver_id.eq.${partnerId}),and(sender_id.eq.${partnerId},receiver_id.eq.${user.id})`)
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false })
       .limit(200);
 
-    if (data) setMessages(data as DirectMessage[]);
+    if (fetchRequestIdRef.current !== requestId) return;
+
+    if (error) {
+      console.error('Failed to load direct messages:', error);
+      setLoadError('1:1 메시지를 불러오지 못했습니다.');
+      setLoading(false);
+      return;
+    }
+
+    const fetchedMessages = toChronologicalMessages((data || []) as DirectMessage[]);
+    setMessages(previousMessages => mergeChronologicalMessages(previousMessages, fetchedMessages, 200));
     setLoading(false);
 
     // Mark unread messages as read
@@ -48,24 +73,29 @@ export const useDirectMessages = (partnerId: string | null) => {
         .filter((m: any) => m.receiver_id === user.id && !m.is_read)
         .map((m: any) => m.id);
       if (unreadIds.length > 0) {
-        await supabase
+        const { error: markReadError } = await supabase
           .from('direct_messages')
           .update({ is_read: true })
           .in('id', unreadIds);
+        if (markReadError) console.error('Failed to mark direct messages as read:', markReadError);
       }
     }
   }, [user, partnerId]);
 
   useEffect(() => {
-    fetchMessages();
-  }, [fetchMessages]);
+    fetchRequestIdRef.current += 1;
+    setMessages([]);
+    setLoadError(null);
 
-  // Realtime subscription
-  useEffect(() => {
-    if (!user || !partnerId) return;
+    if (!user || !partnerId) {
+      setLoading(false);
+      return;
+    }
 
+    setLoading(true);
+    let disposed = false;
     const channel = supabase
-      .channel(`direct-messages-${user.id}`, { config: { private: true } })
+      .channel(`direct-messages-${user.id}-${partnerId}`, { config: { private: true } })
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
@@ -77,7 +107,7 @@ export const useDirectMessages = (partnerId: string | null) => {
           (msg.sender_id === user.id && msg.receiver_id === partnerId) ||
           (msg.sender_id === partnerId && msg.receiver_id === user.id)
         ) {
-          setMessages(prev => [...prev, msg]);
+          setMessages(prev => addMessageChronologically(prev, msg, 200));
           // Auto-mark as read if we're the receiver
           if (msg.receiver_id === user.id && !msg.is_read) {
             supabase
@@ -99,13 +129,31 @@ export const useDirectMessages = (partnerId: string | null) => {
           (msg.sender_id === user.id && msg.receiver_id === partnerId) ||
           (msg.sender_id === partnerId && msg.receiver_id === user.id)
         ) {
-          setMessages(prev => prev.some(existing => existing.id === msg.id) ? prev : [...prev, msg]);
+          setMessages(prev => addMessageChronologically(prev, msg, 200));
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (disposed) return;
+        if (status === 'SUBSCRIBED') {
+          // Closing the initial query/subscription gap requires the channel to
+          // be live before fetching. fetchMessages merges rows with inserts
+          // already delivered by Realtime instead of replacing them.
+          void fetchMessages();
+          return;
+        }
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          fetchRequestIdRef.current += 1;
+          setLoading(false);
+          setLoadError('1:1 메시지 실시간 연결에 실패했습니다.');
+        }
+      });
 
-    return () => { supabase.removeChannel(channel); };
-  }, [user, partnerId]);
+    return () => {
+      disposed = true;
+      fetchRequestIdRef.current += 1;
+      void supabase.removeChannel(channel);
+    };
+  }, [fetchMessages, user, partnerId]);
 
   const sendMessage = useCallback(async (text: string) => {
     if (!user || !partnerId || !text.trim()) return;
@@ -122,7 +170,7 @@ export const useDirectMessages = (partnerId: string | null) => {
     }
   }, [user, partnerId]);
 
-  return { messages, loading, sending, sendMessage, refetch: fetchMessages };
+  return { messages, loading, loadError, sending, sendMessage, refetch: fetchMessages };
 };
 
 export const useConversationList = () => {

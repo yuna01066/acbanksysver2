@@ -17,6 +17,7 @@ import { ko } from 'date-fns/locale';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   CalendarCheck2,
+  AlertTriangle,
   BellRing,
   Cake,
   ChevronLeft,
@@ -35,6 +36,7 @@ import {
   Palmtree,
   PartyPopper,
   Plus,
+  RefreshCw,
   Save,
   Search,
   Settings2,
@@ -204,7 +206,13 @@ const CalendarPage = () => {
   const selectedDateKey = format(selectedDate, 'yyyy-MM-dd');
   const { data: userSettings } = useCalendarUserSettings(user?.id);
   const saveUserSettings = useSaveCalendarUserSettings(user?.id);
-  const { data: events = [], isLoading: isEventsLoading } = useCalendarEvents({
+  const {
+    data: events = [],
+    isLoading: isEventsLoading,
+    error: eventsError,
+    refetch: refetchEvents,
+    sourceWarnings,
+  } = useCalendarEvents({
     rangeStart,
     rangeEnd,
     scope,
@@ -769,6 +777,32 @@ const CalendarPage = () => {
     );
   };
 
+  if (eventsError) {
+    return (
+      <PageShell maxWidth="7xl" className="bg-white">
+        <PageHeader
+          eyebrow="Calendar"
+          title="통합 캘린더"
+          description="개인, 팀, 담당자, 회의실 일정을 한 화면에서 확인하고 예약합니다."
+          icon={<CalendarCheck2 className="h-5 w-5" />}
+        />
+        <section className="flex flex-col items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-5 sm:flex-row sm:items-center">
+          <AlertTriangle className="h-5 w-5 shrink-0 text-red-600" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-red-700">캘린더를 불러오지 못했습니다.</p>
+            <p className="mt-1 text-xs leading-5 text-red-700/80">
+              조회 실패를 빈 일정으로 표시하지 않았습니다. 연결 상태와 접근 권한을 확인한 뒤 다시 시도해주세요.
+            </p>
+          </div>
+          <Button type="button" variant="outline" size="sm" className="border-red-300 bg-white" onClick={() => void refetchEvents()}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            다시 시도
+          </Button>
+        </section>
+      </PageShell>
+    );
+  }
+
   return (
     <PageShell maxWidth="7xl" className="bg-white">
       <PageHeader
@@ -805,6 +839,22 @@ const CalendarPage = () => {
           </div>
         )}
       />
+
+      {sourceWarnings.length > 0 && (
+        <section className="flex flex-col items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 sm:flex-row sm:items-center">
+          <AlertTriangle className="h-5 w-5 shrink-0 text-amber-700" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-amber-900">일부 일정 연동에 실패했습니다.</p>
+            <p className="mt-1 text-xs leading-5 text-amber-800">
+              {sourceWarnings.join(' · ')} 내부 일정은 표시되지만 외부 일정 일부가 누락될 수 있습니다.
+            </p>
+          </div>
+          <Button type="button" variant="outline" size="sm" className="border-amber-400 bg-white" onClick={() => void refetchEvents()}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            다시 시도
+          </Button>
+        </section>
+      )}
 
       <section className="grid gap-3 sm:grid-cols-4">
         {[

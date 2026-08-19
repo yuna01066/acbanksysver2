@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useEditor, EditorContent, type JSONContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
@@ -27,6 +27,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import {
   X, Save, Loader2, FileText, Eye, Pencil, FileSignature, DollarSign, ChevronDown,
@@ -43,6 +44,14 @@ import {
   resolveContractTemplateContent,
   type ContractTemplateContentSource,
 } from '@/utils/contractTemplateContent';
+import {
+  buildContractTemplateDraftStorageKey,
+  buildContractTemplateEditorSnapshot,
+  getContractTemplateDraftIdentity,
+  parseContractTemplateRecoveryDraft,
+  type ContractTemplateEditorState,
+  type ContractTemplateRecoveryDraft,
+} from '@/utils/contractTemplateEditorDraft';
 
 interface TemplateEditorDialogProps {
   open: boolean;
@@ -75,6 +84,7 @@ const CustomTextStyle = TextStyle.extend({
 const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
   open, onClose, editingTemplate, onSaved,
 }) => {
+  const { user } = useAuth();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [templateType, setTemplateType] = useState('labor');
@@ -86,6 +96,29 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
   const [contentSource, setContentSource] = useState<ContractTemplateContentSource>('empty');
   const [fallbackTemplateName, setFallbackTemplateName] = useState('');
   const [reloadDefaultOpen, setReloadDefaultOpen] = useState(false);
+  const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
+  const [recoveryDraft, setRecoveryDraft] = useState<ContractTemplateRecoveryDraft | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const [editorRevision, setEditorRevision] = useState(0);
+  const initialSnapshotRef = useRef('');
+  const isInitializingRef = useRef(false);
+  const latestRecoveryPersistenceRef = useRef<{
+    hasUnsavedChanges: () => boolean;
+    persist: () => boolean;
+  }>({ hasUnsavedChanges: () => false, persist: () => false });
+
+  const draftIdentity = getContractTemplateDraftIdentity(editingTemplate?.id);
+  const draftStorageKey = useMemo(
+    () => buildContractTemplateDraftStorageKey(user?.id, editingTemplate?.id),
+    [editingTemplate?.id, user?.id],
+  );
+  const removeLocalRecoveryDraft = useCallback(() => {
+    try {
+      window.localStorage.removeItem(draftStorageKey);
+    } catch (error) {
+      console.warn('Failed to remove contract template recovery draft:', error);
+    }
+  }, [draftStorageKey]);
 
   const editor = useEditor({
     extensions: [
@@ -126,37 +159,239 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
     },
   });
 
+  const buildCurrentEditorState = useCallback((): ContractTemplateEditorState => ({
+    name,
+    description,
+    templateType,
+    payDay,
+    isActive,
+    contentSource,
+    fallbackTemplateName,
+    content: editor?.getJSON() || null,
+  }), [
+    contentSource,
+    description,
+    editor,
+    fallbackTemplateName,
+    isActive,
+    name,
+    payDay,
+    templateType,
+  ]);
+
+  const persistRecoveryDraft = useCallback(() => {
+    if (typeof window === 'undefined' || !editor) return false;
+    const payload: ContractTemplateRecoveryDraft = {
+      version: 1,
+      identity: draftIdentity,
+      savedAt: new Date().toISOString(),
+      state: buildCurrentEditorState(),
+    };
+    try {
+      window.localStorage.setItem(draftStorageKey, JSON.stringify(payload));
+      return true;
+    } catch (error) {
+      console.warn('Failed to persist contract template recovery draft:', error);
+      return false;
+    }
+  }, [buildCurrentEditorState, draftIdentity, draftStorageKey, editor]);
+
+  const hasUnsavedEditorChanges = useCallback(() => {
+    if (!editor) return false;
+    return buildContractTemplateEditorSnapshot(buildCurrentEditorState()) !== initialSnapshotRef.current;
+  }, [buildCurrentEditorState, editor]);
+
+  // Keep the unmount/SPA-navigation cleanup independent from render timing.
+  // The latest callbacks read current React fields and the current Tiptap JSON.
+  latestRecoveryPersistenceRef.current = {
+    hasUnsavedChanges: hasUnsavedEditorChanges,
+    persist: persistRecoveryDraft,
+  };
+
+  useEffect(() => {
+    if (!editor) return;
+    editor.setEditable(!saving);
+  }, [editor, saving]);
+
+  useEffect(() => {
+    if (!open || !editor) return;
+
+    isInitializingRef.current = true;
+    const resolvedContent = editingTemplate
+      ? resolveContractTemplateContent(editingTemplate)
+      : null;
+    const initialState = {
+      name: editingTemplate?.name || '',
+      description: editingTemplate?.description || '',
+      templateType: editingTemplate?.template_type || 'labor',
+      payDay: editingTemplate?.pay_day ?? 25,
+      isActive: editingTemplate?.is_active ?? true,
+      contentSource: resolvedContent?.source || 'empty',
+      fallbackTemplateName: resolvedContent?.prebuiltTemplateName || '',
+    } satisfies Omit<ContractTemplateEditorState, 'content'>;
+
+    setName(initialState.name);
+    setDescription(initialState.description);
+    setTemplateType(initialState.templateType);
+    setPayDay(initialState.payDay);
+    setIsActive(initialState.isActive);
+    setContentSource(initialState.contentSource);
+    setFallbackTemplateName(initialState.fallbackTemplateName);
+    setShowTemplates(!editingTemplate);
+    setActiveTab('edit');
+    setReloadDefaultOpen(false);
+    setCloseConfirmOpen(false);
+
+    if (resolvedContent?.content) {
+      editor.commands.setContent(resolvedContent.content);
+    } else {
+      editor.commands.clearContent();
+    }
+
+    initialSnapshotRef.current = buildContractTemplateEditorSnapshot({
+      ...initialState,
+      content: editor.getJSON(),
+    });
+    setIsDirty(false);
+
+    let rawRecoveryDraft: string | null = null;
+    try {
+      rawRecoveryDraft = window.localStorage.getItem(draftStorageKey);
+    } catch (error) {
+      console.warn('Failed to read contract template recovery draft:', error);
+    }
+    const parsedRecoveryDraft = parseContractTemplateRecoveryDraft(
+      rawRecoveryDraft,
+      draftIdentity,
+    );
+    setRecoveryDraft(parsedRecoveryDraft);
+    if (rawRecoveryDraft && !parsedRecoveryDraft) {
+      removeLocalRecoveryDraft();
+    }
+
+    queueMicrotask(() => {
+      isInitializingRef.current = false;
+    });
+  }, [draftIdentity, draftStorageKey, editingTemplate, editor, open, removeLocalRecoveryDraft]);
+
+  useEffect(() => {
+    if (!editor) return;
+    const handleEditorUpdate = () => {
+      if (!isInitializingRef.current) {
+        setEditorRevision(revision => revision + 1);
+      }
+    };
+    editor.on('update', handleEditorUpdate);
+    return () => {
+      editor.off('update', handleEditorUpdate);
+    };
+  }, [editor]);
+
+  useEffect(() => {
+    if (!open || !editor || isInitializingRef.current) return;
+    const currentSnapshot = buildContractTemplateEditorSnapshot(buildCurrentEditorState());
+    setIsDirty(currentSnapshot !== initialSnapshotRef.current);
+  }, [buildCurrentEditorState, editor, editorRevision, open]);
+
+  useEffect(() => {
+    if (!open || !editor || !isDirty || recoveryDraft) return;
+    const timer = window.setTimeout(persistRecoveryDraft, 400);
+    return () => window.clearTimeout(timer);
+  }, [editor, editorRevision, isDirty, open, persistRecoveryDraft, recoveryDraft]);
+
   useEffect(() => {
     if (!open) return;
-    if (editingTemplate) {
-      setName(editingTemplate.name);
-      setDescription(editingTemplate.description || '');
-      setTemplateType(editingTemplate.template_type);
-      setPayDay(editingTemplate.pay_day);
-      setIsActive(editingTemplate.is_active);
-      const resolvedContent = resolveContractTemplateContent(editingTemplate);
-      setContentSource(resolvedContent.source);
-      setFallbackTemplateName(resolvedContent.prebuiltTemplateName || '');
-      setShowTemplates(false);
-      if (editor) {
-        if (resolvedContent.content) {
-          editor.commands.setContent(resolvedContent.content);
-        } else {
-          editor.commands.clearContent();
-        }
-      }
-    } else {
-      setName('');
-      setDescription('');
-      setTemplateType('labor');
-      setPayDay(25);
-      setIsActive(true);
-      setContentSource('empty');
-      setFallbackTemplateName('');
-      editor?.commands.clearContent();
-      setShowTemplates(true);
+    return () => {
+      const latest = latestRecoveryPersistenceRef.current;
+      if (latest.hasUnsavedChanges()) latest.persist();
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !isDirty) return;
+
+    const saveOnPageHide = () => persistRecoveryDraft();
+    const saveOnVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') persistRecoveryDraft();
+    };
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      persistRecoveryDraft();
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('pagehide', saveOnPageHide);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', saveOnVisibilityChange);
+    return () => {
+      window.removeEventListener('pagehide', saveOnPageHide);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', saveOnVisibilityChange);
+    };
+  }, [isDirty, open, persistRecoveryDraft]);
+
+  const requestClose = useCallback(() => {
+    if (saving) return;
+    if (isDirty) {
+      setCloseConfirmOpen(true);
+      return;
     }
-  }, [open, editingTemplate, editor]);
+    onClose();
+  }, [isDirty, onClose, saving]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (
+        event.key !== 'Escape'
+        || closeConfirmOpen
+        || reloadDefaultOpen
+        || Boolean(recoveryDraft)
+      ) return;
+      event.preventDefault();
+      requestClose();
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [closeConfirmOpen, open, recoveryDraft, reloadDefaultOpen, requestClose]);
+
+  const leaveWithRecovery = useCallback(() => {
+    if (!persistRecoveryDraft()) {
+      toast.error('변경사항을 임시 보관하지 못했습니다. 저장 후 다시 시도해주세요.');
+      return;
+    }
+    setCloseConfirmOpen(false);
+    onClose();
+  }, [onClose, persistRecoveryDraft]);
+
+  const discardRecoveryDraft = useCallback(() => {
+    removeLocalRecoveryDraft();
+    setRecoveryDraft(null);
+  }, [removeLocalRecoveryDraft]);
+
+  const restoreRecoveryDraft = useCallback(() => {
+    if (!editor || !recoveryDraft) return;
+    const recovered = recoveryDraft.state;
+    isInitializingRef.current = true;
+    setName(recovered.name);
+    setDescription(recovered.description);
+    setTemplateType(recovered.templateType);
+    setPayDay(recovered.payDay);
+    setIsActive(recovered.isActive);
+    setContentSource(recovered.contentSource);
+    setFallbackTemplateName(recovered.fallbackTemplateName);
+    if (recovered.content) {
+      editor.commands.setContent(recovered.content as JSONContent);
+    } else {
+      editor.commands.clearContent();
+    }
+    setRecoveryDraft(null);
+    setIsDirty(true);
+    setEditorRevision(revision => revision + 1);
+    queueMicrotask(() => {
+      isInitializingRef.current = false;
+    });
+  }, [editor, recoveryDraft]);
 
   const applyPrebuiltTemplate = useCallback((tpl: typeof PREBUILT_TEMPLATES[0]) => {
     if (!editor) return;
@@ -186,8 +421,10 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
   }, [editor, name, templateType]);
 
   const handleSave = async () => {
+    if (saving) return;
     if (!name.trim()) { toast.error('양식 이름을 입력해주세요.'); return; }
-    const content = editor?.getJSON() || null;
+    const editorState = buildCurrentEditorState();
+    const content = editorState.content as JSONContent | null;
     const quality = evaluateContractTemplateQuality(content, { templateType });
     if (!quality.ok) {
       toast.error(`필수 필드를 추가해주세요: ${quality.missing.join(', ')}`);
@@ -218,6 +455,10 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
         if (error) throw error;
         toast.success('양식이 생성되었습니다.');
       }
+      initialSnapshotRef.current = buildContractTemplateEditorSnapshot(editorState);
+      removeLocalRecoveryDraft();
+      setRecoveryDraft(null);
+      setIsDirty(false);
       onSaved();
       onClose();
     } catch (error: unknown) {
@@ -275,7 +516,14 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between border-b px-4 py-2.5 shrink-0">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={requestClose}
+            disabled={saving}
+            aria-label="계약서 양식 편집기 닫기"
+            className="h-8 w-8"
+          >
             <X className="h-4 w-4" />
           </Button>
           <span className="font-semibold text-sm">
@@ -284,6 +532,11 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
           {editingTemplate && (
             <Badge variant="outline" className="text-[11px]">
               {sourceLabel}
+            </Badge>
+          )}
+          {isDirty && (
+            <Badge variant="outline" className="border-amber-200 text-[11px] text-amber-700">
+              저장되지 않은 변경사항
             </Badge>
           )}
         </div>
@@ -307,6 +560,7 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
               size="sm"
               className="gap-1.5 rounded-full"
               onClick={() => setReloadDefaultOpen(true)}
+              disabled={saving}
             >
               <RotateCcw className="h-3.5 w-3.5" />
               기본 양식 다시 불러오기
@@ -318,6 +572,7 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
             size="sm"
             className="gap-1.5 rounded-full"
             onClick={() => setActiveTab('preview')}
+            disabled={saving}
           >
             <Eye className="h-3.5 w-3.5" />
             신규 발송 미리보기
@@ -330,7 +585,11 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
       </div>
 
       {/* Body */}
-      <div className="flex-1 flex overflow-hidden">
+      <fieldset
+        disabled={saving}
+        aria-busy={saving}
+        className="m-0 flex min-w-0 flex-1 overflow-hidden border-0 p-0"
+      >
         {/* Main content */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {activeTab === 'edit' ? (
@@ -510,7 +769,7 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
 
         {/* Placeholder sidebar - only show in edit mode */}
         {activeTab === 'edit' && <PlaceholderSidebar editor={editor} />}
-      </div>
+      </fieldset>
 
       <AlertDialog open={reloadDefaultOpen} onOpenChange={setReloadDefaultOpen}>
         <AlertDialogContent>
@@ -525,6 +784,39 @@ const TemplateEditorDialog: React.FC<TemplateEditorDialogProps> = ({
             <AlertDialogAction onClick={reloadDefaultTemplate}>
               불러오기
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={Boolean(recoveryDraft)} onOpenChange={() => {}}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>이전 편집 내용을 복구하시겠습니까?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {recoveryDraft
+                ? `${new Date(recoveryDraft.savedAt).toLocaleString('ko-KR')}에 이 브라우저에 임시 보관된 변경사항이 있습니다.`
+                : '이 브라우저에 임시 보관된 변경사항이 있습니다.'}
+              {' '}복구하지 않으면 현재 저장된 양식으로 편집을 시작합니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={discardRecoveryDraft}>복구하지 않음</AlertDialogCancel>
+            <AlertDialogAction onClick={restoreRecoveryDraft}>복구하기</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={closeConfirmOpen} onOpenChange={setCloseConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>변경사항을 저장하지 않고 나가시겠습니까?</AlertDialogTitle>
+            <AlertDialogDescription>
+              저장되지 않은 변경사항은 이 브라우저에 7일간 임시 보관됩니다. 다음에 같은 양식을 열면 복구할 수 있습니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>계속 편집</AlertDialogCancel>
+            <AlertDialogAction onClick={leaveWithRecovery}>임시 보관 후 나가기</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

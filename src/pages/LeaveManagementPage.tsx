@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, CalendarDays, Clock, Loader2, Plus, Settings2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CalendarDays, Clock, Loader2, Plus, RefreshCw, Settings2 } from 'lucide-react';
 import { useLeaveRequests, calculatePolicyBasedLeaveDays, LEAVE_TYPES, calculateBusinessDays } from '@/hooks/useLeaveRequests';
 import { useLeaveAdjustments } from '@/hooks/useLeaveAdjustments';
 import AdminLeaveOverview from '@/components/leave/AdminLeaveOverview';
@@ -28,7 +28,7 @@ import LeaveCalendarView from '@/components/leave/LeaveCalendarView';
 const LeaveManagementPage = () => {
   const navigate = useNavigate();
   const { user, profile, isAdmin, isModerator, loading: authLoading } = useAuth();
-  const { requests, loading, createRequest, approveRequest, rejectRequest, cancelRequest, refresh } = useLeaveRequests();
+  const { requests, loading, loadError, createRequest, approveRequest, rejectRequest, cancelRequest, refresh } = useLeaveRequests();
   const { policy, loading: policyLoading, unitLabel, canRequest } = useLeavePolicy();
   const { getNetAdjustment } = useLeaveAdjustments(user?.id);
   const [joinDate, setJoinDate] = useState<string>('');
@@ -151,6 +151,19 @@ const LeaveManagementPage = () => {
       </div>
 
       <div className="container max-w-5xl mx-auto px-4 py-6">
+        {loadError && (
+          <div className="mb-4 flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 sm:flex-row sm:items-center">
+            <AlertTriangle className="h-5 w-5 shrink-0 text-destructive" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-destructive">휴가 데이터를 불러오지 못했습니다.</p>
+              <p className="mt-1 text-xs text-muted-foreground">{loadError}</p>
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={() => void refresh()}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              다시 시도
+            </Button>
+          </div>
+        )}
         <Tabs defaultValue="overview">
           <TabsList className="bg-transparent border-b rounded-none w-full justify-start px-0 h-auto pb-0">
             <TabsTrigger value="overview" className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-3">

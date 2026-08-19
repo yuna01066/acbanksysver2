@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4';
+import { normalizePhoneNumber } from '../_shared/phone.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -58,7 +59,9 @@ Deno.serve(async (req) => {
         );
       }
 
-      if (profile.phone !== phone.trim()) {
+      const storedPhone = normalizePhoneNumber(profile.phone);
+      const submittedPhone = normalizePhoneNumber(phone);
+      if (!storedPhone || storedPhone !== submittedPhone) {
         return new Response(
           JSON.stringify({ success: true, message: '비밀번호 초기화 요청이 접수되었습니다.' }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

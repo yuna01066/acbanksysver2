@@ -81,7 +81,9 @@ const G: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 );
 
 const S: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <CompanySettingsGuard>{children}</CompanySettingsGuard>
+  <PageAccessGuard>
+    <CompanySettingsGuard>{children}</CompanySettingsGuard>
+  </PageAccessGuard>
 );
 
 const ProjectRouteRedirect = () => {
@@ -125,12 +127,12 @@ const App = () => (
               <Route path="/quotes-summary" element={<G><QuotesSummaryPage /></G>} />
               <Route path="/customer-quotes-summary" element={<G><CustomerQuotesSummaryPage /></G>} />
               <Route path="/internal-quote" element={<InternalQuotePage />} />
-              <Route path="/embed-code" element={<EmbedCodePage />} />
+              <Route path="/embed-code" element={<G><EmbedCodePage /></G>} />
               <Route path="/client-consultation-widget" element={<ClientConsultationWidgetPage />} />
               <Route path="/branding-intake-widget" element={<BrandingIntakeWidgetPage />} />
               <Route path="/public-booking/:slug" element={<PublicBookingPage />} />
               <Route path="/branding-intakes" element={<G><BrandingIntakesPage /></G>} />
-              <Route path="/admin-settings" element={<AdminSettingsPage />} />
+              <Route path="/admin-settings" element={<G><AdminSettingsPage /></G>} />
               <Route path="/quote-calculation-settings" element={<G><QuoteCalculationSettingsPage /></G>} />
               <Route path="/price-management" element={<Navigate to="/quote-calculation-settings" replace />} />
               <Route path="/panel-management" element={<Navigate to="/quote-calculation-settings?tab=panel-base" replace />} />
@@ -142,7 +144,7 @@ const App = () => (
               <Route path="/quote-wizard" element={<G><QuoteWizardPage /></G>} />
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/my-page" element={<MyPage />} />
+              <Route path="/my-page" element={<G><MyPage /></G>} />
               <Route path="/user-management" element={<Navigate to="/employee-profiles" replace />} />
               <Route path="/user-statistics" element={<S><UserStatisticsPage /></S>} />
               <Route path="/recipients" element={<G><RecipientManagementPage /></G>} />
@@ -155,26 +157,26 @@ const App = () => (
               <Route path="/company-settings" element={<CompanySettingsPage />} />
               <Route path="/project-management" element={<G><ProjectManagementPage /></G>} />
               <Route path="/projects" element={<ProjectRouteRedirect />} />
-              <Route path="/review-settings" element={<ReviewSettingsPage />} />
+              <Route path="/review-settings" element={<G><ReviewSettingsPage /></G>} />
               <Route path="/performance-review" element={<G><PerformanceReviewPage /></G>} />
               <Route path="/material-orders" element={<G><MaterialOrdersPage /></G>} />
               <Route path="/meeting-reservations" element={<G><MeetingReservationsPage /></G>} />
               <Route path="/calendar" element={<G><CalendarPage /></G>} />
-              <Route path="/year-end-tax" element={<YearEndTaxPage />} />
+              <Route path="/year-end-tax" element={<G><YearEndTaxPage /></G>} />
               <Route path="/year-end-tax-admin" element={<S><YearEndTaxAdminPage /></S>} />
-              <Route path="/storage-status" element={<StorageStatusPage />} />
-              <Route path="/quote-template-management" element={<QuoteTemplateManagementPage />} />
+              <Route path="/storage-status" element={<G><StorageStatusPage /></G>} />
+              <Route path="/quote-template-management" element={<G><QuoteTemplateManagementPage /></G>} />
               <Route path="/tax-invoices" element={<S><TaxInvoicesPage /></S>} />
-              <Route path="/sample-chip-inventory" element={<SampleChipInventoryPage />} />
+              <Route path="/sample-chip-inventory" element={<G><SampleChipInventoryPage /></G>} />
               <Route path="/exhibition-management" element={<G><ExhibitionManagementPage /></G>} />
               <Route path="/portfolio" element={<G><PortfolioPage /></G>} />
               <Route path="/references" element={<G><ReferencePage /></G>} />
               <Route path="/business-dashboard" element={<S><BusinessDashboardPage /></S>} />
               <Route path="/review-hub" element={<G><ReviewHubPage /></G>} />
               <Route path="/channel-talk-leads" element={<G><ChannelTalkLeadsPage /></G>} />
-              <Route path="/response-assistant" element={<ResponseAssistantPage />} />
-              <Route path="/response-assistant-management" element={<ResponseAssistantManagementPage />} />
-              <Route path="/jjikjjiki-event-settings" element={<JjikjjikiEventSettingsPage />} />
+              <Route path="/response-assistant" element={<G><ResponseAssistantPage /></G>} />
+              <Route path="/response-assistant-management" element={<G><ResponseAssistantManagementPage /></G>} />
+              <Route path="/jjikjjiki-event-settings" element={<G><JjikjjikiEventSettingsPage /></G>} />
               <Route path="/space-quote" element={<G><SpaceProjectFormPage /></G>} />
               <Route path="/space-quotes" element={<G><SpaceProjectsListPage /></G>} />
               <Route path="/space-quotes/:id" element={<G><SpaceProjectDetailPage /></G>} />

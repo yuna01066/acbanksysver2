@@ -8115,6 +8115,7 @@ export type Database = {
           charge_direction: string
           created_at: string
           email_sent: boolean | null
+          external_action_at: string | null
           fax_sent: boolean | null
           id: string
           invoice_direction: string
@@ -8126,6 +8127,7 @@ export type Database = {
           popbill_nts_confirm_num: string | null
           popbill_state_code: string | null
           popbill_state_dt: string | null
+          pending_operation: string | null
           project_id: string | null
           project_name: string | null
           purpose_type: string
@@ -8148,6 +8150,8 @@ export type Database = {
           supplier_email: string | null
           supplier_tel: string | null
           supply_cost_total: number
+          sync_error: string | null
+          sync_status: string
           tax_total: number
           tax_type: string
           total_amount: number
@@ -8169,6 +8173,7 @@ export type Database = {
           charge_direction?: string
           created_at?: string
           email_sent?: boolean | null
+          external_action_at?: string | null
           fax_sent?: boolean | null
           id?: string
           invoice_direction?: string
@@ -8180,6 +8185,7 @@ export type Database = {
           popbill_nts_confirm_num?: string | null
           popbill_state_code?: string | null
           popbill_state_dt?: string | null
+          pending_operation?: string | null
           project_id?: string | null
           project_name?: string | null
           purpose_type?: string
@@ -8202,6 +8208,8 @@ export type Database = {
           supplier_email?: string | null
           supplier_tel?: string | null
           supply_cost_total?: number
+          sync_error?: string | null
+          sync_status?: string
           tax_total?: number
           tax_type?: string
           total_amount?: number
@@ -8223,6 +8231,7 @@ export type Database = {
           charge_direction?: string
           created_at?: string
           email_sent?: boolean | null
+          external_action_at?: string | null
           fax_sent?: boolean | null
           id?: string
           invoice_direction?: string
@@ -8234,6 +8243,7 @@ export type Database = {
           popbill_nts_confirm_num?: string | null
           popbill_state_code?: string | null
           popbill_state_dt?: string | null
+          pending_operation?: string | null
           project_id?: string | null
           project_name?: string | null
           purpose_type?: string
@@ -8256,6 +8266,8 @@ export type Database = {
           supplier_email?: string | null
           supplier_tel?: string | null
           supply_cost_total?: number
+          sync_error?: string | null
+          sync_status?: string
           tax_total?: number
           tax_type?: string
           total_amount?: number

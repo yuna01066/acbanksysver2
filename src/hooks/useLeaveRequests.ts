@@ -183,25 +183,37 @@ export const useLeaveRequests = () => {
   const { user, profile, isAdmin, isModerator } = useAuth();
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const fetchRequests = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setRequests([]);
+      setLoadError(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
-    const query = supabase
-      .from('leave_requests')
-      .select('*')
-      .order('created_at', { ascending: false });
+    setLoadError(null);
+    try {
+      const query = supabase
+        .from('leave_requests')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    // Non-admin users only see their own (RLS handles this, but be explicit)
-    if (!isAdmin && !isModerator) {
-      query.eq('user_id', user.id);
-    }
+      // Non-admin users only see their own (RLS handles this, but be explicit)
+      if (!isAdmin && !isModerator) {
+        query.eq('user_id', user.id);
+      }
 
-    const { data, error } = await query;
-    if (!error && data) {
+      const { data, error } = await query;
+      if (error) throw error;
       setRequests(data as LeaveRequest[]);
+    } catch (error) {
+      console.error('연차 신청 내역 조회 에러:', error);
+      setLoadError(error instanceof Error ? error.message : '휴가 데이터를 불러오지 못했습니다.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [user, isAdmin, isModerator]);
 
   useEffect(() => {
@@ -274,14 +286,25 @@ export const useLeaveRequests = () => {
     if (!user || !profile) return;
     // Find the request to get requester info
     const target = requests.find(r => r.id === id);
-    const { error } = await supabase.from('leave_requests').update({
-      status: 'approved',
-      approved_by: user.id,
-      approved_by_name: profile.full_name,
-      approved_at: new Date().toISOString(),
-    }).eq('id', id);
+    const { data, error } = await supabase
+      .from('leave_requests')
+      .update({
+        status: 'approved',
+        approved_by: user.id,
+        approved_by_name: profile.full_name,
+        approved_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .eq('status', 'pending')
+      .select('id')
+      .maybeSingle();
     if (error) {
       toast.error('승인 실패: ' + error.message);
+      return;
+    }
+    if (!data) {
+      toast.error('이미 취소되었거나 처리된 휴가 신청입니다.');
+      await fetchRequests();
       return;
     }
     toast.success('승인되었습니다.');
@@ -304,15 +327,26 @@ export const useLeaveRequests = () => {
   const rejectRequest = async (id: string, rejectReason: string) => {
     if (!user || !profile) return;
     const target = requests.find(r => r.id === id);
-    const { error } = await supabase.from('leave_requests').update({
-      status: 'rejected',
-      approved_by: user.id,
-      approved_by_name: profile.full_name,
-      approved_at: new Date().toISOString(),
-      reject_reason: rejectReason,
-    }).eq('id', id);
+    const { data, error } = await supabase
+      .from('leave_requests')
+      .update({
+        status: 'rejected',
+        approved_by: user.id,
+        approved_by_name: profile.full_name,
+        approved_at: new Date().toISOString(),
+        reject_reason: rejectReason,
+      })
+      .eq('id', id)
+      .eq('status', 'pending')
+      .select('id')
+      .maybeSingle();
     if (error) {
       toast.error('반려 실패: ' + error.message);
+      return;
+    }
+    if (!data) {
+      toast.error('이미 취소되었거나 처리된 휴가 신청입니다.');
+      await fetchRequests();
       return;
     }
     toast.success('반려되었습니다.');
@@ -333,14 +367,25 @@ export const useLeaveRequests = () => {
   };
 
   const cancelRequest = async (id: string) => {
-    const { error } = await supabase.from('leave_requests').delete().eq('id', id);
+    const { data, error } = await supabase
+      .from('leave_requests')
+      .update({ status: 'cancelled' })
+      .eq('id', id)
+      .eq('status', 'pending')
+      .select('id')
+      .maybeSingle();
     if (error) {
       toast.error('취소 실패: ' + error.message);
+      return;
+    }
+    if (!data) {
+      toast.error('승인 대기 중인 휴가만 취소할 수 있습니다.');
+      await fetchRequests();
       return;
     }
     toast.success('취소되었습니다.');
     await fetchRequests();
   };
 
-  return { requests, loading, createRequest, approveRequest, rejectRequest, cancelRequest, refresh: fetchRequests };
+  return { requests, loading, loadError, createRequest, approveRequest, rejectRequest, cancelRequest, refresh: fetchRequests };
 };

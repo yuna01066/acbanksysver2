@@ -15,7 +15,7 @@ import {
   subMonths,
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { CalendarCheck2, ChevronLeft, ChevronRight, Clock3, DoorOpen, ListChecks, Plus, UsersRound } from 'lucide-react';
+import { AlertTriangle, CalendarCheck2, ChevronLeft, ChevronRight, Clock3, DoorOpen, ListChecks, Plus, RefreshCw, UsersRound } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -90,19 +90,33 @@ const DashboardCalendarPanel = () => {
   }, []);
   const { rangeStart, rangeEnd } = getCalendarMonthRange(calendarMonth);
 
-  const { data: calendarEvents = [] } = useCalendarEvents({
+  const {
+    data: calendarEvents = [],
+    error: calendarError,
+    refetch: refetchCalendarEvents,
+    sourceWarnings: calendarSourceWarnings,
+  } = useCalendarEvents({
     rangeStart,
     rangeEnd,
     scope,
     enabled: !!user,
   });
-  const { data: dashboardEvents = [] } = useCalendarEvents({
+  const {
+    data: dashboardEvents = [],
+    error: dashboardEventsError,
+    refetch: refetchDashboardEvents,
+    sourceWarnings: dashboardSourceWarnings,
+  } = useCalendarEvents({
     rangeStart: dashboardRange.rangeStart,
     rangeEnd: dashboardRange.rangeEnd,
     scope,
     enabled: !!user,
   });
-  const { data: summary } = useCalendarDashboardSummary({
+  const {
+    data: summary,
+    error: summaryError,
+    refetch: refetchSummary,
+  } = useCalendarDashboardSummary({
     rangeStart: dashboardRange.rangeStart,
     rangeEnd: dashboardRange.rangeEnd,
     scope,
@@ -136,6 +150,38 @@ const DashboardCalendarPanel = () => {
   const nextEvent = summary?.next_event || upcomingEvents[0] || null;
   const rooms = summary?.rooms || [];
   const isViewingCurrentMonth = isSameMonth(calendarMonth, dashboardRange.today);
+  const calendarLoadError = calendarError || dashboardEventsError || summaryError;
+  const sourceWarnings = Array.from(new Set([
+    ...calendarSourceWarnings,
+    ...dashboardSourceWarnings,
+  ]));
+  const retryCalendar = () => {
+    void Promise.all([
+      refetchCalendarEvents(),
+      refetchDashboardEvents(),
+      refetchSummary(),
+    ]);
+  };
+
+  if (calendarLoadError) {
+    return (
+      <Card className="border-destructive/30 bg-destructive/5 shadow-none">
+        <CardContent className="flex flex-col items-start gap-3 p-5 sm:flex-row sm:items-center">
+          <AlertTriangle className="h-5 w-5 shrink-0 text-destructive" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-destructive">일정을 불러오지 못했습니다.</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              조회 실패를 빈 일정으로 표시하지 않았습니다. 연결 상태를 확인한 뒤 다시 시도해주세요.
+            </p>
+          </div>
+          <Button type="button" variant="outline" size="sm" onClick={retryCalendar}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            다시 시도
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const openDialog = (mode: 'employee' | 'client' | 'room' | 'manual', date = format(new Date(), 'yyyy-MM-dd')) => {
     setSelectedDate(date);
@@ -197,6 +243,20 @@ const DashboardCalendarPanel = () => {
         </CardHeader>
 
         <CardContent className="space-y-4 px-4 pb-4 pt-6">
+          {sourceWarnings.length > 0 && (
+            <div className="flex flex-col gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900 sm:flex-row sm:items-center">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold">일부 일정 연동 실패</p>
+                <p className="mt-1 text-[11px] leading-5 text-amber-800">
+                  {sourceWarnings.join(' · ')} 내부 일정은 표시되지만 외부 일정 일부가 누락될 수 있습니다.
+                </p>
+              </div>
+              <Button type="button" variant="outline" size="sm" className="border-amber-400 bg-white" onClick={retryCalendar}>
+                다시 시도
+              </Button>
+            </div>
+          )}
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {[
               { label: scope === 'all' ? '오늘 전체 일정' : '오늘 내 일정', value: todayEvents.length, icon: CalendarCheck2, path: '/calendar?view=day' },

@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import type { ComponentType } from 'react';
 import { ExternalLink } from 'lucide-react';
 
+import { useNavigationPageAccess } from '@/hooks/useNavigationPageAccess';
+import { passesMasterProtectedPageGate } from '@/lib/pageAccessPolicy';
 import { cn } from '@/lib/utils';
 
 export type DashboardQuickLinkCategory = 'work' | 'quote-project' | 'management' | 'external';
@@ -16,7 +18,6 @@ export type DashboardQuickLinkItem = {
   path?: string;
   externalUrl?: string;
   requiresAuth?: boolean;
-  requiresAdmin?: boolean;
   requiresMaster?: boolean;
   action: () => void;
 };
@@ -24,8 +25,6 @@ export type DashboardQuickLinkItem = {
 type DashboardQuickLinksSectionProps = {
   items: DashboardQuickLinkItem[];
   isAuthenticated: boolean;
-  isAdmin: boolean;
-  isModerator: boolean;
   isMaster: boolean;
 };
 
@@ -43,19 +42,18 @@ const CATEGORY_ORDER: DashboardQuickLinkCategory[] = ['work', 'quote-project', '
 const DashboardQuickLinksSection = ({
   items,
   isAuthenticated,
-  isAdmin,
-  isModerator,
   isMaster,
 }: DashboardQuickLinksSectionProps) => {
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('all');
+  const { canAccessPath } = useNavigationPageAccess();
 
   const visibleItems = useMemo(() => {
     return items
       .filter((item) => {
         if (item.requiresAuth && !isAuthenticated) return false;
         if (item.requiresMaster && !isMaster) return false;
-        if (item.requiresAdmin && !isAdmin && !isModerator) return false;
-        return true;
+        if (item.path && !passesMasterProtectedPageGate(item.path, isMaster)) return false;
+        return item.path ? canAccessPath(item.path) : true;
       })
       .sort((a, b) => {
         if (a.category !== b.category) {
@@ -63,7 +61,7 @@ const DashboardQuickLinksSection = ({
         }
         return a.priority - b.priority || a.title.localeCompare(b.title, 'ko');
       });
-  }, [isAdmin, isAuthenticated, isMaster, isModerator, items]);
+  }, [canAccessPath, isAuthenticated, isMaster, items]);
 
   const categoryCounts = useMemo(() => {
     return visibleItems.reduce<Record<DashboardQuickLinkCategory, number>>((acc, item) => {

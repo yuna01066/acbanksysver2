@@ -4,7 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
-import { RefreshCw, Mail, XCircle } from 'lucide-react';
+import { AlertTriangle, Loader2, Mail, RefreshCw, XCircle } from 'lucide-react';
+import { requiresTaxInvoiceSync } from '@/services/taxInvoiceReliability';
 
 const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   draft: { label: '임시저장', variant: 'secondary' },
@@ -24,15 +25,18 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   invoice: any;
   syncing: boolean;
+  cancelling: boolean;
   onSyncStatus: (inv: any) => void;
   onResendEmail: (inv: any) => void;
   onCancel: (inv: any) => void;
 }
 
 const TaxInvoiceDetailDialog: React.FC<Props> = ({
-  open, onOpenChange, invoice, syncing, onSyncStatus, onResendEmail, onCancel,
+  open, onOpenChange, invoice, syncing, cancelling, onSyncStatus, onResendEmail, onCancel,
 }) => {
   if (!invoice) return null;
+  const needsSync = requiresTaxInvoiceSync(invoice.sync_status);
+  const recoveryLabel = invoice.pending_operation === 'cancel' ? '취소 확인 필요' : '발행 확인 필요';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -40,8 +44,8 @@ const TaxInvoiceDetailDialog: React.FC<Props> = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             세금계산서 상세
-            <Badge variant={STATUS_MAP[invoice.status]?.variant || 'outline'}>
-              {STATUS_MAP[invoice.status]?.label || invoice.status}
+            <Badge variant={needsSync ? 'destructive' : (STATUS_MAP[invoice.status]?.variant || 'outline')}>
+              {needsSync ? recoveryLabel : (STATUS_MAP[invoice.status]?.label || invoice.status)}
             </Badge>
             <Badge variant="outline">
               {invoice.invoice_direction === 'purchase' ? '매입' : '매출'}
@@ -50,6 +54,17 @@ const TaxInvoiceDetailDialog: React.FC<Props> = ({
         </DialogHeader>
 
         <div className="space-y-4 text-sm">
+          {needsSync && (
+            <div className="flex gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-950" role="alert">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+              <div>
+                <p className="font-semibold">팝빌 처리 결과 확인이 필요합니다.</p>
+                <p className="mt-1 text-xs leading-5">
+                  같은 계산서를 다시 발행하거나 다시 취소하지 마세요. 아래 상태 동기화를 실행하면 관리번호를 기준으로 내부 기록을 복구합니다.
+                </p>
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-x-6 gap-y-2">
             <div className="flex justify-between"><span className="text-muted-foreground">작성일자</span><span>{invoice.write_date}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">과세유형</span><span>{TAX_TYPE_MAP[invoice.tax_type] || invoice.tax_type}</span></div>
@@ -127,13 +142,16 @@ const TaxInvoiceDetailDialog: React.FC<Props> = ({
           <Button variant="outline" size="sm" onClick={() => onSyncStatus(invoice)} disabled={syncing}>
             <RefreshCw className={`h-4 w-4 mr-1 ${syncing ? 'animate-spin' : ''}`} /> 상태 동기화
           </Button>
-          {invoice.status === 'issued' && (
+          {invoice.status === 'issued' && !needsSync && (
             <>
               <Button variant="outline" size="sm" onClick={() => onResendEmail(invoice)}>
                 <Mail className="h-4 w-4 mr-1" /> 이메일 재전송
               </Button>
-              <Button variant="destructive" size="sm" onClick={() => onCancel(invoice)}>
-                <XCircle className="h-4 w-4 mr-1" /> 발행취소
+              <Button variant="destructive" size="sm" onClick={() => onCancel(invoice)} disabled={cancelling}>
+                {cancelling
+                  ? <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  : <XCircle className="h-4 w-4 mr-1" />}
+                발행취소
               </Button>
             </>
           )}

@@ -151,7 +151,7 @@ const EmployeeAttendancePanel: React.FC<Props> = ({ userId, userName }) => {
     return format(new Date(isoStr), 'HH:mm');
   };
 
-  const totalWorkDays = records.filter(r => r.status === 'checked_out' || r.status === 'checked_in').length;
+  const totalWorkDays = records.filter(r => r.status === 'checked_out' || r.status === 'checked_in' || r.status === 'present').length;
   const totalWorkHours = records.reduce((sum, r) => sum + (r.work_hours || 0), 0);
   const absentDays = records.filter(r => r.status === 'absent').length;
   const lateDays = records.filter(r => r.status === 'late').length;

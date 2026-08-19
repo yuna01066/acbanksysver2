@@ -38,7 +38,7 @@ type QuickIconLink = {
 
 const Home = () => {
   const navigate = useNavigate();
-  const { user, profile, signOut, isAdmin, isModerator, loading: authLoading } = useAuth();
+  const { user, profile, signOut, loading: authLoading } = useAuth();
   const isMaster = isCompanyMasterEmail(user?.email || profile?.email);
   const { theme, setTheme } = useTheme();
   const [logoSpinning, setLogoSpinning] = useState(false);
@@ -203,14 +203,7 @@ const Home = () => {
     category: "management",
     priority: 80,
     requiresAuth: true,
-    requiresAdmin: true,
-    action: () => {
-      if (isAdmin || isModerator) {
-        navigate("/admin-settings");
-      } else {
-        toast.error('관리자 또는 중간관리자만 접근할 수 있습니다.');
-      }
-    }
+    action: () => navigate("/admin-settings")
   }, {
     id: "company-settings",
     title: "회사 설정",
@@ -271,6 +264,7 @@ const Home = () => {
     category: "management",
     priority: 60,
     requiresAuth: true,
+    requiresMaster: true,
     action: () => navigate("/tax-invoices")
   }];
 
@@ -401,8 +395,6 @@ const Home = () => {
           <DashboardQuickLinksSection
             items={dashboardLinks}
             isAuthenticated={Boolean(user)}
-            isAdmin={isAdmin}
-            isModerator={isModerator}
             isMaster={isMaster}
           />
 

@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Clock, LogIn, LogOut, MapPin, CalendarDays, Plus, Loader2, Check, X, BarChart3, Pencil, Search, AlertTriangle, Trash2, ChevronLeft, ChevronRight, CalendarCheck, Timer, Palmtree, Users } from 'lucide-react';
 import { toast } from 'sonner';
-import { format, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { triggerHamzzi } from '@/lib/hamzziEvents';
@@ -29,20 +29,6 @@ import OvertimeDetectionPanel from '@/components/attendance/OvertimeDetectionPan
 import MonthlyAttendanceReport from '@/components/attendance/MonthlyAttendanceReport';
 import DepartmentWorkPatternAnalysis from '@/components/attendance/DepartmentWorkPatternAnalysis';
 import { BrandedCardHeader } from '@/components/ui/branded-card-header';
-
-const LEAVE_TYPES = [
-  { value: 'annual', label: '연차' },
-  { value: 'half_day', label: '반차' },
-  { value: 'sick', label: '병가' },
-  { value: 'personal', label: '경조사' },
-  { value: 'other', label: '기타' },
-];
-
-const LEAVE_STATUS = {
-  pending: { label: '대기중', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' },
-  approved: { label: '승인', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
-  rejected: { label: '거부', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
-};
 
 type AttendanceAction = 'check_in' | 'check_out';
 type AttendanceLocation = { lat: number; lng: number } | null;
@@ -107,8 +93,6 @@ const AttendancePage = () => {
   const { user, profile, isAdmin, isModerator, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const [gettingLocation, setGettingLocation] = useState(false);
-  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
-  const [leaveForm, setLeaveForm] = useState({ leaveType: 'annual', startDate: new Date(), endDate: new Date(), reason: '' });
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [adminTab, setAdminTab] = useState('my');
   const [editRecord, setEditRecord] = useState<any>(null);
@@ -346,47 +330,6 @@ const AttendancePage = () => {
     toast.info('출퇴근 등록이 취소되었습니다.');
   };
 
-  const submitLeaveMutation = useMutation({
-    mutationFn: async () => {
-      const days = leaveForm.leaveType === 'half_day'
-        ? 0.5
-        : differenceInDays(leaveForm.endDate, leaveForm.startDate) + 1;
-      const { error } = await supabase.from('leave_requests').insert({
-        user_id: user!.id,
-        user_name: profile?.full_name || '',
-        leave_type: leaveForm.leaveType,
-        start_date: format(leaveForm.startDate, 'yyyy-MM-dd'),
-        end_date: format(leaveForm.endDate, 'yyyy-MM-dd'),
-        days,
-        reason: leaveForm.reason,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success('휴가 신청이 완료되었습니다.');
-      setLeaveDialogOpen(false);
-      setLeaveForm({ leaveType: 'annual', startDate: new Date(), endDate: new Date(), reason: '' });
-      queryClient.invalidateQueries({ queryKey: ['leave-requests'] });
-    },
-    onError: (err: any) => toast.error('신청 실패: ' + err.message),
-  });
-
-  const handleLeaveAction = async (id: string, action: 'approved' | 'rejected', rejectReason?: string) => {
-    const { error } = await supabase.from('leave_requests').update({
-      status: action,
-      approved_by: user!.id,
-      approved_by_name: profile?.full_name || '',
-      approved_at: new Date().toISOString(),
-      reject_reason: rejectReason || null,
-    }).eq('id', id);
-    if (error) {
-      toast.error('처리 실패');
-    } else {
-      toast.success(action === 'approved' ? '승인되었습니다.' : '거부되었습니다.');
-      queryClient.invalidateQueries({ queryKey: ['leave-requests'] });
-    }
-  };
-
   const handleManualAttendanceAdd = async () => {
     if (!manualForm.userId || !manualForm.date) { toast.warning('직원과 날짜를 선택해주세요.'); return; }
     setManualSaving(true);
@@ -581,13 +524,9 @@ const AttendancePage = () => {
                     </Button>
                   </div>
                 )}
-                <Button variant="outline" size="sm" className="h-9 rounded-full gap-1.5" onClick={() => setLeaveDialogOpen(true)}>
-                  <Plus className="h-4 w-4" />
-                  휴가 신청
-                </Button>
                 <Button variant="outline" size="sm" className="h-9 rounded-full gap-1.5" onClick={() => navigate('/leave-management')}>
                   <CalendarDays className="h-4 w-4" />
-                  연차 관리
+                  휴가 신청·관리
                 </Button>
                 {canManageAttendance && adminTab === 'all' && (
                   <Button variant="outline" size="sm" className="h-9 rounded-full gap-1.5" onClick={() => setManualDialogOpen(true)}>
@@ -1072,107 +1011,22 @@ const AttendancePage = () => {
 
           <TabsContent value="leave" className="mt-0">
             <Card className="border-border shadow-none">
-              <CardHeader className="flex flex-row items-center justify-between gap-3 pb-3">
-                <BrandedCardHeader icon={CalendarDays} title="휴가 신청 내역" />
-                <Button size="sm" className="rounded-full gap-1" onClick={() => setLeaveDialogOpen(true)}>
-                  <Plus className="h-4 w-4" />
-                  휴가 신청
-                </Button>
+              <CardHeader className="pb-3">
+                <BrandedCardHeader icon={CalendarDays} title="휴가 신청과 승인" />
               </CardHeader>
-              <CardContent>
-                <div className="overflow-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        {adminTab === 'all' && <TableHead>이름</TableHead>}
-                        <TableHead>종류</TableHead>
-                        <TableHead>기간</TableHead>
-                        <TableHead>일수</TableHead>
-                        <TableHead>사유</TableHead>
-                        <TableHead>상태</TableHead>
-                        {canManageAttendance && adminTab === 'all' && <TableHead className="text-right">처리</TableHead>}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {leaveRequests.length === 0 ? (
-                        <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">신청 내역이 없습니다</TableCell></TableRow>
-                      ) : (
-                        leaveRequests.map((l: any) => {
-                          const statusInfo = LEAVE_STATUS[l.status as keyof typeof LEAVE_STATUS] || LEAVE_STATUS.pending;
-                          return (
-                            <TableRow key={l.id}>
-                              {adminTab === 'all' && <TableCell className="font-medium">{l.user_name}</TableCell>}
-                              <TableCell>{LEAVE_TYPES.find(t => t.value === l.leave_type)?.label || l.leave_type}</TableCell>
-                              <TableCell className="text-xs">{l.start_date} ~ {l.end_date}</TableCell>
-                              <TableCell>{l.days}일</TableCell>
-                              <TableCell className="max-w-[150px] truncate text-xs">{l.reason || '-'}</TableCell>
-                              <TableCell>
-                                <Badge className={cn('text-xs', statusInfo.color)}>{statusInfo.label}</Badge>
-                              </TableCell>
-                              {canManageAttendance && adminTab === 'all' && (
-                                <TableCell className="text-right">
-                                  {l.status === 'pending' && (
-                                    <div className="flex justify-end gap-1">
-                                      <Button size="sm" variant="ghost" className="h-8 w-8 rounded-full p-0 text-emerald-600" onClick={() => handleLeaveAction(l.id, 'approved')}>
-                                        <Check className="h-4 w-4" />
-                                      </Button>
-                                      <Button size="sm" variant="ghost" className="h-8 w-8 rounded-full p-0 text-red-600" onClick={() => handleLeaveAction(l.id, 'rejected')}>
-                                        <X className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  )}
-                                </TableCell>
-                              )}
-                            </TableRow>
-                          );
-                        })
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
+              <CardContent className="space-y-4">
+                <p className="text-sm leading-6 text-muted-foreground">
+                  휴가 종류, 영업일 계산, 잔여 연차 검증과 반려 사유를 하나의 기준으로 처리하기 위해 연차 관리 화면을 사용합니다.
+                </p>
+                <Button className="rounded-full" onClick={() => navigate('/leave-management')}>
+                  <CalendarDays className="mr-2 h-4 w-4" />
+                  연차 관리에서 신청·승인하기
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
       </div>
-
-      <Dialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>휴가 신청</DialogTitle></DialogHeader>
-          <div className="space-y-4 mt-2">
-            <div>
-              <label className="text-sm font-medium">종류</label>
-              <Select value={leaveForm.leaveType} onValueChange={(v) => setLeaveForm(f => ({ ...f, leaveType: v }))}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {LEAVE_TYPES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium">시작일</label>
-                <Input type="date" value={format(leaveForm.startDate, 'yyyy-MM-dd')} onChange={(e) => setLeaveForm(f => ({ ...f, startDate: new Date(e.target.value) }))} className="mt-1" />
-              </div>
-              <div>
-                <label className="text-sm font-medium">종료일</label>
-                <Input type="date" value={format(leaveForm.endDate, 'yyyy-MM-dd')} onChange={(e) => setLeaveForm(f => ({ ...f, endDate: new Date(e.target.value) }))} className="mt-1" />
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium">사유</label>
-              <Textarea value={leaveForm.reason} onChange={(e) => setLeaveForm(f => ({ ...f, reason: e.target.value }))} placeholder="휴가 사유를 입력하세요" className="mt-1" />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setLeaveDialogOpen(false)}>취소</Button>
-              <Button onClick={() => submitLeaveMutation.mutate()} disabled={submitLeaveMutation.isPending}>
-                {submitLeaveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                신청
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Manual Attendance Registration Dialog */}
       <Dialog open={manualDialogOpen} onOpenChange={setManualDialogOpen}>

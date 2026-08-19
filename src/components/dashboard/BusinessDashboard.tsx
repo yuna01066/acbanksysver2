@@ -3,12 +3,13 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BarChart3, TrendingUp, TrendingDown, DollarSign, Package, Users, FileSpreadsheet, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react';
+import { AlertTriangle, BarChart3, TrendingUp, TrendingDown, DollarSign, FileSpreadsheet, RefreshCw } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, CartesianGrid, Legend } from 'recharts';
-import { format, subMonths, startOfMonth, endOfMonth, startOfYear, subYears } from 'date-fns';
+import { format, subMonths, startOfYear } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { formatPrice } from '@/utils/priceCalculations';
 import { isFinalCompletedProjectStage } from '@/utils/quoteWorkflow';
@@ -27,57 +28,52 @@ const BusinessDashboard: React.FC = () => {
   }, [period]);
 
   // Fetch completed quotes (revenue)
-  const { data: quotes } = useQuery({
+  const quotesQuery = useQuery({
     queryKey: ['biz-quotes', period],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('saved_quotes')
         .select('id, quote_date, total, project_stage, recipient_company, user_id, issuer_name')
         .gte('quote_date', rangeStart.toISOString());
+      if (error) throw error;
       return data || [];
     },
     enabled: !!user,
     staleTime: 5 * 60 * 1000,
   });
+  const quotes = quotesQuery.data;
 
   // Fetch project expenses (internal_project_documents)
-  const { data: expenses } = useQuery({
+  const expensesQuery = useQuery({
     queryKey: ['biz-expenses', period],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('internal_project_documents')
         .select('id, total, purchase_date, is_paid, vendor_name, project_id, document_type')
         .gte('created_at', rangeStart.toISOString());
+      if (error) throw error;
       return data || [];
     },
     enabled: !!user,
     staleTime: 5 * 60 * 1000,
   });
+  const expenses = expensesQuery.data;
 
   // Fetch material orders
-  const { data: orders } = useQuery({
+  const ordersQuery = useQuery({
     queryKey: ['biz-orders', period],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('material_orders')
         .select('id, order_date, status, user_name, quantity')
         .gte('order_date', rangeStart.toISOString().split('T')[0]);
+      if (error) throw error;
       return data || [];
     },
     enabled: !!user,
     staleTime: 5 * 60 * 1000,
   });
-
-  // Fetch profiles for KPI
-  const { data: profiles } = useQuery({
-    queryKey: ['biz-profiles'],
-    queryFn: async () => {
-      const { data } = await (supabase.from('profile_directory' as any) as any).select('id, full_name');
-      return data || [];
-    },
-    enabled: !!user,
-    staleTime: 10 * 60 * 1000,
-  });
+  const orders = ordersQuery.data;
 
   const completedQuotes = useMemo(() => quotes?.filter(q => isFinalCompletedProjectStage(q.project_stage)) || [], [quotes]);
   const allQuotes = quotes || [];
@@ -171,7 +167,37 @@ const BusinessDashboard: React.FC = () => {
     { label: '전환율', value: `${conversionRate}%`, icon: FileSpreadsheet, color: 'text-blue-600', bgColor: 'bg-blue-500/10' },
   ];
 
-  if (!quotes) {
+  const loadError = quotesQuery.error || expensesQuery.error || ordersQuery.error;
+  const isLoading = quotesQuery.isLoading || expensesQuery.isLoading || ordersQuery.isLoading;
+  const retryAll = () => {
+    void Promise.all([
+      quotesQuery.refetch(),
+      expensesQuery.refetch(),
+      ordersQuery.refetch(),
+    ]);
+  };
+
+  if (loadError) {
+    return (
+      <Card className="border-destructive/30 bg-destructive/5">
+        <CardContent className="flex flex-col items-start gap-3 py-6 sm:flex-row sm:items-center">
+          <AlertTriangle className="h-5 w-5 shrink-0 text-destructive" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-destructive">경영 데이터를 불러오지 못했습니다.</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              0원 또는 0건으로 계산하지 않았습니다. 연결 상태와 접근 권한을 확인한 뒤 다시 시도해주세요.
+            </p>
+          </div>
+          <Button type="button" variant="outline" size="sm" onClick={retryAll}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            다시 시도
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isLoading || !quotes || !expenses || !orders) {
     return (
       <Card>
         <CardContent className="py-8 text-center text-sm text-muted-foreground">데이터를 불러오는 중...</CardContent>

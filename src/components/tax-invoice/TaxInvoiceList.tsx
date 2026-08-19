@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { RefreshCw, Mail, Download } from 'lucide-react';
+import { requiresTaxInvoiceSync } from '@/services/taxInvoiceReliability';
 
 const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   draft: { label: '임시저장', variant: 'secondary' },
@@ -58,12 +59,15 @@ const TaxInvoiceList: React.FC<TaxInvoiceListProps> = ({
               <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground">로딩 중...</TableCell></TableRow>
             ) : filtered.length === 0 ? (
               <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground">세금계산서가 없습니다.</TableCell></TableRow>
-            ) : filtered.map((inv: any) => (
-              <TableRow
-                key={inv.id}
-                className="cursor-pointer hover:bg-muted/50"
-                onClick={() => onSelectInvoice(inv)}
-              >
+            ) : filtered.map((inv: any) => {
+              const needsSync = requiresTaxInvoiceSync(inv.sync_status);
+              const recoveryLabel = inv.pending_operation === 'cancel' ? '취소 확인 필요' : '발행 확인 필요';
+              return (
+                <TableRow
+                  key={inv.id}
+                  className={needsSync ? 'cursor-pointer bg-amber-50/70 hover:bg-amber-50' : 'cursor-pointer hover:bg-muted/50'}
+                  onClick={() => onSelectInvoice(inv)}
+                >
                 <TableCell className="text-sm">{inv.write_date}</TableCell>
                 <TableCell>
                   <div className="font-medium text-sm">{direction === 'sales' ? inv.buyer_corp_name : inv.supplier_corp_name}</div>
@@ -79,24 +83,31 @@ const TaxInvoiceList: React.FC<TaxInvoiceListProps> = ({
                 <TableCell className="text-right text-sm">{(inv.tax_total || 0).toLocaleString()}</TableCell>
                 <TableCell className="text-right text-sm font-medium">{(inv.total_amount || 0).toLocaleString()}</TableCell>
                 <TableCell className="text-center">
-                  <Badge variant={STATUS_MAP[inv.status]?.variant || 'outline'}>
-                    {STATUS_MAP[inv.status]?.label || inv.status}
+                  <Badge variant={needsSync ? 'destructive' : (STATUS_MAP[inv.status]?.variant || 'outline')}>
+                    {needsSync ? recoveryLabel : (STATUS_MAP[inv.status]?.label || inv.status)}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-center" onClick={e => e.stopPropagation()}>
                   <div className="flex gap-1 justify-center">
-                    <Button variant="ghost" size="icon" title="상태 동기화" onClick={() => onSyncStatus(inv)}>
+                    <Button
+                      variant={needsSync ? 'outline' : 'ghost'}
+                      size="icon"
+                      title={needsSync ? '팝빌 상태 확인 및 복구' : '상태 동기화'}
+                      aria-label={needsSync ? '팝빌 상태 확인 및 복구' : '상태 동기화'}
+                      onClick={() => onSyncStatus(inv)}
+                    >
                       <RefreshCw className="h-3.5 w-3.5" />
                     </Button>
-                    {inv.status === 'issued' && (
-                      <Button variant="ghost" size="icon" title="이메일 재전송" onClick={() => onResendEmail(inv)}>
+                    {inv.status === 'issued' && !needsSync && (
+                      <Button variant="ghost" size="icon" title="이메일 재전송" aria-label="이메일 재전송" onClick={() => onResendEmail(inv)}>
                         <Mail className="h-3.5 w-3.5" />
                       </Button>
                     )}
                   </div>
                 </TableCell>
-              </TableRow>
-            ))}
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>

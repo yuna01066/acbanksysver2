@@ -107,7 +107,7 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({ onDateS
           }
           const s = map.get(r.date)!;
           s.total++;
-          if (r.status === 'checked_in') s.checked_in++;
+          if (r.status === 'checked_in' || r.status === 'present') s.checked_in++;
           else if (r.status === 'checked_out') s.checked_out++;
           else if (r.status === 'absent') s.absent++;
         }

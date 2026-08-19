@@ -41,6 +41,7 @@ const TeamChatPage: React.FC = () => {
             <TeamChatCard />
           ) : (
             <DirectMessageView
+              key={activeTarget.partner.user_id}
               partnerId={activeTarget.partner.user_id}
               partnerName={activeTarget.partner.full_name}
               partnerAvatar={activeTarget.partner.avatar_url}

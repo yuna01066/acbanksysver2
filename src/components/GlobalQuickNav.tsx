@@ -34,8 +34,10 @@ import {
   CommandList,
   CommandShortcut,
 } from '@/components/ui/command';
-import { ROLE_HIERARCHY, useAuth, type AppRole } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNavigationPageAccess } from '@/hooks/useNavigationPageAccess';
 import { isCompanyMasterEmail } from '@/lib/companyMaster';
+import { passesMasterProtectedPageGate } from '@/lib/pageAccessPolicy';
 
 type QuickNavItem = {
   title: string;
@@ -44,8 +46,6 @@ type QuickNavItem = {
   group: '업무' | '영업' | '관리' | '직원';
   keywords: string;
   icon: React.ComponentType<{ className?: string }>;
-  minRole?: AppRole;
-  adminOnly?: boolean;
   masterOnly?: boolean;
 };
 
@@ -53,7 +53,7 @@ const QUICK_NAV_ITEMS: QuickNavItem[] = [
   { title: '견적 계산기', description: '판재 견적 계산', path: '/calculator?type=quote', group: '영업', keywords: '견적 계산 단가 판재 quote calculator', icon: Calculator },
   { title: '수율 계산기', description: '원판 배치와 수율 확인', path: '/calculator?type=yield', group: '영업', keywords: '수율 네스팅 원판 yield nesting', icon: BarChart3 },
   { title: '원판 사이즈 비교', description: '재질별 제작 가능 원판 축척 비교', path: '/panel-size-comparison', group: '영업', keywords: '원판 사이즈 비교 재질 두께 축척 panel size compare scale', icon: Ruler },
-  { title: '견적 마법사', description: '도면 파일 분석과 임시 견적 초안', path: '/quote-wizard', group: '영업', keywords: '견적 마법사 도면 분석 파일 quote wizard drawing analyzer', icon: Sparkles, minRole: 'admin' },
+  { title: '견적 마법사', description: '도면 파일 분석과 임시 견적 초안', path: '/quote-wizard', group: '영업', keywords: '견적 마법사 도면 분석 파일 quote wizard drawing analyzer', icon: Sparkles },
   { title: '견적서 초안함', description: '여러 견적 초안 저장/발행', path: '/quote-drafts', group: '영업', keywords: '견적 초안 임시저장 draft quote', icon: FileText },
   { title: '발행 견적서', description: '저장된 견적서 검색/관리', path: '/saved-quotes', group: '영업', keywords: '발행 견적서 저장 quote saved', icon: FileSpreadsheet },
   { title: '클라이언트 상담폼', description: '아임웹 상담문의 위젯', path: '/client-consultation-widget?source=imweb-acbankform', group: '영업', keywords: '클라이언트 상담폼 상담 문의 아임웹 form consultation', icon: FileText },
@@ -70,18 +70,18 @@ const QUICK_NAV_ITEMS: QuickNavItem[] = [
   { title: '연차 관리', description: '휴가 신청/승인', path: '/leave-management', group: '직원', keywords: '연차 휴가 leave vacation', icon: CalendarDays },
   { title: '마이페이지', description: '내 정보와 개인 업무', path: '/my-page', group: '직원', keywords: '마이페이지 내정보 my page profile', icon: User },
   { title: '업무 평가', description: '평가 작성과 확인', path: '/performance-review', group: '직원', keywords: '평가 업무평가 review performance', icon: Star },
-  { title: '승인/검토 센터', description: '승인·동기화·견적 연결 확인', path: '/review-hub', group: '관리', keywords: '승인 검토 중간관리자 review approval moderator', icon: ClipboardCheck, adminOnly: true },
+  { title: '승인/검토 센터', description: '승인·동기화·견적 연결 확인', path: '/review-hub', group: '관리', keywords: '승인 검토 중간관리자 review approval moderator', icon: ClipboardCheck },
   { title: '채널톡 문의 분석함', description: 'AI 분석 문의 확인', path: '/channel-talk-leads', group: '관리', keywords: '채널톡 문의 도면 분석 channel talk lead drawing', icon: MessageSquareText },
-  { title: '관리자 설정', description: '시스템 설정 허브', path: '/admin-settings', group: '관리', keywords: '관리자 설정 admin settings', icon: Settings, adminOnly: true },
+  { title: '관리자 설정', description: '시스템 설정 허브', path: '/admin-settings', group: '관리', keywords: '관리자 설정 admin settings', icon: Settings },
   { title: '회사 설정', description: '마스터 전용 민감정보 관리', path: '/company-settings', group: '관리', keywords: '회사 설정 마스터 민감정보 company settings master', icon: Building2, masterOnly: true },
-  { title: '응대 보조 관리', description: 'AI 응대 지침과 근거 관리', path: '/response-assistant-management', group: '관리', keywords: '상담 응대 보조 관리 instruction prompt response assistant', icon: MessageSquareText, adminOnly: true },
-  { title: '찍찍이 이벤트 관리', description: '시간대·성과 반응 설정', path: '/jjikjjiki-event-settings', group: '관리', keywords: '찍찍이 이벤트 햄찌 hamzzi jjikjjiki 점심 성과', icon: Sparkles, adminOnly: true },
-  { title: '견적 계산 설정', description: '원판·추가금·가공 옵션', path: '/quote-calculation-settings', group: '관리', keywords: '견적 계산 설정 원판 컬러 사이즈 단가 가공 가격 옵션 배수 panel color price processing calculator', icon: Calculator, adminOnly: true },
-  { title: '경영 대시보드', description: '매출·비용·수익성', path: '/business-dashboard', group: '관리', keywords: '경영 대시보드 매출 수익 dashboard', icon: Briefcase, adminOnly: true },
-  { title: '직원 관리', description: '구성원/권한/인사 정보', path: '/employee-profiles', group: '관리', keywords: '직원 구성원 권한 인사 employee', icon: Users, adminOnly: true },
-  { title: '세금계산서', description: '계산서 발행/관리', path: '/tax-invoices', group: '관리', keywords: '세금계산서 계산서 tax invoice', icon: Receipt, adminOnly: true },
-  { title: '견적서 템플릿', description: '견적서 양식 관리', path: '/quote-template-management', group: '관리', keywords: '템플릿 양식 quote template', icon: FileText, adminOnly: true },
-  { title: '스토리지 현황', description: '데이터/파일 사용량', path: '/storage-status', group: '관리', keywords: '스토리지 저장소 storage', icon: Sparkles, adminOnly: true },
+  { title: '응대 보조 관리', description: 'AI 응대 지침과 근거 관리', path: '/response-assistant-management', group: '관리', keywords: '상담 응대 보조 관리 instruction prompt response assistant', icon: MessageSquareText },
+  { title: '찍찍이 이벤트 관리', description: '시간대·성과 반응 설정', path: '/jjikjjiki-event-settings', group: '관리', keywords: '찍찍이 이벤트 햄찌 hamzzi jjikjjiki 점심 성과', icon: Sparkles },
+  { title: '견적 계산 설정', description: '원판·추가금·가공 옵션', path: '/quote-calculation-settings', group: '관리', keywords: '견적 계산 설정 원판 컬러 사이즈 단가 가공 가격 옵션 배수 panel color price processing calculator', icon: Calculator },
+  { title: '경영 대시보드', description: '매출·비용·수익성', path: '/business-dashboard', group: '관리', keywords: '경영 대시보드 매출 수익 dashboard', icon: Briefcase },
+  { title: '직원 관리', description: '구성원/권한/인사 정보', path: '/employee-profiles', group: '관리', keywords: '직원 구성원 권한 인사 employee', icon: Users },
+  { title: '세금계산서', description: '계산서 발행/관리', path: '/tax-invoices', group: '관리', keywords: '세금계산서 계산서 tax invoice', icon: Receipt },
+  { title: '견적서 템플릿', description: '견적서 양식 관리', path: '/quote-template-management', group: '관리', keywords: '템플릿 양식 quote template', icon: FileText },
+  { title: '스토리지 현황', description: '데이터/파일 사용량', path: '/storage-status', group: '관리', keywords: '스토리지 저장소 storage', icon: Sparkles },
 ];
 
 const HIDDEN_PATHS = ['/auth', '/forgot-password', '/customer-quote', '/customer-quotes-summary', '/quote'];
@@ -89,8 +89,10 @@ const HIDDEN_PATHS = ['/auth', '/forgot-password', '/customer-quote', '/customer
 const GlobalQuickNav = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, loading, isAdmin, isModerator, userRole } = useAuth();
+  const { user, loading } = useAuth();
+  const { canAccessPath } = useNavigationPageAccess();
   const [open, setOpen] = useState(false);
+  const isMaster = isCompanyMasterEmail(user?.email);
 
   const isHidden = !user
     || loading
@@ -99,16 +101,11 @@ const GlobalQuickNav = () => {
 
   const visibleItems = useMemo(
     () => QUICK_NAV_ITEMS.filter(item => {
-      if (item.masterOnly) return isCompanyMasterEmail(user?.email);
-      if (item.minRole) {
-        const minIdx = ROLE_HIERARCHY.indexOf(item.minRole);
-        const userIdx = userRole ? ROLE_HIERARCHY.indexOf(userRole) : -1;
-        return minIdx >= 0 && userIdx >= 0 && userIdx <= minIdx;
-      }
-      if (item.adminOnly) return isAdmin || isModerator;
-      return true;
+      if (item.masterOnly) return isMaster;
+      if (!passesMasterProtectedPageGate(item.path, isMaster)) return false;
+      return canAccessPath(item.path);
     }),
-    [isAdmin, isModerator, user?.email, userRole]
+    [canAccessPath, isMaster]
   );
   const keepDashboardLogo = location.pathname === '/business-dashboard';
 

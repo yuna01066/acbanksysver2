@@ -38,7 +38,8 @@ const InternalQuotePage = () => {
     getTotalPrice,
     getTotalPriceWithTax,
     generateQuoteNumber,
-    markActiveDraftIssued
+    markActiveDraftIssued,
+    anonymousDraftResolutionRequired,
   } = useQuotes();
 
   if (quotes.length === 0) {
@@ -74,6 +75,11 @@ const InternalQuotePage = () => {
   };
 
   const persistCurrentQuote = async (successMode: 'celebrate' | 'autosave' | 'silent' = 'autosave') => {
+    if (anonymousDraftResolutionRequired) {
+      toast.error('로그인 전 초안을 가져올지 계정과 분리할지 먼저 선택해주세요.');
+      return null;
+    }
+
     if (!user) {
       toast.error('로그인이 필요합니다.');
       navigate('/auth');

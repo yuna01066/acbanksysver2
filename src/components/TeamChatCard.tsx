@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { MessageSquare, Send, Loader2, Trash2, Paperclip } from 'lucide-react';
+import { AlertCircle, MessageSquare, Send, Loader2, Trash2, Paperclip } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
@@ -18,6 +18,11 @@ import MessageContent from '@/components/chat/MessageContent';
 import ChatAttachments from '@/components/chat/ChatAttachments';
 import { gcsUploadFile } from '@/hooks/useGcsStorage';
 import { BrandedCardHeader } from '@/components/ui/branded-card-header';
+import {
+  addMessageChronologically,
+  mergeChronologicalMessages,
+  toChronologicalMessages,
+} from '@/lib/chat/messageOrdering';
 
 interface ChatAttachment {
   name: string;
@@ -43,7 +48,9 @@ const TeamChatCard: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const fetchRequestIdRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -70,33 +77,64 @@ const TeamChatCard: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => {
-    const fetchMessages = async () => {
-      const { data, error } = await supabase
-        .from('team_messages')
-        .select('*')
-        .order('created_at', { ascending: true })
-        .limit(100);
-      if (!error && data) setMessages(data as unknown as ChatMessage[]);
+  const fetchMessages = useCallback(async () => {
+    const requestId = ++fetchRequestIdRef.current;
+    setLoading(true);
+    setLoadError(null);
+
+    const { data, error } = await supabase
+      .from('team_messages')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (fetchRequestIdRef.current !== requestId) return;
+
+    if (error) {
+      console.error('Failed to load team messages:', error);
+      setLoadError('팀 채팅을 불러오지 못했습니다.');
       setLoading(false);
-      setTimeout(scrollToBottom, 100);
-    };
-    fetchMessages();
+      return;
+    }
+
+    const fetchedMessages = toChronologicalMessages((data || []) as unknown as ChatMessage[]);
+    setMessages(previousMessages => mergeChronologicalMessages(previousMessages, fetchedMessages, 100));
+    setLoading(false);
+    setTimeout(scrollToBottom, 100);
   }, [scrollToBottom]);
 
   useEffect(() => {
+    let disposed = false;
     const channel = supabase
       .channel('team-chat', { config: { private: true } })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'team_messages' }, (payload) => {
-        setMessages(prev => [...prev, payload.new as ChatMessage]);
+        setMessages(prev => addMessageChronologically(prev, payload.new as ChatMessage, 100));
         setTimeout(scrollToBottom, 50);
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'team_messages' }, (payload) => {
         setMessages(prev => prev.filter(m => m.id !== payload.old.id));
       })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [scrollToBottom]);
+      .subscribe((status) => {
+        if (disposed) return;
+        if (status === 'SUBSCRIBED') {
+          // Query only after the Realtime channel is ready. Any insert racing
+          // with the query is retained by the merge in fetchMessages.
+          void fetchMessages();
+          return;
+        }
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          fetchRequestIdRef.current += 1;
+          setLoading(false);
+          setLoadError('팀 채팅 실시간 연결에 실패했습니다.');
+        }
+      });
+
+    return () => {
+      disposed = true;
+      fetchRequestIdRef.current += 1;
+      void supabase.removeChannel(channel);
+    };
+  }, [fetchMessages, scrollToBottom]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const val = e.target.value;
@@ -268,6 +306,17 @@ const TeamChatCard: React.FC = () => {
           {loading ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          ) : loadError ? (
+            <div className="flex min-h-[180px] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-destructive/40 bg-destructive/5 px-4 py-8 text-center">
+              <AlertCircle className="h-8 w-8 text-destructive/70" />
+              <div>
+                <p className="text-sm font-medium text-foreground">{loadError}</p>
+                <p className="mt-1 text-xs text-muted-foreground">네트워크 연결을 확인한 뒤 다시 시도해주세요.</p>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={fetchMessages}>
+                다시 시도
+              </Button>
             </div>
           ) : messages.length === 0 ? (
             <div className="flex min-h-[180px] flex-col items-center justify-center rounded-lg border border-dashed bg-muted/20 px-4 py-8 text-center">

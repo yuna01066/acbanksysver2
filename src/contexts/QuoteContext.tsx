@@ -20,6 +20,12 @@ import {
 import { detectQuoteStyleFromItems } from '@/utils/quoteStyle';
 import { secureRandomNumericString } from '@/utils/secureRandom';
 import { createQuoteItemId, normalizeQuoteItems } from '@/utils/quoteItemIdentity';
+import { createSerializedTaskQueue } from '@/utils/serializedTaskQueue';
+import {
+  buildAnonymousQuoteDraftFingerprint,
+  getAnonymousQuoteDraftDecisionKey,
+  userDeclinedAnonymousQuoteDraft,
+} from '@/utils/anonymousQuoteDraft';
 
 export interface Quote {
   id: string;
@@ -118,6 +124,7 @@ interface QuoteContextType {
   draftSaveStatus: 'idle' | 'saving' | 'saved' | 'error' | 'offline';
   draftLastSavedAt: Date | null;
   draftError: string | null;
+  anonymousDraftResolutionRequired: boolean;
   addQuote: (quote: Omit<Quote, 'id' | 'createdAt'>) => void;
   updateQuote: (id: string, quote: Omit<Quote, 'id' | 'createdAt'>) => void;
   removeQuote: (id: string) => void;
@@ -135,6 +142,8 @@ interface QuoteContextType {
   duplicateActiveDraft: () => Promise<string | null>;
   archiveActiveDraft: () => Promise<boolean>;
   markActiveDraftIssued: (quoteId: string) => Promise<void>;
+  importAnonymousDraft: () => Promise<boolean>;
+  keepAnonymousDraftSeparate: () => boolean;
 }
 
 const QuoteContext = createContext<QuoteContextType | undefined>(undefined);
@@ -225,14 +234,21 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
   const [draftSaveStatus, setDraftSaveStatus] = useState<QuoteContextType['draftSaveStatus']>('idle');
   const [draftLastSavedAt, setDraftLastSavedAt] = useState<Date | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
+  const [anonymousDraftResolutionRequired, setAnonymousDraftResolutionRequired] = useState(false);
+  const [draftHydrationRevision, setDraftHydrationRevision] = useState(0);
   const hydratedUserRef = useRef<string | null>(null);
   const isHydratingDraftRef = useRef(false);
+  const anonymousDraftResolutionRequiredRef = useRef(false);
+  const draftOwnerUserIdRef = useRef<string | null>(null);
   const lastSavedSignatureRef = useRef<string>('');
   const activeDraftIdRef = useRef<string | null>(null);
   const quotesRef = useRef<Quote[]>(quotes);
   const recipientRef = useRef<QuoteRecipient | null>(recipient);
   const quoteNumberRef = useRef<string>(quoteNumber);
   const draftTitleRef = useRef<string>(draftTitle);
+  const draftSaveQueueRef = useRef(createSerializedTaskQueue());
+  const draftSaveRequestSequenceRef = useRef(0);
+  const draftPersistenceGenerationRef = useRef(0);
 
   useEffect(() => { activeDraftIdRef.current = activeDraftId; }, [activeDraftId]);
   useEffect(() => { quotesRef.current = quotes; }, [quotes]);
@@ -271,64 +287,135 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
     recipient: buildDraftRecipient(),
   });
 
-  const persistDraft = async (mode: 'auto' | 'manual' = 'auto'): Promise<string | null> => {
-    if (!user) {
-      setDraftSaveStatus('offline');
-      return null;
-    }
-
-    const currentQuotes = normalizeQuoteItems(quotesRef.current);
-    const currentRecipient = buildDraftRecipient();
-    const currentTitle = draftTitleRef.current || buildQuoteDraftTitle(currentRecipient);
-
-    if (!hasDraftContent(currentQuotes, currentRecipient) && !activeDraftIdRef.current) {
-      setDraftSaveStatus('idle');
-      return null;
-    }
-
-    const signature = buildDraftSignature();
-    if (mode === 'auto' && signature === lastSavedSignatureRef.current) {
-      return activeDraftIdRef.current;
-    }
-
-    setDraftSaveStatus('saving');
-    setDraftError(null);
+  const persistAnonymousDraftLocally = () => {
     try {
-      const quoteStyle = detectQuoteStyleFromItems(currentQuotes);
-      const draftId = activeDraftIdRef.current;
-      const savedDraft = draftId
-        ? await updateQuoteDraft(draftId, {
-          title: currentTitle,
-          recipient: currentRecipient,
-          items: currentQuotes,
-          quoteStyle,
-        })
-        : await createQuoteDraft({
-          userId: user.id,
-          title: currentTitle,
-          recipient: currentRecipient,
-          items: currentQuotes,
-          quoteStyle,
-        });
-
-      setActiveDraftId(savedDraft.id);
-      setDraftTitleState(savedDraft.title);
-      setDraftLastSavedAt(new Date());
-      setDraftSaveStatus('saved');
-      lastSavedSignatureRef.current = JSON.stringify({
-        activeDraftId: savedDraft.id,
-        title: savedDraft.title,
-        quotes: savedDraft.items,
-        recipient: savedDraft.recipient,
+      const serializedDraft = JSON.stringify({
+        quotes: quotesRef.current,
+        recipient: recipientRef.current,
+        quoteNumber: quoteNumberRef.current,
+        savedAt: new Date().toISOString(),
       });
-      if (activeDraftStorageKey) window.localStorage.setItem(activeDraftStorageKey, savedDraft.id);
-      return savedDraft.id;
+      window.localStorage.setItem(QUOTE_DRAFT_STORAGE_KEY, serializedDraft);
+      return serializedDraft;
     } catch (error) {
-      console.error('Failed to save quote draft:', error);
+      console.error('Failed to preserve anonymous quote draft:', error);
       setDraftSaveStatus('error');
-      setDraftError(error instanceof Error ? error.message : '초안 저장에 실패했습니다.');
+      setDraftError('로그인 전 초안을 브라우저에 보관하지 못했습니다. 다시 시도해주세요.');
       return null;
     }
+  };
+
+  const persistDraft = (mode: 'auto' | 'manual' = 'auto'): Promise<string | null> => {
+    const requestSequence = ++draftSaveRequestSequenceRef.current;
+    const persistenceGeneration = draftPersistenceGenerationRef.current;
+    const anonymousResolutionPendingAtInvocation = anonymousDraftResolutionRequiredRef.current;
+
+    return draftSaveQueueRef.current.enqueue(async () => {
+      // Saves invoked after a terminal archive/issue request are queued behind
+      // that mutation. Once it succeeds, its generation changes and these
+      // stale saves must not create a replacement draft from leftover UI data.
+      if (persistenceGeneration !== draftPersistenceGenerationRef.current) return null;
+
+      if (
+        anonymousResolutionPendingAtInvocation
+        || anonymousDraftResolutionRequiredRef.current
+      ) {
+        if (requestSequence === draftSaveRequestSequenceRef.current) {
+          setDraftSaveStatus('offline');
+          setDraftError('로그인 전에 작성한 초안을 이 계정으로 가져올지 먼저 선택해주세요.');
+        }
+        return null;
+      }
+
+      if (!user) {
+        if (requestSequence === draftSaveRequestSequenceRef.current) {
+          setDraftSaveStatus('offline');
+        }
+        return null;
+      }
+
+      if (draftOwnerUserIdRef.current && draftOwnerUserIdRef.current !== user.id) {
+        if (requestSequence === draftSaveRequestSequenceRef.current) {
+          setDraftSaveStatus('offline');
+          setDraftError('계정 전환을 확인하는 중입니다. 잠시 후 다시 시도해주세요.');
+        }
+        return null;
+      }
+
+      // Read refs only when this queued task starts so a save waiting behind an
+      // in-flight request always persists the newest editor snapshot.
+      const currentQuotes = normalizeQuoteItems(quotesRef.current);
+      const currentRecipient = buildDraftRecipient();
+      const currentTitle = draftTitleRef.current || buildQuoteDraftTitle(currentRecipient);
+
+      if (!hasDraftContent(currentQuotes, currentRecipient) && !activeDraftIdRef.current) {
+        if (requestSequence === draftSaveRequestSequenceRef.current) {
+          setDraftSaveStatus('idle');
+        }
+        return null;
+      }
+
+      const signature = buildDraftSignature();
+      if (mode === 'auto' && signature === lastSavedSignatureRef.current) {
+        if (requestSequence === draftSaveRequestSequenceRef.current) {
+          setDraftSaveStatus('saved');
+          setDraftError(null);
+        }
+        return activeDraftIdRef.current;
+      }
+
+      setDraftSaveStatus('saving');
+      setDraftError(null);
+      try {
+        const quoteStyle = detectQuoteStyleFromItems(currentQuotes);
+        const draftId = activeDraftIdRef.current;
+        const savedDraft = draftId
+          ? await updateQuoteDraft(draftId, {
+            title: currentTitle,
+            recipient: currentRecipient,
+            items: currentQuotes,
+            quoteStyle,
+          })
+          : await createQuoteDraft({
+            userId: user.id,
+            title: currentTitle,
+            recipient: currentRecipient,
+            items: currentQuotes,
+            quoteStyle,
+          });
+
+        // The next queued task can start before React effects run. Update the ref
+        // synchronously so the first create is never repeated.
+        activeDraftIdRef.current = savedDraft.id;
+        draftOwnerUserIdRef.current = user.id;
+        setActiveDraftId(savedDraft.id);
+        if (draftTitleRef.current === currentTitle) {
+          draftTitleRef.current = savedDraft.title;
+          setDraftTitleState(savedDraft.title);
+        }
+        const savedSignature = JSON.stringify({
+          activeDraftId: savedDraft.id,
+          title: savedDraft.title,
+          quotes: savedDraft.items,
+          recipient: savedDraft.recipient,
+        });
+        lastSavedSignatureRef.current = savedSignature;
+        if (activeDraftStorageKey) window.localStorage.setItem(activeDraftStorageKey, savedDraft.id);
+        setDraftLastSavedAt(new Date());
+
+        if (requestSequence === draftSaveRequestSequenceRef.current) {
+          setDraftSaveStatus(buildDraftSignature() === savedSignature ? 'saved' : 'saving');
+        }
+        return savedDraft.id;
+      } catch (error) {
+        console.error('Failed to save quote draft:', error);
+        if (requestSequence === draftSaveRequestSequenceRef.current) {
+          setDraftSaveStatus('error');
+          setDraftError(error instanceof Error ? error.message : '초안 저장에 실패했습니다.');
+        }
+        return null;
+      }
+    });
   };
 
   const applyDraft = async (draft: QuoteDraftRecord) => {
@@ -340,6 +427,12 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
       setQuoteNumber(draft.recipient?.quoteNumber || '');
       setActiveDraftId(draft.id);
       setDraftTitleState(draft.title);
+      quotesRef.current = normalizedDraftItems;
+      recipientRef.current = draft.recipient;
+      quoteNumberRef.current = draft.recipient?.quoteNumber || '';
+      activeDraftIdRef.current = draft.id;
+      draftOwnerUserIdRef.current = user?.id || draft.user_id;
+      draftTitleRef.current = draft.title;
       setDraftSaveStatus('saved');
       setDraftLastSavedAt(draft.updated_at ? new Date(draft.updated_at) : new Date());
       setDraftError(null);
@@ -357,8 +450,38 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
   };
 
   useEffect(() => {
+    if (authLoading || user) return;
+    hydratedUserRef.current = null;
+    anonymousDraftResolutionRequiredRef.current = false;
+    setAnonymousDraftResolutionRequired(false);
+
+    if (!draftOwnerUserIdRef.current) return;
+
+    // Logging out must not reclassify account-owned editor state as an
+    // anonymous browser draft. Clear only memory; the account copy remains in
+    // server/user-scoped mirror storage.
+    isHydratingDraftRef.current = true;
+    draftPersistenceGenerationRef.current += 1;
+    quotesRef.current = [];
+    recipientRef.current = null;
+    quoteNumberRef.current = '';
+    activeDraftIdRef.current = null;
+    draftTitleRef.current = '새 견적 초안';
+    lastSavedSignatureRef.current = '';
+    setQuotes([]);
+    setRecipient(null);
+    setQuoteNumber('');
+    setActiveDraftId(null);
+    setDraftTitleState('새 견적 초안');
+    setDraftSaveStatus('idle');
+    setDraftLastSavedAt(null);
+    setDraftError(null);
+  }, [authLoading, user]);
+
+  useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (user) return;
+    if (user && !anonymousDraftResolutionRequired) return;
+    if (!user && draftOwnerUserIdRef.current) return;
 
     if (quotes.length === 0 && !recipient && !quoteNumber) {
       window.localStorage.removeItem(QUOTE_DRAFT_STORAGE_KEY);
@@ -371,10 +494,34 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
       quoteNumber,
       savedAt: new Date().toISOString(),
     }));
-  }, [quotes, recipient, quoteNumber, user]);
+  }, [anonymousDraftResolutionRequired, quotes, recipient, quoteNumber, user]);
+
+  useEffect(() => {
+    if (authLoading || user || !draftOwnerUserIdRef.current) return;
+    if (quotes.length > 0 || recipient || quoteNumber) return;
+
+    // This runs after the anonymous persistence effect has skipped the logout
+    // transition, so a future logged-out edit can safely become anonymous.
+    draftOwnerUserIdRef.current = null;
+    isHydratingDraftRef.current = false;
+  }, [authLoading, quoteNumber, quotes, recipient, user]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !user) return;
+    if (isHydratingDraftRef.current || anonymousDraftResolutionRequiredRef.current) return;
+    if (draftOwnerUserIdRef.current && draftOwnerUserIdRef.current !== user.id) return;
+
+    // On the first render after login the anonymous payload is already in
+    // component state, while the explicit ownership prompt is established in
+    // the following hydration effect. Never mirror that unowned data into the
+    // signed-in account during this gap.
+    const anonymousPayload = parseLocalDraftPayload(
+      window.localStorage.getItem(QUOTE_DRAFT_STORAGE_KEY),
+    );
+    const hasUnresolvedAnonymousPayload = draftOwnerUserIdRef.current !== user.id
+      && !activeDraftId
+      && hasDraftContent(anonymousPayload.quotes, anonymousPayload.recipient);
+    if (hasUnresolvedAnonymousPayload) return;
 
     const mirrorKey = `${USER_QUOTE_DRAFT_MIRROR_PREFIX}:${user.id}`;
     if (quotes.length === 0 && !recipient && !quoteNumber) {
@@ -388,7 +535,7 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
       quoteNumber,
       savedAt: new Date().toISOString(),
     }));
-  }, [quotes, recipient, quoteNumber, user]);
+  }, [activeDraftId, anonymousDraftResolutionRequired, quotes, recipient, quoteNumber, user]);
 
   useEffect(() => {
     if (authLoading || !user || typeof window === 'undefined') return;
@@ -400,30 +547,61 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
       isHydratingDraftRef.current = true;
       try {
         const localRaw = window.localStorage.getItem(QUOTE_DRAFT_STORAGE_KEY);
-        const localHasContent = hasDraftContent(quotesRef.current, recipientRef.current);
+        const anonymousLocalDraft = parseLocalDraftPayload(localRaw);
+        const anonymousLocalHasContent = hasDraftContent(
+          anonymousLocalDraft.quotes,
+          anonymousLocalDraft.recipient,
+        );
+        const declinedAnonymousDraft = userDeclinedAnonymousQuoteDraft(
+          localRaw,
+          window.localStorage.getItem(getAnonymousQuoteDraftDecisionKey(user.id)),
+        );
 
-        if (localRaw && localHasContent) {
-          const migrated = await createQuoteDraft({
-            userId: user.id,
-            title: '이전 작업 초안',
-            recipient: buildDraftRecipient(),
-            items: quotesRef.current,
-            quoteStyle: detectQuoteStyleFromItems(quotesRef.current),
-          });
-          setActiveDraftId(migrated.id);
-          setDraftTitleState(migrated.title);
-          setDraftSaveStatus('saved');
-          setDraftLastSavedAt(new Date());
-          lastSavedSignatureRef.current = JSON.stringify({
-            activeDraftId: migrated.id,
-            title: migrated.title,
-            quotes: migrated.items,
-            recipient: migrated.recipient,
-          });
-          window.localStorage.setItem(`${ACTIVE_DRAFT_STORAGE_PREFIX}:${user.id}`, migrated.id);
-          window.localStorage.removeItem(QUOTE_DRAFT_STORAGE_KEY);
+        if (localRaw && anonymousLocalHasContent && !declinedAnonymousDraft) {
+          // A browser-local anonymous draft has no trustworthy account
+          // provenance. Keep it local and require an explicit ownership choice
+          // instead of silently creating it under whichever user logs in next.
+          const anonymousTitle = buildQuoteDraftTitle(anonymousLocalDraft.recipient);
+          quotesRef.current = anonymousLocalDraft.quotes;
+          recipientRef.current = anonymousLocalDraft.recipient;
+          quoteNumberRef.current = anonymousLocalDraft.quoteNumber;
+          activeDraftIdRef.current = null;
+          draftTitleRef.current = anonymousTitle;
+          draftOwnerUserIdRef.current = null;
+          setQuotes(anonymousLocalDraft.quotes);
+          setRecipient(anonymousLocalDraft.recipient);
+          setQuoteNumber(anonymousLocalDraft.quoteNumber);
+          setActiveDraftId(null);
+          setDraftTitleState(anonymousTitle);
+          anonymousDraftResolutionRequiredRef.current = true;
+          setAnonymousDraftResolutionRequired(true);
+          setDraftSaveStatus('offline');
+          setDraftError(null);
           return;
         }
+
+        anonymousDraftResolutionRequiredRef.current = false;
+        setAnonymousDraftResolutionRequired(false);
+
+        // Never carry one authenticated user's in-memory editor into another
+        // account. Account-owned drafts remain in their server/mirror storage.
+        if (
+          draftOwnerUserIdRef.current !== user.id
+          && hasDraftContent(quotesRef.current, recipientRef.current)
+        ) {
+          quotesRef.current = [];
+          recipientRef.current = null;
+          quoteNumberRef.current = '';
+          activeDraftIdRef.current = null;
+          draftTitleRef.current = '새 견적 초안';
+          lastSavedSignatureRef.current = '';
+          setQuotes([]);
+          setRecipient(null);
+          setQuoteNumber('');
+          setActiveDraftId(null);
+          setDraftTitleState('새 견적 초안');
+        }
+        draftOwnerUserIdRef.current = user.id;
 
         const storedDraftId = window.localStorage.getItem(`${ACTIVE_DRAFT_STORAGE_PREFIX}:${user.id}`);
         if (storedDraftId) {
@@ -444,10 +622,16 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
             window.localStorage.getItem(`${USER_QUOTE_DRAFT_MIRROR_PREFIX}:${user.id}`)
           );
           if (mirrorDraft.quotes.length > 0 || mirrorDraft.recipient) {
+            const mirrorTitle = buildQuoteDraftTitle(mirrorDraft.recipient);
+            quotesRef.current = mirrorDraft.quotes;
+            recipientRef.current = mirrorDraft.recipient;
+            quoteNumberRef.current = mirrorDraft.quoteNumber;
+            draftTitleRef.current = mirrorTitle;
+            draftOwnerUserIdRef.current = user.id;
             setQuotes(mirrorDraft.quotes);
             setRecipient(mirrorDraft.recipient);
             setQuoteNumber(mirrorDraft.quoteNumber);
-            setDraftTitleState(buildQuoteDraftTitle(mirrorDraft.recipient));
+            setDraftTitleState(mirrorTitle);
             setDraftSaveStatus('offline');
             setDraftError('서버 초안 복구 전 로컬 임시 저장 상태를 먼저 불러왔습니다. 필요하면 초안 저장을 눌러 서버에 저장하세요.');
             return;
@@ -464,10 +648,10 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
     };
 
     hydrate();
-  }, [authLoading, user]);
+  }, [authLoading, draftHydrationRevision, user]);
 
   useEffect(() => {
-    if (!user || isHydratingDraftRef.current) return;
+    if (!user || isHydratingDraftRef.current || anonymousDraftResolutionRequiredRef.current) return;
     if (!hasDraftContent(quotes, recipient) && !activeDraftId) return;
 
     setDraftSaveStatus(prev => prev === 'offline' ? 'idle' : prev);
@@ -529,6 +713,12 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
   };
 
   const clearQuotes = (options: { deleteAttachments?: boolean } = {}) => {
+    if (anonymousDraftResolutionRequiredRef.current) {
+      setDraftSaveStatus('offline');
+      setDraftError('로그인 전 초안을 이 계정으로 가져올지 먼저 선택해주세요.');
+      return;
+    }
+
     const shouldDeleteAttachments = options.deleteAttachments ?? true;
     const draftIdToClear = activeDraftIdRef.current;
 
@@ -545,25 +735,12 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
     setQuotes([]);
     setRecipient(null);
     setQuoteNumber('');
+    quotesRef.current = [];
+    recipientRef.current = null;
+    quoteNumberRef.current = '';
 
     if (user && draftIdToClear) {
-      updateQuoteDraft(draftIdToClear, {
-        recipient: null,
-        items: [],
-        quoteStyle: 'panel',
-      }).then(() => {
-        setDraftSaveStatus('saved');
-        setDraftLastSavedAt(new Date());
-        lastSavedSignatureRef.current = JSON.stringify({
-          activeDraftId: draftIdToClear,
-          title: draftTitleRef.current,
-          quotes: [],
-          recipient: null,
-        });
-      }).catch((error) => {
-        console.error('Failed to clear quote draft:', error);
-        setDraftSaveStatus('error');
-      });
+      void persistDraft('manual');
     }
   };
 
@@ -579,7 +756,73 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
   };
 
   const setDraftTitle = (title: string) => {
+    draftTitleRef.current = title;
     setDraftTitleState(title);
+  };
+
+  const importAnonymousDraft = async () => {
+    if (!user || !anonymousDraftResolutionRequiredRef.current) return false;
+
+    // Temporarily release the persistence guard only for this explicit import.
+    // The local payload remains intact until the server save succeeds.
+    anonymousDraftResolutionRequiredRef.current = false;
+    const importedDraftId = await persistDraft('manual');
+    if (!importedDraftId) {
+      anonymousDraftResolutionRequiredRef.current = true;
+      setAnonymousDraftResolutionRequired(true);
+      return false;
+    }
+
+    window.localStorage.removeItem(QUOTE_DRAFT_STORAGE_KEY);
+    window.localStorage.removeItem(getAnonymousQuoteDraftDecisionKey(user.id));
+    setAnonymousDraftResolutionRequired(false);
+    setDraftError(null);
+    return true;
+  };
+
+  const keepAnonymousDraftSeparate = () => {
+    if (!user || !anonymousDraftResolutionRequiredRef.current) return false;
+    const preservedAnonymousDraft = persistAnonymousDraftLocally();
+    if (!preservedAnonymousDraft) return false;
+    const preservedFingerprint = buildAnonymousQuoteDraftFingerprint(preservedAnonymousDraft);
+    if (!preservedFingerprint) return false;
+
+    try {
+      window.localStorage.setItem(
+        getAnonymousQuoteDraftDecisionKey(user.id),
+        preservedFingerprint,
+      );
+    } catch (error) {
+      console.error('Failed to keep anonymous quote draft separate:', error);
+      setDraftSaveStatus('error');
+      setDraftError('이 계정과 초안을 분리한 기록을 저장하지 못했습니다. 다시 시도해주세요.');
+      return false;
+    }
+
+    // Preserve the anonymous payload under its original browser-local key,
+    // clear it from this account's in-memory editor, then rerun account-only
+    // hydration. The account mirror is guarded while this transition occurs.
+    anonymousDraftResolutionRequiredRef.current = false;
+    setAnonymousDraftResolutionRequired(false);
+    isHydratingDraftRef.current = true;
+    draftPersistenceGenerationRef.current += 1;
+    quotesRef.current = [];
+    recipientRef.current = null;
+    quoteNumberRef.current = '';
+    activeDraftIdRef.current = null;
+    draftTitleRef.current = '새 견적 초안';
+    lastSavedSignatureRef.current = '';
+    setQuotes([]);
+    setRecipient(null);
+    setQuoteNumber('');
+    setActiveDraftId(null);
+    setDraftTitleState('새 견적 초안');
+    setDraftSaveStatus('idle');
+    setDraftLastSavedAt(null);
+    setDraftError(null);
+    hydratedUserRef.current = null;
+    setDraftHydrationRevision(revision => revision + 1);
+    return true;
   };
 
   const saveDraftNow = async () => persistDraft('manual');
@@ -587,6 +830,12 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
   const createDraftAction = async (title?: string) => {
     if (!user) {
       setDraftSaveStatus('offline');
+      return null;
+    }
+
+    if (anonymousDraftResolutionRequiredRef.current) {
+      setDraftSaveStatus('offline');
+      setDraftError('로그인 전 초안을 이 계정으로 가져올지 먼저 선택해주세요.');
       return null;
     }
 
@@ -613,6 +862,12 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
   };
 
   const loadDraftAction = async (id: string) => {
+    if (anonymousDraftResolutionRequiredRef.current) {
+      setDraftSaveStatus('offline');
+      setDraftError('로그인 전 초안을 이 계정으로 가져올지 먼저 선택해주세요.');
+      return false;
+    }
+
     if (activeDraftIdRef.current === id) return true;
 
     if (hasDraftContent() || activeDraftIdRef.current) {
@@ -656,46 +911,64 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
     const draftId = activeDraftIdRef.current;
     if (!draftId) return false;
 
-    try {
-      await archiveQuoteDraft(draftId);
-      if (activeDraftStorageKey) window.localStorage.removeItem(activeDraftStorageKey);
-      isHydratingDraftRef.current = true;
-      setQuotes([]);
-      setRecipient(null);
-      setQuoteNumber('');
-      setActiveDraftId(null);
-      setDraftTitleState('새 견적 초안');
-      setDraftSaveStatus('idle');
-      setDraftLastSavedAt(null);
-      setDraftError(null);
-      quotesRef.current = [];
-      recipientRef.current = null;
-      quoteNumberRef.current = '';
-      activeDraftIdRef.current = null;
-      draftTitleRef.current = '새 견적 초안';
-      lastSavedSignatureRef.current = '';
-      isHydratingDraftRef.current = false;
-      return true;
-    } catch (error) {
-      console.error('Failed to archive quote draft:', error);
-      setDraftSaveStatus('error');
-      setDraftError(error instanceof Error ? error.message : '초안 보관에 실패했습니다.');
-      return false;
-    }
+    return draftSaveQueueRef.current.enqueue(async () => {
+      try {
+        await archiveQuoteDraft(draftId);
+
+        // A lifecycle mutation shares the save queue so an older save can
+        // never finish later and reactivate an archived draft. Only clear the
+        // editor if this is still the draft the user asked to archive.
+        if (activeDraftIdRef.current === draftId) {
+          draftPersistenceGenerationRef.current += 1;
+          if (activeDraftStorageKey) window.localStorage.removeItem(activeDraftStorageKey);
+          isHydratingDraftRef.current = true;
+          quotesRef.current = [];
+          recipientRef.current = null;
+          quoteNumberRef.current = '';
+          activeDraftIdRef.current = null;
+          draftTitleRef.current = '새 견적 초안';
+          lastSavedSignatureRef.current = '';
+          setQuotes([]);
+          setRecipient(null);
+          setQuoteNumber('');
+          setActiveDraftId(null);
+          setDraftTitleState('새 견적 초안');
+          setDraftSaveStatus('idle');
+          setDraftLastSavedAt(null);
+          setDraftError(null);
+          isHydratingDraftRef.current = false;
+        }
+        return true;
+      } catch (error) {
+        console.error('Failed to archive quote draft:', error);
+        setDraftSaveStatus('error');
+        setDraftError(error instanceof Error ? error.message : '초안 보관에 실패했습니다.');
+        return false;
+      }
+    });
   };
 
   const markActiveDraftIssued = async (quoteId: string) => {
     const draftId = activeDraftIdRef.current;
     if (!draftId) return;
-    await updateQuoteDraft(draftId, {
-      status: 'issued',
-      issuedQuoteId: quoteId,
-      issuedAt: new Date().toISOString(),
+    await draftSaveQueueRef.current.enqueue(async () => {
+      await updateQuoteDraft(draftId, {
+        status: 'issued',
+        issuedQuoteId: quoteId,
+        issuedAt: new Date().toISOString(),
+      });
+
+      // As with archive, publish the terminal state inside the same queue as
+      // persistence. Saves queued afterwards will observe a null active id and
+      // cannot overwrite the issued draft with the cleared editor state.
+      if (activeDraftIdRef.current === draftId) {
+        draftPersistenceGenerationRef.current += 1;
+        if (activeDraftStorageKey) window.localStorage.removeItem(activeDraftStorageKey);
+        activeDraftIdRef.current = null;
+        lastSavedSignatureRef.current = '';
+        setActiveDraftId(null);
+      }
     });
-    if (activeDraftStorageKey) window.localStorage.removeItem(activeDraftStorageKey);
-    setActiveDraftId(null);
-    activeDraftIdRef.current = null;
-    lastSavedSignatureRef.current = '';
   };
 
   const getTotalPrice = () => {
@@ -718,6 +991,7 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
       draftSaveStatus,
       draftLastSavedAt,
       draftError,
+      anonymousDraftResolutionRequired,
       addQuote,
       updateQuote,
       removeQuote,
@@ -734,7 +1008,9 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
       loadDraft: loadDraftAction,
       duplicateActiveDraft,
       archiveActiveDraft,
-      markActiveDraftIssued
+      markActiveDraftIssued,
+      importAnonymousDraft,
+      keepAnonymousDraftSeparate,
     }}>
       {children}
     </QuoteContext.Provider>

@@ -2,6 +2,16 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { decode as base64Decode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
+import {
+  buildPopbillApiUrl,
+  createCancelIssueRequest,
+  createGetInfoRequest,
+  createRegistIssueRequest,
+  createSendEmailRequest,
+  resolvePopbillEnvironment,
+  type PopbillEnvironmentConfig,
+  type PopbillRestRequest,
+} from "../_shared/popbill-rest.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,14 +19,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// 팝빌 API 서버 URL
 const LINKHUB_AUTH_URL = "https://auth.linkhub.co.kr";
-const POPBILL_TEST_URL = "https://popbill-test.linkhub.co.kr";
-const POPBILL_PROD_URL = "https://popbill.linkhub.co.kr";
-
-// 테스트 모드 여부 (나중에 환경변수로 전환 가능)
-const IS_TEST = true;
-const POPBILL_API_URL = IS_TEST ? POPBILL_TEST_URL : POPBILL_PROD_URL;
 
 interface TokenResponse {
   session_token: string;
@@ -26,9 +29,9 @@ interface TokenResponse {
   expiration: string;
 }
 
-let cachedToken: { token: string; expiration: Date } | null = null;
+let cachedToken: { token: string; expiration: Date; cacheKey: string } | null = null;
 
-const MANAGER_ACTIONS = new Set([
+const ADMIN_ACTIONS = new Set([
   "getToken",
   "registIssue",
   "register",
@@ -49,9 +52,15 @@ const MANAGER_ACTIONS = new Set([
 /**
  * 링크허브 인증 토큰 발급
  */
-async function getToken(linkID: string, secretKey: string, corpNum: string): Promise<string> {
+async function getToken(
+  linkID: string,
+  secretKey: string,
+  corpNum: string,
+  environment: PopbillEnvironmentConfig,
+): Promise<string> {
+  const cacheKey = `${environment.serviceId}:${linkID}:${corpNum}`;
   // 캐시된 토큰이 유효한지 확인
-  if (cachedToken && new Date() < cachedToken.expiration) {
+  if (cachedToken?.cacheKey === cacheKey && new Date() < cachedToken.expiration) {
     return cachedToken.token;
   }
 
@@ -61,7 +70,7 @@ async function getToken(linkID: string, secretKey: string, corpNum: string): Pro
     scope: scope,
   });
 
-  const target = IS_TEST ? "/POPBILL_TEST/Token" : "/POPBILL/Token";
+  const target = `/${environment.serviceId}/Token`;
 
   // UTC ISO 8601 timestamp
   const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
@@ -123,7 +132,7 @@ async function getToken(linkID: string, secretKey: string, corpNum: string): Pro
   // 토큰 캐싱 (만료 1분 전까지 유효)
   const expiration = new Date(tokenData.expiration);
   expiration.setMinutes(expiration.getMinutes() - 1);
-  cachedToken = { token: tokenData.session_token, expiration };
+  cachedToken = { token: tokenData.session_token, expiration, cacheKey };
 
   return tokenData.session_token;
 }
@@ -132,10 +141,10 @@ async function getToken(linkID: string, secretKey: string, corpNum: string): Pro
  * 팝빌 API 호출 헬퍼
  */
 async function callPopbillAPI(
+  apiBaseUrl: string,
   method: string,
   path: string,
   token: string,
-  corpNum: string,
   body?: any,
   additionalHeaders?: Record<string, string>,
   basePathOverride?: string
@@ -143,19 +152,18 @@ async function callPopbillAPI(
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,
-    "x-pb-userid": "",
     ...additionalHeaders,
   };
 
   const basePath = basePathOverride ?? "Taxinvoice";
-  const url = `${POPBILL_API_URL}/${basePath}/${path}`;
+  const url = buildPopbillApiUrl(apiBaseUrl, basePath, path);
 
   const fetchOptions: RequestInit = {
     method,
     headers,
   };
 
-  if (body && (method === "POST" || method === "PATCH")) {
+  if (body !== undefined && method === "POST") {
     fetchOptions.body = JSON.stringify(body);
   }
 
@@ -171,6 +179,21 @@ async function callPopbillAPI(
   } catch {
     return responseBody;
   }
+}
+
+function callPopbillRestRequest(
+  apiBaseUrl: string,
+  token: string,
+  request: PopbillRestRequest,
+): Promise<any> {
+  return callPopbillAPI(
+    apiBaseUrl,
+    request.method,
+    request.path,
+    token,
+    request.body,
+    request.headers,
+  );
 }
 
 serve(async (req) => {
@@ -194,6 +217,10 @@ serve(async (req) => {
     if (!POPBILL_CORP_NUM) {
       throw new Error("POPBILL_CORP_NUM is not configured");
     }
+
+    const popbillEnvironment = resolvePopbillEnvironment(
+      Deno.env.get("POPBILL_ENVIRONMENT"),
+    );
 
     // 인증 확인
     const authHeader = req.headers.get("Authorization");
@@ -223,13 +250,20 @@ serve(async (req) => {
     // 요청 파싱
     const { action, ...params } = await req.json();
 
-    if (MANAGER_ACTIONS.has(action)) {
-      const [{ data: isAdmin }, { data: isModerator }] = await Promise.all([
+    if (ADMIN_ACTIONS.has(action)) {
+      const [adminRoleResult, companyMasterResult] = await Promise.all([
         supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
-        supabase.rpc("has_role", { _user_id: userId, _role: "moderator" }),
+        supabase.rpc("is_company_master"),
       ]);
 
-      if (!isAdmin && !isModerator) {
+      if (adminRoleResult.error || companyMasterResult.error) {
+        return new Response(JSON.stringify({ error: "Authorization check failed" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (!adminRoleResult.data && !companyMasterResult.data) {
         return new Response(JSON.stringify({ error: "Forbidden" }), {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -238,7 +272,12 @@ serve(async (req) => {
     }
 
     // 팝빌 토큰 발급
-    const token = await getToken(POPBILL_LINK_ID, POPBILL_SECRET_KEY, POPBILL_CORP_NUM);
+    const token = await getToken(
+      POPBILL_LINK_ID,
+      POPBILL_SECRET_KEY,
+      POPBILL_CORP_NUM,
+      popbillEnvironment,
+    );
 
     let result: any;
 
@@ -252,13 +291,10 @@ serve(async (req) => {
       case "registIssue": {
         // 세금계산서 즉시발행
         const { taxInvoice, memo } = params;
-        result = await callPopbillAPI(
-          "POST",
-          `${POPBILL_CORP_NUM}?memo=${encodeURIComponent(memo || "")}`,
+        result = await callPopbillRestRequest(
+          popbillEnvironment.apiBaseUrl,
           token,
-          POPBILL_CORP_NUM,
-          taxInvoice,
-          { "x-pb-message": "RegistIssue" }
+          createRegistIssueRequest(taxInvoice, memo),
         );
         break;
       }
@@ -267,10 +303,10 @@ serve(async (req) => {
         // 세금계산서 임시저장
         const { taxInvoice: regTaxInvoice } = params;
         result = await callPopbillAPI(
+          popbillEnvironment.apiBaseUrl,
           "POST",
-          POPBILL_CORP_NUM,
+          "",
           token,
-          POPBILL_CORP_NUM,
           regTaxInvoice
         );
         break;
@@ -279,13 +315,18 @@ serve(async (req) => {
       case "issue": {
         // 임시저장된 세금계산서 발행
         const { mgtKeyType, mgtKey, memo: issueMemo } = params;
-        result = await callPopbillAPI(
-          "PATCH",
-          `${POPBILL_CORP_NUM}/${mgtKeyType}/${mgtKey}`,
+        const issueRequest = createGetInfoRequest(mgtKeyType, mgtKey);
+        result = await callPopbillRestRequest(
+          popbillEnvironment.apiBaseUrl,
           token,
-          POPBILL_CORP_NUM,
-          { memo: issueMemo },
-          { "x-pb-message": "ISSUE" }
+          {
+            ...issueRequest,
+            method: "POST",
+            headers: { "X-HTTP-Method-Override": "ISSUE" },
+            body: typeof issueMemo === "string" && issueMemo.trim()
+              ? { memo: issueMemo.trim() }
+              : {},
+          },
         );
         break;
       }
@@ -293,11 +334,10 @@ serve(async (req) => {
       case "getInfo": {
         // 세금계산서 상태/요약 조회
         const { mgtKeyType: infoMgtKeyType, mgtKey: infoMgtKey } = params;
-        result = await callPopbillAPI(
-          "GET",
-          `${POPBILL_CORP_NUM}/${infoMgtKeyType}/${infoMgtKey}`,
+        result = await callPopbillRestRequest(
+          popbillEnvironment.apiBaseUrl,
           token,
-          POPBILL_CORP_NUM
+          createGetInfoRequest(infoMgtKeyType, infoMgtKey),
         );
         break;
       }
@@ -305,11 +345,11 @@ serve(async (req) => {
       case "getDetailInfo": {
         // 세금계산서 상세조회
         const { mgtKeyType: detailMgtKeyType, mgtKey: detailMgtKey } = params;
-        result = await callPopbillAPI(
-          "GET",
-          `${POPBILL_CORP_NUM}/${detailMgtKeyType}/${detailMgtKey}?TG=DETAIL`,
+        const detailRequest = createGetInfoRequest(detailMgtKeyType, detailMgtKey);
+        result = await callPopbillRestRequest(
+          popbillEnvironment.apiBaseUrl,
           token,
-          POPBILL_CORP_NUM
+          { ...detailRequest, path: `${detailRequest.path}?Detail` },
         );
         break;
       }
@@ -317,13 +357,10 @@ serve(async (req) => {
       case "cancelIssue": {
         // 세금계산서 발행취소
         const { mgtKeyType: cancelMgtKeyType, mgtKey: cancelMgtKey, memo: cancelMemo } = params;
-        result = await callPopbillAPI(
-          "PATCH",
-          `${POPBILL_CORP_NUM}/${cancelMgtKeyType}/${cancelMgtKey}`,
+        result = await callPopbillRestRequest(
+          popbillEnvironment.apiBaseUrl,
           token,
-          POPBILL_CORP_NUM,
-          { memo: cancelMemo },
-          { "x-pb-message": "CANCELISSUE" }
+          createCancelIssueRequest(cancelMgtKeyType, cancelMgtKey, cancelMemo),
         );
         break;
       }
@@ -331,25 +368,27 @@ serve(async (req) => {
       case "sendEmail": {
         // 이메일 재전송
         const { mgtKeyType: emailMgtKeyType, mgtKey: emailMgtKey, receiverEmail } = params;
-        result = await callPopbillAPI(
-          "POST",
-          `${POPBILL_CORP_NUM}/${emailMgtKeyType}/${emailMgtKey}/Email`,
+        result = await callPopbillRestRequest(
+          popbillEnvironment.apiBaseUrl,
           token,
-          POPBILL_CORP_NUM,
-          { receiverEmail }
+          createSendEmailRequest(emailMgtKeyType, emailMgtKey, receiverEmail),
         );
         break;
       }
 
       case "sendSMS": {
         // SMS 재전송
-        const { mgtKeyType: smsMgtKeyType, mgtKey: smsMgtKey, senderNum, receiverNum } = params;
-        result = await callPopbillAPI(
-          "POST",
-          `${POPBILL_CORP_NUM}/${smsMgtKeyType}/${smsMgtKey}/SMS`,
+        const { mgtKeyType: smsMgtKeyType, mgtKey: smsMgtKey, senderNum, receiverNum, contents } = params;
+        const smsRequest = createGetInfoRequest(smsMgtKeyType, smsMgtKey);
+        result = await callPopbillRestRequest(
+          popbillEnvironment.apiBaseUrl,
           token,
-          POPBILL_CORP_NUM,
-          { senderNum, receiverNum }
+          {
+            ...smsRequest,
+            method: "POST",
+            headers: { "X-HTTP-Method-Override": "SMS" },
+            body: { sender: senderNum, receiver: receiverNum, contents },
+          },
         );
         break;
       }
@@ -357,12 +396,16 @@ serve(async (req) => {
       case "sendFAX": {
         // FAX 재전송
         const { mgtKeyType: faxMgtKeyType, mgtKey: faxMgtKey, senderNum: faxSenderNum, receiverNum: faxReceiverNum } = params;
-        result = await callPopbillAPI(
-          "POST",
-          `${POPBILL_CORP_NUM}/${faxMgtKeyType}/${faxMgtKey}/FAX`,
+        const faxRequest = createGetInfoRequest(faxMgtKeyType, faxMgtKey);
+        result = await callPopbillRestRequest(
+          popbillEnvironment.apiBaseUrl,
           token,
-          POPBILL_CORP_NUM,
-          { senderNum: faxSenderNum, receiverNum: faxReceiverNum }
+          {
+            ...faxRequest,
+            method: "POST",
+            headers: { "X-HTTP-Method-Override": "FAX" },
+            body: { sender: faxSenderNum, receiver: faxReceiverNum },
+          },
         );
         break;
       }
@@ -380,10 +423,10 @@ serve(async (req) => {
           PerPage: String(perPage || 50),
         });
         result = await callPopbillAPI(
+          popbillEnvironment.apiBaseUrl,
           "GET",
-          `${POPBILL_CORP_NUM}/${searchMgtKeyType}?${queryParams.toString()}`,
-          token,
-          POPBILL_CORP_NUM
+          `${searchMgtKeyType}?${queryParams.toString()}`,
+          token
         );
         break;
       }
@@ -392,10 +435,10 @@ serve(async (req) => {
         // 팝빌 관련 URL 조회 (인증서 등록, 세금계산서 작성 등)
         const { togo } = params;
         result = await callPopbillAPI(
+          popbillEnvironment.apiBaseUrl,
           "GET",
-          `${POPBILL_CORP_NUM}?TG=${togo}`,
-          token,
-          POPBILL_CORP_NUM
+          `?TG=${encodeURIComponent(togo || "")}`,
+          token
         );
         break;
       }
@@ -403,10 +446,10 @@ serve(async (req) => {
       case "checkCertValidation": {
         // 공동인증서 유효성 확인
         result = await callPopbillAPI(
+          popbillEnvironment.apiBaseUrl,
           "GET",
-          `${POPBILL_CORP_NUM}/Certificate`,
-          token,
-          POPBILL_CORP_NUM
+          "CertCheck",
+          token
         );
         break;
       }
@@ -421,10 +464,10 @@ serve(async (req) => {
           });
         }
         result = await callPopbillAPI(
+          popbillEnvironment.apiBaseUrl,
           "GET",
           `Check?CN=${targetCorpNum}`,
           token,
-          POPBILL_CORP_NUM,
           undefined,
           undefined,
           "CloseDown"
@@ -442,10 +485,10 @@ serve(async (req) => {
           });
         }
         result = await callPopbillAPI(
+          popbillEnvironment.apiBaseUrl,
           "POST",
           "",
           token,
-          POPBILL_CORP_NUM,
           corpNums,
           undefined,
           "CloseDown"

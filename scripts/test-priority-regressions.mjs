@@ -35,6 +35,10 @@ const quickAttendance = read('src/components/QuickAttendanceButton.tsx');
 const attendancePage = read('src/pages/AttendancePage.tsx');
 const attendanceDashboard = read('src/components/attendance/AttendanceDashboard.tsx');
 const monthlyReport = read('src/components/attendance/MonthlyAttendanceReport.tsx');
+const attendanceCalendar = read('src/components/attendance/AttendanceCalendarView.tsx');
+const employeeAttendance = read('src/components/employee/EmployeeAttendancePanel.tsx');
+const attendanceEditDialog = read('src/components/attendance/AttendanceEditDialog.tsx');
+const attendanceUxMigration = read('supabase/migrations/20260819090000_attendance_status_and_page_access.sql');
 
 assert.match(
   attendanceUniqueMigration,
@@ -49,5 +53,19 @@ assert.match(attendancePage, /existingRecord[\s\S]*?\.update\(manualData\)/);
 assert.match(attendanceDashboard, /if \(error\) throw error/);
 assert.match(attendanceDashboard, /if \(loadError\)/);
 assert.match(monthlyReport, /if \(loadError\)/);
+assert.doesNotMatch(quickAttendance, /status:\s*'present'/);
+assert.match(attendanceCalendar, /r\.status === 'checked_in' \|\| r\.status === 'present'/);
+assert.match(employeeAttendance, /r\.status === 'present'/);
+assert.doesNotMatch(attendanceEditDialog, /value="present"/);
+assert.doesNotMatch(attendanceEditDialog, /useState\('present'\)/);
+assert.match(attendanceEditDialog, /record\.status === 'present' \? 'checked_in'/);
+assert.match(attendanceUxMigration, /UPDATE public\.attendance_records\s+SET status = 'checked_in'\s+WHERE status = 'present'/);
+assert.match(
+  attendanceUxMigration,
+  /USING \(auth\.uid\(\) = user_id AND status = 'pending'\)\s+WITH CHECK \(auth\.uid\(\) = user_id AND status IN \('pending', 'cancelled'\)\)/,
+);
+assert.doesNotMatch(attendancePage, /const submitLeaveMutation/);
+assert.doesNotMatch(attendancePage, /const handleLeaveAction/);
+assert.match(attendancePage, /navigate\('\/leave-management'\)/);
 
 console.log('Priority security and attendance regression checks passed.');

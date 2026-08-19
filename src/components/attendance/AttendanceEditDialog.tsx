@@ -31,7 +31,7 @@ interface Props {
 const AttendanceEditDialog: React.FC<Props> = ({ record, open, onOpenChange, onSaved }) => {
   const [checkInTime, setCheckInTime] = useState('');
   const [checkOutTime, setCheckOutTime] = useState('');
-  const [status, setStatus] = useState('present');
+  const [status, setStatus] = useState('checked_in');
   const [memo, setMemo] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -39,7 +39,7 @@ const AttendanceEditDialog: React.FC<Props> = ({ record, open, onOpenChange, onS
     if (record) {
       setCheckInTime(record.check_in ? format(new Date(record.check_in), 'HH:mm') : '');
       setCheckOutTime(record.check_out ? format(new Date(record.check_out), 'HH:mm') : '');
-      setStatus(record.status || 'present');
+      setStatus(record.status === 'present' ? 'checked_in' : record.status || 'checked_in');
       setMemo(record.memo || '');
     }
   }, [record]);
@@ -123,7 +123,6 @@ const AttendanceEditDialog: React.FC<Props> = ({ record, open, onOpenChange, onS
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="present">근무 중</SelectItem>
                 <SelectItem value="checked_in">근무 중</SelectItem>
                 <SelectItem value="checked_out">퇴근 완료</SelectItem>
                 <SelectItem value="absent">결근</SelectItem>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { format, endOfMonth } from 'date-fns';
-import { Plus, RefreshCw, Receipt, Building2, BarChart3, Search } from 'lucide-react';
+import { Plus, RefreshCw, Receipt, Building2, BarChart3, AlertTriangle } from 'lucide-react';
 
 import TaxInvoiceStats from '@/components/tax-invoice/TaxInvoiceStats';
 import TaxInvoiceList from '@/components/tax-invoice/TaxInvoiceList';
@@ -19,6 +19,16 @@ import TaxInvoiceCreateDialog, { InvoiceFormData } from '@/components/tax-invoic
 import TaxInvoiceDetailDialog from '@/components/tax-invoice/TaxInvoiceDetailDialog';
 import TaxInvoiceMonthlyChart from '@/components/tax-invoice/TaxInvoiceMonthlyChart';
 import CorpStatusCheck from '@/components/CorpStatusCheck';
+import {
+  TaxInvoiceSyncRequiredError,
+  createPopbillMgtKey,
+  isKnownPopbillStateCode,
+  mapPopbillStateCode,
+  mergeTaxInvoiceRows,
+  requiresTaxInvoiceSync,
+  runTrackedTaxInvoiceCancellation,
+  runTrackedTaxInvoiceIssue,
+} from '@/services/taxInvoiceReliability';
 
 const emptyForm: InvoiceFormData = {
   writeDate: format(new Date(), 'yyyyMMdd'),
@@ -51,9 +61,14 @@ const TaxInvoicesPage: React.FC = () => {
   const [form, setForm] = useState<InvoiceFormData>({ ...emptyForm });
   const [issuing, setIssuing] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [cancellingInvoiceId, setCancellingInvoiceId] = useState<string | null>(null);
 
   /* ── 세금계산서 목록 ── */
-  const { data: invoices = [], isLoading, refetch } = useQuery({
+  const {
+    data: filteredInvoices = [],
+    isLoading: isFilteredInvoicesLoading,
+    refetch: refetchInvoices,
+  } = useQuery({
     queryKey: ['tax-invoices', searchMonth, statusFilter],
     queryFn: async () => {
       const start = `${searchMonth}-01`;
@@ -68,6 +83,39 @@ const TaxInvoicesPage: React.FC = () => {
     },
     enabled: !!user,
   });
+
+  /* ── 필터와 무관한 미해결 팝빌 작업 ── */
+  const {
+    data: unresolvedOperations = [],
+    isLoading: isUnresolvedOperationsLoading,
+    isSuccess: unresolvedOperationsReady,
+    isError: unresolvedOperationsFailed,
+    refetch: refetchUnresolvedOperations,
+  } = useQuery({
+    queryKey: ['tax-invoice-unresolved-operations'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tax_invoices')
+        .select('*')
+        .in('sync_status', ['pending', 'required'])
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  const invoices = useMemo(
+    () => mergeTaxInvoiceRows(filteredInvoices, unresolvedOperations),
+    [filteredInvoices, unresolvedOperations],
+  );
+  const hasUnresolvedOperations = unresolvedOperations.length > 0;
+  const canStartIssue = unresolvedOperationsReady && !hasUnresolvedOperations;
+  const isLoading = isFilteredInvoicesLoading || isUnresolvedOperationsLoading;
+
+  const refetchTaxInvoiceQueries = async () => {
+    await Promise.all([refetchInvoices(), refetchUnresolvedOperations()]);
+  };
 
   /* ── 회사정보 ── */
   const { data: companyInfo } = useQuery({
@@ -111,8 +159,16 @@ const TaxInvoicesPage: React.FC = () => {
   });
 
   /* ── 발행 다이얼로그 열기 ── */
-  const openCreate = (direction: 'sales' | 'purchase' = 'sales') => {
-    const f = { ...emptyForm, invoiceDirection: direction };
+  const openCreate = () => {
+    if (!canStartIssue) {
+      toast.error('미해결 팝빌 작업을 먼저 상태 동기화해주세요.');
+      return;
+    }
+    const f: InvoiceFormData = {
+      ...emptyForm,
+      invoiceDirection: 'sales',
+      issueType: 'normal',
+    };
     if (companyInfo) {
       f.supplierCorpNum = companyInfo.business_number?.replace(/-/g, '') || '';
       f.supplierCorpName = companyInfo.company_name || '';
@@ -179,6 +235,14 @@ const TaxInvoicesPage: React.FC = () => {
 
   /* ── 즉시발행 ── */
   const handleIssue = async () => {
+    if (form.invoiceDirection !== 'sales' || form.issueType !== 'normal') {
+      toast.error('이번 릴리스에서는 매출 정발행만 지원합니다.');
+      return;
+    }
+    if (!canStartIssue) {
+      toast.error('미해결 팝빌 작업을 먼저 상태 동기화해주세요.');
+      return;
+    }
     if (!form.buyerCorpNum || !form.supplierCorpNum) {
       toast.error('공급자 및 공급받는자 사업자번호는 필수입니다.');
       return;
@@ -189,11 +253,11 @@ const TaxInvoicesPage: React.FC = () => {
     }
     setIssuing(true);
     try {
-      const mgtKey = `LV${Date.now()}`;
+      const mgtKey = createPopbillMgtKey();
       const taxInvoice = {
         writeDate: form.writeDate,
         chargeDirection: form.chargeDirection === 'forward' ? '정과금' : '역과금',
-        issueType: form.issueType === 'normal' ? '정발행' : '역발행',
+        issueType: '정발행',
         purposeType: form.purposeType === 'receipt' ? '영수' : '청구',
         taxType: form.taxType === 'taxable' ? '과세' : form.taxType === 'zero_rate' ? '영세' : '면세',
         supplyCostTotal: String(form.supplyCostTotal),
@@ -226,18 +290,15 @@ const TaxInvoicesPage: React.FC = () => {
           supplyCost: String(i.supplyCost), tax: String(i.tax), remark: i.remark,
         })),
       };
-
-      const result = await popbill.registIssue(taxInvoice, form.memo);
-
       const wd = form.writeDate;
-      await supabase.from('tax_invoices').insert({
+      const trackingRecord = {
         user_id: user!.id,
         user_name: profile?.full_name || '',
-        invoice_direction: form.invoiceDirection,
+        invoice_direction: 'sales',
         write_date: `${wd.slice(0, 4)}-${wd.slice(4, 6)}-${wd.slice(6, 8)}`,
         tax_type: form.taxType,
         charge_direction: form.chargeDirection,
-        issue_type: form.issueType,
+        issue_type: 'normal',
         purpose_type: form.purposeType,
         supplier_corp_num: form.supplierCorpNum,
         supplier_corp_name: form.supplierCorpName,
@@ -264,22 +325,82 @@ const TaxInvoicesPage: React.FC = () => {
         remark1: form.remark1,
         memo: form.memo,
         popbill_mgt_key: mgtKey,
-        popbill_issue_id: result?.ntsConfirmNum || null,
-        popbill_nts_confirm_num: result?.ntsConfirmNum || null,
-        status: 'issued',
+        status: 'draft',
+        sync_status: 'pending',
+        pending_operation: 'issue',
+        sync_error: null,
         recipient_id: form.recipientId || null,
         recipient_name: form.buyerCorpName || null,
         project_id: form.projectId || null,
         project_name: form.projectName || null,
         quote_id: form.quoteId || null,
         quote_number: form.quoteNumber || null,
+      };
+      let trackingId: string | null = null;
+
+      await runTrackedTaxInvoiceIssue({
+        managementKey: mgtKey,
+        createTrackingRecord: async () => {
+          const { data, error } = await supabase
+            .from('tax_invoices')
+            .insert(trackingRecord)
+            .select('id')
+            .single();
+          if (error) throw new Error(`내부 발행 추적 준비 실패: ${error.message}`);
+          trackingId = data.id;
+          return data;
+        },
+        issueExternal: () => popbill.registIssue(taxInvoice, form.memo),
+        markIssued: async (result) => {
+          if (!trackingId) throw new Error('내부 발행 추적번호가 없습니다.');
+          const { error } = await supabase
+            .from('tax_invoices')
+            .update({
+              popbill_issue_id: result?.ntsConfirmNum || null,
+              popbill_nts_confirm_num: result?.ntsConfirmNum || null,
+              status: 'issued',
+              sync_status: 'synced',
+              pending_operation: null,
+              sync_error: null,
+              external_action_at: new Date().toISOString(),
+            })
+            .eq('id', trackingId)
+            .eq('popbill_mgt_key', mgtKey)
+            .select('id')
+            .single();
+          if (error) throw new Error(`내부 발행 상태 저장 실패: ${error.message}`);
+        },
+        markSyncRequired: async (message, externalSucceeded) => {
+          if (!trackingId) return;
+          const { error } = await supabase
+            .from('tax_invoices')
+            .update({
+              sync_status: 'required',
+              pending_operation: 'issue',
+              sync_error: message,
+              external_action_at: externalSucceeded ? new Date().toISOString() : null,
+            })
+            .eq('id', trackingId)
+            .select('id')
+            .single();
+          if (error) throw new Error(`복구 상태 기록 실패: ${error.message}`);
+        },
       });
 
       toast.success('세금계산서가 발행되었습니다.');
       setCreateOpen(false);
-      refetch();
-    } catch (err: any) {
-      toast.error(`발행 실패: ${err.message}`);
+      await refetchTaxInvoiceQueries();
+    } catch (error: unknown) {
+      if (error instanceof TaxInvoiceSyncRequiredError) {
+        setCreateOpen(false);
+        toast.error(`${error.message} 재발행하지 말고 목록의 상태 동기화를 실행하세요.`, {
+          duration: 12000,
+        });
+        await refetchTaxInvoiceQueries();
+      } else {
+        const message = error instanceof Error ? error.message : '알 수 없는 오류';
+        toast.error(`발행 준비 실패: ${message}`);
+      }
     } finally {
       setIssuing(false);
     }
@@ -287,15 +408,78 @@ const TaxInvoicesPage: React.FC = () => {
 
   /* ── 발행취소 ── */
   const handleCancel = async (inv: any) => {
+    if (!inv.popbill_mgt_key) { toast.error('관리번호가 없습니다.'); return; }
+    if (requiresTaxInvoiceSync(inv.sync_status)) {
+      toast.error('먼저 상태 동기화를 완료해주세요.');
+      return;
+    }
     if (!confirm('이 세금계산서를 발행 취소하시겠습니까?')) return;
+    setCancellingInvoiceId(inv.id);
     try {
-      await popbill.cancelIssue('SELL', inv.popbill_mgt_key, '발행취소');
-      await supabase.from('tax_invoices').update({ status: 'cancelled' }).eq('id', inv.id);
+      await runTrackedTaxInvoiceCancellation({
+        managementKey: inv.popbill_mgt_key,
+        markCancellationPending: async () => {
+          const { error } = await supabase
+            .from('tax_invoices')
+            .update({
+              sync_status: 'pending',
+              pending_operation: 'cancel',
+              sync_error: null,
+            })
+            .eq('id', inv.id)
+            .eq('sync_status', 'synced')
+            .select('id')
+            .single();
+          if (error) throw new Error(`취소 추적 준비 실패: ${error.message}`);
+        },
+        cancelExternal: () => popbill.cancelIssue('SELL', inv.popbill_mgt_key, '발행취소'),
+        markCancelled: async () => {
+          const { error } = await supabase
+            .from('tax_invoices')
+            .update({
+              status: 'cancelled',
+              sync_status: 'synced',
+              pending_operation: null,
+              sync_error: null,
+              external_action_at: new Date().toISOString(),
+            })
+            .eq('id', inv.id)
+            .eq('popbill_mgt_key', inv.popbill_mgt_key)
+            .select('id')
+            .single();
+          if (error) throw new Error(`내부 취소 상태 저장 실패: ${error.message}`);
+        },
+        markSyncRequired: async (message, externalSucceeded) => {
+          const { error } = await supabase
+            .from('tax_invoices')
+            .update({
+              sync_status: 'required',
+              pending_operation: 'cancel',
+              sync_error: message,
+              external_action_at: externalSucceeded ? new Date().toISOString() : inv.external_action_at,
+            })
+            .eq('id', inv.id)
+            .select('id')
+            .single();
+          if (error) throw new Error(`복구 상태 기록 실패: ${error.message}`);
+        },
+      });
       toast.success('발행이 취소되었습니다.');
-      refetch();
+      await refetchTaxInvoiceQueries();
       setDetailOpen(false);
-    } catch (err: any) {
-      toast.error(`취소 실패: ${err.message}`);
+    } catch (error: unknown) {
+      if (error instanceof TaxInvoiceSyncRequiredError) {
+        setDetailOpen(false);
+        toast.error(`${error.message} 재취소하지 말고 상태 동기화를 실행하세요.`, {
+          duration: 12000,
+        });
+        await refetchTaxInvoiceQueries();
+      } else {
+        const message = error instanceof Error ? error.message : '알 수 없는 오류';
+        toast.error(`취소 준비 실패: ${message}`);
+      }
+    } finally {
+      setCancellingInvoiceId(null);
     }
   };
 
@@ -306,21 +490,29 @@ const TaxInvoicesPage: React.FC = () => {
     try {
       const info = await popbill.getInfo('SELL', inv.popbill_mgt_key);
       const stateCode = String(info?.stateCode || '');
-      let newStatus = inv.status;
-      if (stateCode.startsWith('3')) newStatus = 'issued';
-      if (stateCode.startsWith('4')) newStatus = 'sent_to_nts';
-      if (stateCode.startsWith('5')) newStatus = 'nts_accepted';
-      if (stateCode === '2') newStatus = 'cancelled';
-      await supabase.from('tax_invoices').update({
-        status: newStatus,
-        popbill_state_code: stateCode,
-        popbill_state_dt: info?.stateDT || null,
-        popbill_nts_confirm_num: info?.ntsconfirmNum || inv.popbill_nts_confirm_num,
-      }).eq('id', inv.id);
+      if (!isKnownPopbillStateCode(stateCode)) {
+        throw new Error(`확인할 수 없는 팝빌 상태코드입니다: ${stateCode || '없음'}`);
+      }
+      const newStatus = mapPopbillStateCode(stateCode, inv.status);
+      const { data, error } = await supabase.from('tax_invoices').update({
+          status: newStatus,
+          popbill_state_code: stateCode,
+          popbill_state_dt: info?.stateDT || null,
+          popbill_nts_confirm_num: info?.ntsconfirmNum || inv.popbill_nts_confirm_num,
+          sync_status: 'synced',
+          pending_operation: null,
+          sync_error: null,
+        })
+        .eq('id', inv.id)
+        .select('*')
+        .single();
+      if (error) throw new Error(`팝빌 조회 후 내부 저장 실패: ${error.message}`);
+      setSelectedInvoice(data);
       toast.success('상태가 동기화되었습니다.');
-      refetch();
-    } catch (err: any) {
-      toast.error(`동기화 실패: ${err.message}`);
+      await refetchTaxInvoiceQueries();
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '알 수 없는 오류';
+      toast.error(`동기화 실패: ${message}`);
     } finally {
       setSyncing(false);
     }
@@ -340,7 +532,7 @@ const TaxInvoicesPage: React.FC = () => {
 
   /* ── 엑셀 다운로드 ── */
   const handleExportExcel = (direction: 'sales' | 'purchase') => {
-    const filtered = invoices.filter((i: any) => i.invoice_direction === direction || (!i.invoice_direction && direction === 'sales'));
+    const filtered = filteredInvoices.filter((i: any) => i.invoice_direction === direction || (!i.invoice_direction && direction === 'sales'));
     if (filtered.length === 0) { toast.error('다운로드할 데이터가 없습니다.'); return; }
 
     const headers = ['작성일자', '상태', direction === 'sales' ? '공급받는자' : '공급자', '사업자번호', '공급가액', '세액', '합계', '프로젝트', '견적번호'];
@@ -378,8 +570,6 @@ const TaxInvoicesPage: React.FC = () => {
     );
   }
 
-  const currentDirection = activeTab === 'purchase' ? 'purchase' : 'sales';
-
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 py-6">
@@ -392,10 +582,35 @@ const TaxInvoicesPage: React.FC = () => {
             </h1>
             <p className="text-sm text-muted-foreground">전자세금계산서 발행·조회·관리</p>
           </div>
-          <Button onClick={() => openCreate(currentDirection as any)} className="gap-2">
-            <Plus className="h-4 w-4" /> 세금계산서 발행
-          </Button>
+          {activeTab === 'sales' && (
+            <Button
+              onClick={openCreate}
+              className="gap-2"
+              disabled={!canStartIssue}
+              title={canStartIssue ? '매출 세금계산서 정발행' : '미해결 팝빌 작업을 먼저 동기화해주세요.'}
+            >
+              <Plus className="h-4 w-4" /> 매출 세금계산서 발행
+            </Button>
+          )}
         </div>
+
+        {(!unresolvedOperationsReady || hasUnresolvedOperations) && (
+          <Card className="mb-4 border-amber-300 bg-amber-50/80 p-4 text-amber-950">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+              <div className="space-y-1">
+                <p className="font-semibold">신규 발행 전 팝빌 상태 확인이 필요합니다.</p>
+                <p className="text-sm leading-relaxed">
+                  {isUnresolvedOperationsLoading
+                    ? '전체 기간의 미해결 작업을 확인하고 있습니다.'
+                    : unresolvedOperationsFailed
+                      ? '미해결 작업 조회에 실패해 안전을 위해 신규 발행을 차단했습니다. 새로고침 후 다시 확인해주세요.'
+                      : `미해결 작업 ${unresolvedOperations.length}건이 있습니다. 기간·상태 필터와 관계없이 아래 매출/매입 목록에 표시되며, 각 행의 상태 동기화를 먼저 실행해주세요.`}
+                </p>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* 메인 탭: 매출 / 매입 / 통계 / 사업자조회 */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -413,7 +628,7 @@ const TaxInvoicesPage: React.FC = () => {
           {/* 매출 탭 */}
           <TabsContent value="sales">
             <div className="space-y-4">
-              <TaxInvoiceStats invoices={invoices} direction="sales" />
+              <TaxInvoiceStats invoices={filteredInvoices} direction="sales" />
               {/* 필터 */}
               <div className="flex flex-wrap gap-3">
                 <Input type="month" value={searchMonth} onChange={e => setSearchMonth(e.target.value)} className="w-44" />
@@ -428,7 +643,7 @@ const TaxInvoicesPage: React.FC = () => {
                     <SelectItem value="cancelled">발행취소</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="icon" onClick={() => refetch()}>
+                <Button variant="outline" size="icon" onClick={() => void refetchTaxInvoiceQueries()}>
                   <RefreshCw className="h-4 w-4" />
                 </Button>
               </div>
@@ -447,7 +662,10 @@ const TaxInvoicesPage: React.FC = () => {
           {/* 매입 탭 */}
           <TabsContent value="purchase">
             <div className="space-y-4">
-              <TaxInvoiceStats invoices={invoices} direction="purchase" />
+              <Card className="border-blue-200 bg-blue-50/70 p-3 text-sm text-blue-950">
+                매입 세금계산서는 팝빌 수취 내역 조회 전용입니다. 이번 릴리스에서는 신규 매입 발행을 지원하지 않습니다.
+              </Card>
+              <TaxInvoiceStats invoices={filteredInvoices} direction="purchase" />
               <div className="flex flex-wrap gap-3">
                 <Input type="month" value={searchMonth} onChange={e => setSearchMonth(e.target.value)} className="w-44" />
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -461,7 +679,7 @@ const TaxInvoicesPage: React.FC = () => {
                     <SelectItem value="cancelled">발행취소</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button variant="outline" size="icon" onClick={() => refetch()}>
+                <Button variant="outline" size="icon" onClick={() => void refetchTaxInvoiceQueries()}>
                   <RefreshCw className="h-4 w-4" />
                 </Button>
               </div>
@@ -521,6 +739,7 @@ const TaxInvoicesPage: React.FC = () => {
         onOpenChange={setDetailOpen}
         invoice={selectedInvoice}
         syncing={syncing}
+        cancelling={cancellingInvoiceId === selectedInvoice?.id}
         onSyncStatus={handleSyncStatus}
         onResendEmail={handleResendEmail}
         onCancel={handleCancel}

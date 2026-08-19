@@ -178,7 +178,7 @@ const QuickAttendanceButton = ({ onAttendanceChanged, variant = 'default' }: Qui
       const recordData: any = {
         check_in: now,
         check_in_location: location,
-        status: 'present',
+        status: 'checked_in',
       };
       if (locationMemo) {
         recordData.location_memo = locationMemo;

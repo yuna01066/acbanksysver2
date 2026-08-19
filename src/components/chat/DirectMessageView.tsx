@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, Loader2, Heart, MessageCircle, Coffee, CalendarIcon, Clock } from 'lucide-react';
+import { AlertCircle, Send, Loader2, Heart, MessageCircle, Coffee, CalendarIcon, Clock } from 'lucide-react';
 import MeetingActionButtons from '@/components/chat/MeetingActionButtons';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -61,7 +61,7 @@ const DirectMessageView: React.FC<DirectMessageViewProps> = ({
   partnerDepartment,
 }) => {
   const { user, profile } = useAuth();
-  const { messages, loading, sending, sendMessage } = useDirectMessages(partnerId);
+  const { messages, loading, loadError, sending, sendMessage, refetch } = useDirectMessages(partnerId);
   const [newMessage, setNewMessage] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
@@ -247,6 +247,17 @@ const DirectMessageView: React.FC<DirectMessageViewProps> = ({
         {isLoading ? (
           <div className="flex justify-center py-8">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : loadError ? (
+          <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-destructive/40 bg-destructive/5 px-4 py-8 text-center">
+            <AlertCircle className="h-8 w-8 text-destructive/70" />
+            <div>
+              <p className="text-sm font-medium text-foreground">{loadError}</p>
+              <p className="mt-1 text-xs text-muted-foreground">네트워크 연결을 확인한 뒤 다시 시도해주세요.</p>
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={refetch}>
+              다시 시도
+            </Button>
           </div>
         ) : timeline.length === 0 ? (
           <div className="text-center py-8">
