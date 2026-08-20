@@ -353,7 +353,19 @@ const ADMIN_FEATURES: AdminFeatureItem[] = [
     priority: 70,
     path: '/error-logs',
   },
+  {
+    id: 'edge-function-status',
+    title: 'Edge Function 상태',
+    description: '배포된 Edge Function 14개의 마지막 검증 시간과 응답 코드를 한눈에 확인합니다.',
+    category: 'system',
+    icon: Activity,
+    keywords: 'edge function 상태 헬스체크 응답코드 배포 검증 health status',
+    access: 'master',
+    priority: 75,
+    path: '/edge-function-status',
+  },
 ];
+
 
 const CATEGORY_ORDER: AdminFeatureCategory[] = ['approval', 'people', 'quote', 'sales', 'system'];
 const QUICK_ACTION_IDS = ['review-hub', 'electronic-contracts', 'quote-wizard', 'company-settings'];
