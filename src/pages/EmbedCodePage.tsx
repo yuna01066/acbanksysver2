@@ -25,8 +25,9 @@ const EmbedCodePage = () => {
             사용 방법 문서 보기 →
           </a>
         </div>
-
+      </div>
     </div>
+
   );
 };
 
