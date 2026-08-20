@@ -27,6 +27,7 @@ const QuotesSummaryPage = lazy(() => import("./pages/QuotesSummaryPage"));
 const CustomerQuotesSummaryPage = lazy(() => import("./pages/CustomerQuotesSummaryPage"));
 const InternalQuotePage = lazy(() => import("./pages/InternalQuotePage"));
 const EmbedCodePage = lazy(() => import("./pages/EmbedCodePage"));
+const CalculatorWidgetDocsPage = lazy(() => import("./pages/CalculatorWidgetDocsPage"));
 const ClientConsultationWidgetPage = lazy(() => import("./pages/ClientConsultationWidgetPage"));
 const BrandingIntakeWidgetPage = lazy(() => import("./pages/BrandingIntakeWidgetPage"));
 const PublicBookingPage = lazy(() => import("./pages/PublicBookingPage"));
@@ -129,6 +130,7 @@ const App = () => (
               <Route path="/customer-quotes-summary" element={<G><CustomerQuotesSummaryPage /></G>} />
               <Route path="/internal-quote" element={<InternalQuotePage />} />
               <Route path="/embed-code" element={<G><EmbedCodePage /></G>} />
+              <Route path="/calculator-widget-docs" element={<CalculatorWidgetDocsPage />} />
               <Route path="/client-consultation-widget" element={<ClientConsultationWidgetPage />} />
               <Route path="/branding-intake-widget" element={<BrandingIntakeWidgetPage />} />
               <Route path="/public-booking/:slug" element={<PublicBookingPage />} />
