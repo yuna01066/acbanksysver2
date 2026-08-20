@@ -60,6 +60,7 @@ const YearEndTaxAdminPage = lazy(() => import("./pages/YearEndTaxAdminPage"));
 const StorageStatusPage = lazy(() => import("./pages/StorageStatusPage"));
 const QuoteTemplateManagementPage = lazy(() => import("./pages/QuoteTemplateManagementPage"));
 const TaxInvoicesPage = lazy(() => import("./pages/TaxInvoicesPage"));
+const TaxInvoiceReliabilityPage = lazy(() => import("./pages/TaxInvoiceReliabilityPage"));
 const SampleChipInventoryPage = lazy(() => import("./pages/SampleChipInventoryPage"));
 const ExhibitionManagementPage = lazy(() => import("./pages/ExhibitionManagementPage"));
 const PortfolioPage = lazy(() => import("./pages/PortfolioPage"));
@@ -170,6 +171,7 @@ const App = () => (
               <Route path="/storage-status" element={<G><StorageStatusPage /></G>} />
               <Route path="/quote-template-management" element={<G><QuoteTemplateManagementPage /></G>} />
               <Route path="/tax-invoices" element={<S><TaxInvoicesPage /></S>} />
+              <Route path="/tax-invoice-reliability" element={<G><TaxInvoiceReliabilityPage /></G>} />
               <Route path="/sample-chip-inventory" element={<G><SampleChipInventoryPage /></G>} />
               <Route path="/exhibition-management" element={<G><ExhibitionManagementPage /></G>} />
               <Route path="/portfolio" element={<G><PortfolioPage /></G>} />
