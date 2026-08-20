@@ -170,6 +170,7 @@ const App = () => (
               <Route path="/storage-status" element={<G><StorageStatusPage /></G>} />
               <Route path="/quote-template-management" element={<G><QuoteTemplateManagementPage /></G>} />
               <Route path="/tax-invoices" element={<S><TaxInvoicesPage /></S>} />
+              <Route path="/tax-invoice-reliability" element={<G><TaxInvoiceReliabilityPage /></G>} />
               <Route path="/sample-chip-inventory" element={<G><SampleChipInventoryPage /></G>} />
               <Route path="/exhibition-management" element={<G><ExhibitionManagementPage /></G>} />
               <Route path="/portfolio" element={<G><PortfolioPage /></G>} />
