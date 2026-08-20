@@ -8122,12 +8122,12 @@ export type Database = {
           issue_type: string
           items: Json
           memo: string | null
+          pending_operation: string | null
           popbill_issue_id: string | null
           popbill_mgt_key: string | null
           popbill_nts_confirm_num: string | null
           popbill_state_code: string | null
           popbill_state_dt: string | null
-          pending_operation: string | null
           project_id: string | null
           project_name: string | null
           purpose_type: string
@@ -8180,12 +8180,12 @@ export type Database = {
           issue_type?: string
           items?: Json
           memo?: string | null
+          pending_operation?: string | null
           popbill_issue_id?: string | null
           popbill_mgt_key?: string | null
           popbill_nts_confirm_num?: string | null
           popbill_state_code?: string | null
           popbill_state_dt?: string | null
-          pending_operation?: string | null
           project_id?: string | null
           project_name?: string | null
           purpose_type?: string
@@ -8238,12 +8238,12 @@ export type Database = {
           issue_type?: string
           items?: Json
           memo?: string | null
+          pending_operation?: string | null
           popbill_issue_id?: string | null
           popbill_mgt_key?: string | null
           popbill_nts_confirm_num?: string | null
           popbill_state_code?: string | null
           popbill_state_dt?: string | null
-          pending_operation?: string | null
           project_id?: string | null
           project_name?: string | null
           purpose_type?: string
