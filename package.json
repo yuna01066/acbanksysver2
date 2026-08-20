@@ -21,6 +21,9 @@
     "test:pricing:ab-comprehensive": "node scripts/test-ab-tier-pricing-comprehensive-e2e.mjs",
     "verify:pricing:all": "node scripts/test-saved-quotes-unchanged.mjs && node scripts/test-ab-buffer-pricing-e2e.mjs && node scripts/test-ab-tier-pricing-comprehensive-e2e.mjs && node scripts/verify-panel-migration-state.mjs",
     "predeploy": "node scripts/verify-quote-loss-columns.mjs",
+    "security:report": "node scripts/security-audit-report.mjs --report",
+    "security:report:json": "node scripts/security-audit-report.mjs --json",
+    "security:report:strict": "node scripts/security-audit-report.mjs --strict",
     "lint": "eslint .",
     "preview": "vite preview",
     "worker:quote-wizard": "node workers/quote-wizard-worker/src/index.mjs"
