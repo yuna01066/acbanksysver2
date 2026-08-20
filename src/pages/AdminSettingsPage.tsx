@@ -245,6 +245,18 @@ const ADMIN_FEATURES: AdminFeatureItem[] = [
     path: '/tax-invoices',
   },
   {
+    id: 'tax-invoice-reliability',
+    title: '세금계산서 신뢰성 모니터',
+    description: '팝빌 발행·취소 오류와 상태 동기화 필요 건을 조회하고 재동기화합니다.',
+    category: 'sales',
+    icon: ShieldAlert,
+    keywords: '세금계산서 오류 재시도 동기화 팝빌 신뢰성 sync error retry',
+    access: 'master',
+    priority: 52,
+    path: '/tax-invoice-reliability',
+  },
+
+  {
     id: 'sample-chip-inventory',
     title: '샘플칩 관리',
     description: '샘플칩 재고와 색상 운영 데이터를 관리합니다.',
