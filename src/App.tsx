@@ -27,6 +27,7 @@ const QuotesSummaryPage = lazy(() => import("./pages/QuotesSummaryPage"));
 const CustomerQuotesSummaryPage = lazy(() => import("./pages/CustomerQuotesSummaryPage"));
 const InternalQuotePage = lazy(() => import("./pages/InternalQuotePage"));
 const EmbedCodePage = lazy(() => import("./pages/EmbedCodePage"));
+const CalculatorWidgetDocsPage = lazy(() => import("./pages/CalculatorWidgetDocsPage"));
 const ClientConsultationWidgetPage = lazy(() => import("./pages/ClientConsultationWidgetPage"));
 const BrandingIntakeWidgetPage = lazy(() => import("./pages/BrandingIntakeWidgetPage"));
 const PublicBookingPage = lazy(() => import("./pages/PublicBookingPage"));
