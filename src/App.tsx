@@ -130,6 +130,7 @@ const App = () => (
               <Route path="/customer-quotes-summary" element={<G><CustomerQuotesSummaryPage /></G>} />
               <Route path="/internal-quote" element={<InternalQuotePage />} />
               <Route path="/embed-code" element={<G><EmbedCodePage /></G>} />
+              <Route path="/calculator-widget-docs" element={<CalculatorWidgetDocsPage />} />
               <Route path="/client-consultation-widget" element={<ClientConsultationWidgetPage />} />
               <Route path="/branding-intake-widget" element={<BrandingIntakeWidgetPage />} />
               <Route path="/public-booking/:slug" element={<PublicBookingPage />} />
