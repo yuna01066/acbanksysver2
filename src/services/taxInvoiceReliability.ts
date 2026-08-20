@@ -33,7 +33,8 @@ export class TaxInvoiceSyncRequiredError extends Error {
   ) {
     const action = operation === 'issue' ? '발행' : '발행취소';
     const result = externalSucceeded ? '팝빌 처리는 완료됐지만' : '팝빌 처리 결과를 확정할 수 없어';
-    super(`${action}: ${result} 내부 상태 동기화가 필요합니다. 관리번호 ${managementKey}`, { cause });
+    super(`${action}: ${result} 내부 상태 동기화가 필요합니다. 관리번호 ${managementKey}`);
+    (this as { cause?: unknown }).cause = cause;
     this.name = 'TaxInvoiceSyncRequiredError';
     this.operation = operation;
     this.managementKey = managementKey;
