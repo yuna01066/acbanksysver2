@@ -770,7 +770,7 @@ async function handleGetSchedule(
 
   blocks.sort((a, b) => String(a.startsAt).localeCompare(String(b.startsAt)));
 
-  return ok(origin, {
+  const payload: JsonObject = {
     view: rawView,
     range: {
       startDate: range.startDate,
@@ -787,8 +787,21 @@ async function handleGetSchedule(
       durationMinutes: link.duration_minutes,
     },
     blocks,
+  };
+
+  writeScheduleCache(cacheKey, payload);
+  logEvent("info", "get-schedule.cache_store", {
+    traceId,
+    slug,
+    view: rawView,
+    date,
+    blocks: blocks.length,
+    ttlMs: SCHEDULE_CACHE_TTL_MS,
   });
+
+  return ok(origin, { ...payload, cached: false });
 }
+
 
 
 
