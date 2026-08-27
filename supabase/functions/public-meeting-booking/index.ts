@@ -646,16 +646,36 @@ function getScheduleRange(view: ScheduleView, date: string) {
   return { start, end, startDate: seoulDateKey(start), endDate: seoulDateKey(addMinutes(end, -1)) };
 }
 
-async function handleGetSchedule(origin: string | null, body: JsonObject, supabase: ReturnType<typeof getServiceClient>) {
+async function handleGetSchedule(
+  origin: string | null,
+  body: JsonObject,
+  supabase: ReturnType<typeof getServiceClient>,
+  traceId = crypto.randomUUID(),
+) {
   const slug = text(body.slug, 100);
   const rawView = text(body.view, 10) || "month";
+  const rawDate = text(body.date, 20);
   const date = getDateOnly(body.date) || seoulDateKey(new Date());
-  if (!slug) return fail(origin, "예약 링크가 필요합니다.", 400);
-  if (!isScheduleView(rawView)) return fail(origin, "조회 단위가 올바르지 않습니다.", 400);
+  if (!slug) {
+    logEvent("warn", "get-schedule.validation_failed", { traceId, reason: "missing_slug", view: rawView });
+    return fail(origin, "예약 링크가 필요합니다.", 400, { traceId });
+  }
+  if (!isScheduleView(rawView)) {
+    logEvent("warn", "get-schedule.validation_failed", { traceId, reason: "invalid_view", slug, view: rawView });
+    return fail(origin, "조회 단위가 올바르지 않습니다.", 400, { traceId });
+  }
+  if (rawDate && !getDateOnly(body.date)) {
+    logEvent("warn", "get-schedule.validation_failed", { traceId, reason: "invalid_date", slug, date: rawDate });
+    return fail(origin, "조회 날짜 형식이 올바르지 않습니다.", 400, { traceId });
+  }
 
   const link = await loadLink(supabase, slug);
   assertLinkUsable(link);
-  if (!(await verifyAccessCode(link, body.accessCode))) return fail(origin, "접근 코드가 올바르지 않습니다.", 403);
+  if (!(await verifyAccessCode(link, body.accessCode))) {
+    logEvent("warn", "get-schedule.access_denied", { traceId, slug, reason: "invalid_access_code" });
+    return fail(origin, "접근 코드가 올바르지 않습니다.", 403, { traceId });
+  }
+
 
   const resources = await loadResources(supabase, link.allowed_resource_ids || []);
   const resourceIds = resources.map((resource) => resource.id);
