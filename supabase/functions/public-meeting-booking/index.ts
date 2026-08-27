@@ -1017,6 +1017,7 @@ serve(async (req) => {
 
     if (action === "get-link") return await handleGetLink(origin, body, supabase);
     if (action === "get-availability") return await handleAvailability(origin, body, supabase);
+    if (action === "get-schedule") return await handleGetSchedule(origin, body, supabase);
     if (action === "create-request") return await handleCreateRequest(req, origin, body, supabase);
     if (action === "confirm-request") return await handleConfirmRequest(req, origin, body, supabase);
     if (action === "reject-request") return await handleRejectRequest(req, origin, body, supabase);
