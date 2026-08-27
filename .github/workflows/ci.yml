@@ -34,6 +34,17 @@ jobs:
       - name: Pricing regression tests
         run: node scripts/test-price-calculations.mjs
 
+      - name: get-schedule integration test (Edge Function)
+        env:
+          E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+          E2E_SUPABASE_ANON_KEY: ${{ secrets.E2E_SUPABASE_ANON_KEY }}
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          E2E_PUBLIC_BOOKING_SLUG: ${{ secrets.E2E_PUBLIC_BOOKING_SLUG }}
+          E2E_RESOURCE_ID: ${{ secrets.E2E_RESOURCE_ID }}
+          CI_STRICT_GET_SCHEDULE: ${{ secrets.E2E_SUPABASE_URL != '' && '1' || '0' }}
+        run: npm run test:get-schedule
+
       - name: Verify DB migration state (staging)
         id: verify_db
         if: ${{ env.PGHOST != '' }}

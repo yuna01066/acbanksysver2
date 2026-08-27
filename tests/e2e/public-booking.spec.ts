@@ -4,6 +4,7 @@ import {
   request as pwRequest,
   APIRequestContext,
 } from "@playwright/test";
+import { validateGetScheduleResponse } from "../../scripts/lib/get-schedule-schema.mjs";
 
 /**
  * Full E2E: auto-provisions a public booking link with the admin session token,
@@ -1200,5 +1201,68 @@ test.describe("public-meeting-booking E2E", () => {
       { headers: adminHeaders(adminToken) },
     );
     expect(events.data).toHaveLength(0);
+  });
+});
+
+test.describe("public-meeting-booking get-schedule", () => {
+  test("get-schedule returns 200 and a valid schema for month/week/day", async ({
+    http,
+    adminToken,
+    resourceId,
+  }) => {
+    const slug = `e2e-schedule-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    const created = await http.call<Array<{ id: string; slug: string }>>(
+      "provision-partner-room-link",
+      "POST",
+      `${REST_URL}/public_booking_links`,
+      {
+        headers: adminHeaders(adminToken, { Prefer: "return=representation" }),
+        data: {
+          slug,
+          link_type: "partner_room",
+          title: "E2E get-schedule Link",
+          description: "Auto-provisioned for get-schedule E2E — safe to delete",
+          is_active: true,
+          allowed_resource_ids: [resourceId],
+          allowed_weekdays: [0, 1, 2, 3, 4, 5, 6],
+          start_time: "09:00:00",
+          end_time: "18:00:00",
+          slot_minutes: 30,
+          duration_minutes: 30,
+          buffer_minutes: 0,
+          min_notice_minutes: 0,
+          max_days_ahead: 30,
+          requires_approval: true,
+          notify_user_ids: [],
+          metadata: { e2e: true },
+        },
+      },
+    );
+    expect(created.status, created.text).toBeLessThan(300);
+    const linkId = created.data[0].id;
+
+    try {
+      const date = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date());
+      for (const view of ["month", "week", "day"] as const) {
+        const res = await callFn<Record<string, unknown>>(http, "get-schedule", { slug, view, date });
+        expect(res.status, `${view}: ${res.text.slice(0, 500)}`).toBe(200);
+        expect(
+          validateGetScheduleResponse(res.data, { view, date }),
+          `${view} schema problems`,
+        ).toEqual([]);
+      }
+
+      const badView = await callFn(http, "get-schedule", { slug, view: "quarter", date });
+      expect(badView.status).toBe(400);
+
+      const missingSlug = await callFn(http, "get-schedule", { view: "month", date });
+      expect(missingSlug.status).toBe(400);
+    } finally {
+      await http
+        .call("delete-partner-room-link", "DELETE", `${REST_URL}/public_booking_links?id=eq.${linkId}`, {
+          headers: adminHeaders(adminToken),
+        })
+        .catch(() => undefined);
+    }
   });
 });

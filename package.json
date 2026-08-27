@@ -13,6 +13,8 @@
     "test:ux-reliability": "node scripts/test-chat-message-regressions.mjs && node scripts/test-draft-reliability-regressions.mjs && node scripts/test-tax-invoice-reliability.mjs && node scripts/test-ux-state-reliability.mjs",
     "test:pricing:ab-e2e": "node scripts/test-ab-buffer-pricing-e2e.mjs",
     "test:pricing:saved-quotes": "node scripts/test-saved-quotes-unchanged.mjs",
+    "test:get-schedule": "node scripts/test-get-schedule-integration.mjs",
+    "test:get-schedule:strict": "node scripts/test-get-schedule-integration.mjs --strict",
     "verify:panel-migration": "node scripts/verify-panel-migration-state.mjs",
     "verify:quote-loss-columns": "node scripts/verify-quote-loss-columns.mjs",
     "verify:quote-loss-columns:report": "node scripts/verify-quote-loss-columns.mjs --report",

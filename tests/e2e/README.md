@@ -51,3 +51,20 @@ bun run test:e2e
 No manual link setup is required — every run creates and cleans up its own
 `public_booking_links` row. Requires at least one active
 `calendar_resources` entry in the project.
+
+## get-schedule 통합 테스트 (CI)
+
+`scripts/test-get-schedule-integration.mjs` 는 `public-meeting-booking` 의
+`get-schedule` action 에 대해 month/week/day 200 응답과 응답 스키마
+(`scripts/lib/get-schedule-schema.mjs`), 잘못된 입력 400, GET 405 를 검증합니다.
+CI 의 `get-schedule integration test` 스텝에서 실행됩니다.
+
+```
+npm run test:get-schedule          # 자격증명 없으면 skip
+npm run test:get-schedule:strict   # 자격증명 없으면 실패
+```
+
+환경변수: `E2E_SUPABASE_URL`, `E2E_SUPABASE_ANON_KEY` + (`E2E_PUBLIC_BOOKING_SLUG`
+= 기존 partner_room 링크) 또는 (`E2E_ADMIN_EMAIL`, `E2E_ADMIN_PASSWORD` = 임시 링크 자동 생성/삭제).
+Playwright 쪽에는 `tests/e2e/public-booking.spec.ts` 의
+`public-meeting-booking get-schedule` describe 블록이 동일 검증을 수행합니다.
