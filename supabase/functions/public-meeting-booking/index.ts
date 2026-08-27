@@ -195,14 +195,16 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
 }
 
 
-// ---------- get-schedule in-memory cache ----------
+// ---------- get-schedule cache (L1: isolate memory, L2: shared table) ----------
 const SCHEDULE_CACHE_TTL_MS = Number(Deno.env.get("GET_SCHEDULE_CACHE_TTL_MS") || 60000);
 const SCHEDULE_CACHE_MAX_ENTRIES = 200;
+const SCHEDULE_CACHE_TABLE = "public_booking_schedule_cache";
 
 type ScheduleCacheEntry = { payload: JsonObject; storedAt: number; expiresAt: number };
+type ScheduleCacheHit = ScheduleCacheEntry & { source: "memory" | "shared" };
 const scheduleCache = new Map<string, ScheduleCacheEntry>();
 
-function readScheduleCache(key: string): ScheduleCacheEntry | null {
+function readMemoryCache(key: string): ScheduleCacheEntry | null {
   if (SCHEDULE_CACHE_TTL_MS <= 0) return null;
   const entry = scheduleCache.get(key);
   if (!entry) return null;
@@ -213,13 +215,12 @@ function readScheduleCache(key: string): ScheduleCacheEntry | null {
   return entry;
 }
 
-function writeScheduleCache(key: string, payload: JsonObject) {
-  if (SCHEDULE_CACHE_TTL_MS <= 0) return;
+function setMemoryCache(key: string, entry: ScheduleCacheEntry) {
+  scheduleCache.set(key, entry);
   const now = Date.now();
-  scheduleCache.set(key, { payload, storedAt: now, expiresAt: now + SCHEDULE_CACHE_TTL_MS });
   if (scheduleCache.size > SCHEDULE_CACHE_MAX_ENTRIES) {
-    for (const [cacheKey, entry] of scheduleCache) {
-      if (entry.expiresAt <= now) scheduleCache.delete(cacheKey);
+    for (const [cacheKey, value] of scheduleCache) {
+      if (value.expiresAt <= now) scheduleCache.delete(cacheKey);
     }
     while (scheduleCache.size > SCHEDULE_CACHE_MAX_ENTRIES) {
       const oldest = scheduleCache.keys().next();
@@ -229,7 +230,66 @@ function writeScheduleCache(key: string, payload: JsonObject) {
   }
 }
 
-function invalidateScheduleCache(linkId: string | null | undefined) {
+async function readScheduleCache(
+  supabase: ReturnType<typeof getServiceClient>,
+  key: string,
+): Promise<ScheduleCacheHit | null> {
+  if (SCHEDULE_CACHE_TTL_MS <= 0) return null;
+  const local = readMemoryCache(key);
+  if (local) return { ...local, source: "memory" };
+
+  try {
+    const { data, error } = await supabase
+      .from(SCHEDULE_CACHE_TABLE)
+      .select("payload, stored_at, expires_at")
+      .eq("cache_key", key)
+      .gt("expires_at", new Date().toISOString())
+      .maybeSingle();
+    if (error) throw error;
+    if (!data?.payload) return null;
+    const entry: ScheduleCacheEntry = {
+      payload: data.payload as JsonObject,
+      storedAt: Date.parse(String(data.stored_at)),
+      expiresAt: Date.parse(String(data.expires_at)),
+    };
+    setMemoryCache(key, entry);
+    return { ...entry, source: "shared" };
+  } catch (error) {
+    logEvent("warn", "get-schedule.cache_read_failed", { cacheKey: key, ...errorFields(error) });
+    return null;
+  }
+}
+
+async function writeScheduleCache(
+  supabase: ReturnType<typeof getServiceClient>,
+  key: string,
+  linkId: string,
+  payload: JsonObject,
+) {
+  if (SCHEDULE_CACHE_TTL_MS <= 0) return;
+  const now = Date.now();
+  const entry: ScheduleCacheEntry = { payload, storedAt: now, expiresAt: now + SCHEDULE_CACHE_TTL_MS };
+  setMemoryCache(key, entry);
+  try {
+    const { error } = await supabase
+      .from(SCHEDULE_CACHE_TABLE)
+      .upsert({
+        cache_key: key,
+        link_id: linkId,
+        payload,
+        stored_at: new Date(now).toISOString(),
+        expires_at: new Date(entry.expiresAt).toISOString(),
+      }, { onConflict: "cache_key" });
+    if (error) throw error;
+  } catch (error) {
+    logEvent("warn", "get-schedule.cache_write_failed", { cacheKey: key, ...errorFields(error) });
+  }
+}
+
+async function invalidateScheduleCache(
+  supabase: ReturnType<typeof getServiceClient>,
+  linkId: string | null | undefined,
+) {
   if (!linkId) return;
   let removed = 0;
   for (const key of [...scheduleCache.keys()]) {
@@ -238,8 +298,15 @@ function invalidateScheduleCache(linkId: string | null | undefined) {
       removed += 1;
     }
   }
-  if (removed > 0) logEvent("info", "get-schedule.cache_invalidated", { linkId, removed });
+  try {
+    const { error } = await supabase.from(SCHEDULE_CACHE_TABLE).delete().eq("link_id", linkId);
+    if (error) throw error;
+  } catch (error) {
+    logEvent("warn", "get-schedule.cache_invalidate_failed", { linkId, ...errorFields(error) });
+  }
+  logEvent("info", "get-schedule.cache_invalidated", { linkId, memoryRemoved: removed });
 }
+
 
 function asObject(value: unknown): JsonObject {
 
