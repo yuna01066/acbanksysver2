@@ -791,7 +791,7 @@ async function handleGetSchedule(
   }
 
   const cacheKey = `${link.id}:${rawView}:${date}`;
-  const cached = readScheduleCache(cacheKey);
+  const cached = await readScheduleCache(supabase, cacheKey);
   if (cached) {
     logEvent("info", "get-schedule.cache_hit", {
       traceId,
@@ -799,6 +799,7 @@ async function handleGetSchedule(
       view: rawView,
       date,
       ageMs: Date.now() - cached.storedAt,
+      cacheSource: cached.source,
       blocks: Array.isArray(cached.payload.blocks) ? cached.payload.blocks.length : 0,
     });
     return ok(origin, { ...cached.payload, cached: true, cachedAt: new Date(cached.storedAt).toISOString() });
@@ -903,7 +904,7 @@ async function handleGetSchedule(
     blocks,
   };
 
-  writeScheduleCache(cacheKey, payload);
+  await writeScheduleCache(supabase, cacheKey, link.id, payload);
   logEvent("info", "get-schedule.cache_store", {
     traceId,
     slug,
@@ -1142,7 +1143,7 @@ async function handleCreateRequest(req: Request, origin: string | null, body: Js
   }
 
   const requestForNotification = { ...requestRow, status: nextStatus } as PublicBookingRequest;
-  invalidateScheduleCache(link.id);
+  await invalidateScheduleCache(supabase, link.id);
   await notifyTargets(supabase, link, requestForNotification, nextStatus === "confirmed" ? "confirmed" : "pending");
 
 
@@ -1172,7 +1173,7 @@ async function handleConfirmRequest(req: Request, origin: string | null, body: J
     .eq("id", requestId)
     .maybeSingle();
   const link = asObject(requestRow?.public_booking_links) as unknown as PublicBookingLink;
-  invalidateScheduleCache(link?.id ?? (requestRow as JsonObject | null)?.link_id as string | undefined);
+  await invalidateScheduleCache(supabase, link?.id ?? ((requestRow as JsonObject | null)?.link_id as string | undefined));
   if (requestRow && link?.id) await notifyTargets(supabase, link, requestRow as PublicBookingRequest, "confirmed");
 
 
@@ -1215,7 +1216,7 @@ async function handleRejectRequest(req: Request, origin: string | null, body: Js
   }
 
   const link = asObject(requestRow.public_booking_links) as unknown as PublicBookingLink;
-  invalidateScheduleCache(link?.id ?? requestRow.link_id);
+  await invalidateScheduleCache(supabase, link?.id ?? requestRow.link_id);
   if (link?.id) await notifyTargets(supabase, link, requestRow as PublicBookingRequest, "rejected");
 
 
