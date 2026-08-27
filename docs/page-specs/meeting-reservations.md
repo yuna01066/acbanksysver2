@@ -40,3 +40,230 @@
 - `/Users/acbank002/Documents/컬러 파인더/DESIGN.md` 기준의 흑백/소프트 그레이 중심 위젯 톤을 따른다.
 - 색상은 상태 표시와 선택 상태에만 제한적으로 쓴다.
 - 카드형 반복 요소는 8px radius, 버튼은 pill 형태를 유지한다.
+
+## 공개 예약 API (`public-meeting-booking`)
+
+### `get-schedule` action
+
+공개 예약 링크(`link_type = partner_room`)의 회의실 일정을 외부 캘린더 UI에서 조회할 때 사용한다. 확정된 일정과 승인 대기 중인 요청을 `confirmed` / `pending` 블록으로 반환한다.
+
+**Endpoint**
+
+```text
+POST https://zwloyqcwyfkimwkohpnd.supabase.co/functions/v1/public-meeting-booking
+```
+
+(`verify_jwt = false`이므로 Authorization 헤더 없이 호출 가능)
+
+**Request body**
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `action` | `string` | O | `"get-schedule"` |
+| `slug` | `string` | O | 공개 예약 링크 슬러그 |
+| `view` | `"month" \| "week" \| "day"` | O | 조회 범위 |
+| `date` | `YYYY-MM-DD` | O | `view` 기준 앵커 날짜(week 는 해당 주, month 는 해당 월) |
+| `accessCode` | `string` | X | 링크에 접근 코드가 설정된 경우 필요 |
+
+**`view`별 조회 범위**
+
+| `view` | `range.startDate` | `range.endDate` | 비고 |
+|--------|-------------------|-----------------|------|
+| `day` | `date` | `date` | 단일 날짜 |
+| `week` | `date`가 포함된 주의 일요일 | 토요일 | 서울 기준 주단위(일~토) |
+| `month` | 해당 월 1일 | 마지막 일 | 서울 기준 월단위 |
+
+**Response schema**
+
+```typescript
+{
+  view: "month" | "week" | "day",
+  range: {
+    startDate: string; // YYYY-MM-DD
+    endDate: string;   // YYYY-MM-DD
+    startsAt: string;  // ISO 8601 (서울 기준 구간 시작)
+    endsAt: string;    // ISO 8601 (서울 기준 구간 끝, exclusive)
+  },
+  resources: {
+    id: string;
+    name: string;
+    floor: string | null;
+  }[],
+  rules: {
+    allowedWeekdays: number[]; // 0(일) ~ 6(토)
+    startTime: string;         // HH:MM
+    endTime: string;           // HH:MM
+    slotMinutes: number;
+    durationMinutes: number;
+  },
+  blocks: Block[]
+}
+```
+
+**`Block` 객체**
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| `id` | `string` | `event:{event_id}:{resource_id}` 또는 `request:{request_id}` |
+| `kind` | `"confirmed" \| "pending"` | 확정 일정 / 승인 대기 요청 |
+| `resourceId` | `string \| null` | 회의실 ID |
+| `resourceName` | `string` | 회의실 이름(미지정 시 `"미지정"`) |
+| `date` | `YYYY-MM-DD` | 서울 기준 날짜 |
+| `startsAt` | `ISO 8601` | 시작 시각 |
+| `endsAt` | `ISO 8601` | 종료 시각 |
+| `allDay` | `boolean` | 종일 여부 |
+| `time` | `HH:MM` | 서울 기준 시작 시각 |
+| `label` | `string` | 화면 표시용 라벨. 예: `"09:00 - 10:00"`, `"종일 예약"`, `"09:00 - 10:00 (승인 대기)"` |
+| `sourceType` | `string \| null` | `confirmed`인 경우 `calendar_events.source_type`, `pending`인 경우 `"public_booking_request"` |
+
+**Privacy 규칙**
+
+공개 응답에는 절대 다음 민감 필드를 포함하지 않는다: `title`, `description`, `requesterName`, `phone`, `email`, `purpose`, `notes`, `companyName`. 블록은 `resourceName`과 `time` 레이블만 노출한다.
+
+**예시 응답 — `view: "day"`**
+
+```json
+{
+  "view": "day",
+  "range": {
+    "startDate": "2026-08-27",
+    "endDate": "2026-08-27",
+    "startsAt": "2026-08-27T00:00:00.000+09:00",
+    "endsAt": "2026-08-28T00:00:00.000+09:00"
+  },
+  "resources": [
+    { "id": "res-1", "name": "1층 회의실", "floor": "1층" },
+    { "id": "res-2", "name": "2층 회의실", "floor": "2층" }
+  ],
+  "rules": {
+    "allowedWeekdays": [1, 2, 3, 4, 5],
+    "startTime": "09:00",
+    "endTime": "18:00",
+    "slotMinutes": 30,
+    "durationMinutes": 60
+  },
+  "blocks": [
+    {
+      "id": "event:evt-101:res-1",
+      "kind": "confirmed",
+      "resourceId": "res-1",
+      "resourceName": "1층 회의실",
+      "date": "2026-08-27",
+      "startsAt": "2026-08-27T10:00:00.000+09:00",
+      "endsAt": "2026-08-27T11:00:00.000+09:00",
+      "allDay": false,
+      "time": "10:00",
+      "label": "10:00 - 11:00",
+      "sourceType": "external_booking"
+    },
+    {
+      "id": "request:req-202",
+      "kind": "pending",
+      "resourceId": "res-2",
+      "resourceName": "2층 회의실",
+      "date": "2026-08-27",
+      "startsAt": "2026-08-27T14:00:00.000+09:00",
+      "endsAt": "2026-08-27T15:00:00.000+09:00",
+      "allDay": false,
+      "time": "14:00",
+      "label": "14:00 - 15:00 (승인 대기)",
+      "sourceType": "public_booking_request"
+    }
+  ]
+}
+```
+
+**예시 응답 — `view: "week"`**
+
+```json
+{
+  "view": "week",
+  "range": {
+    "startDate": "2026-08-23",
+    "endDate": "2026-08-29",
+    "startsAt": "2026-08-23T00:00:00.000+09:00",
+    "endsAt": "2026-08-30T00:00:00.000+09:00"
+  },
+  "resources": [
+    { "id": "res-1", "name": "1층 회의실", "floor": "1층" },
+    { "id": "res-2", "name": "2층 회의실", "floor": "2층" }
+  ],
+  "rules": { "allowedWeekdays": [1,2,3,4,5], "startTime": "09:00", "endTime": "18:00", "slotMinutes": 30, "durationMinutes": 60 },
+  "blocks": [
+    {
+      "id": "event:evt-101:res-1",
+      "kind": "confirmed",
+      "resourceId": "res-1",
+      "resourceName": "1층 회의실",
+      "date": "2026-08-25",
+      "startsAt": "2026-08-25T10:00:00.000+09:00",
+      "endsAt": "2026-08-25T11:00:00.000+09:00",
+      "allDay": false,
+      "time": "10:00",
+      "label": "10:00 - 11:00",
+      "sourceType": "external_booking"
+    },
+    {
+      "id": "event:evt-102:res-2",
+      "kind": "confirmed",
+      "resourceId": "res-2",
+      "resourceName": "2층 회의실",
+      "date": "2026-08-27",
+      "startsAt": "2026-08-27T13:00:00.000+09:00",
+      "endsAt": "2026-08-27T14:00:00.000+09:00",
+      "allDay": false,
+      "time": "13:00",
+      "label": "13:00 - 14:00",
+      "sourceType": "external_booking"
+    }
+  ]
+}
+```
+
+**예시 응답 — `view: "month"`**
+
+```json
+{
+  "view": "month",
+  "range": {
+    "startDate": "2026-08-01",
+    "endDate": "2026-08-31",
+    "startsAt": "2026-08-01T00:00:00.000+09:00",
+    "endsAt": "2026-09-01T00:00:00.000+09:00"
+  },
+  "resources": [
+    { "id": "res-1", "name": "1층 회의실", "floor": "1층" },
+    { "id": "res-2", "name": "2층 회의실", "floor": "2층" }
+  ],
+  "rules": { "allowedWeekdays": [1,2,3,4,5], "startTime": "09:00", "endTime": "18:00", "slotMinutes": 30, "durationMinutes": 60 },
+  "blocks": [
+    {
+      "id": "event:evt-201:res-1",
+      "kind": "confirmed",
+      "resourceId": "res-1",
+      "resourceName": "1층 회의실",
+      "date": "2026-08-05",
+      "startsAt": "2026-08-05T09:00:00.000+09:00",
+      "endsAt": "2026-08-05T10:00:00.000+09:00",
+      "allDay": false,
+      "time": "09:00",
+      "label": "09:00 - 10:00",
+      "sourceType": "external_booking"
+    }
+  ]
+}
+```
+
+**오류 응답**
+
+| 상황 | HTTP 상태 | 응답 예시 |
+|------|-----------|-----------|
+| `slug` 누락 / `view` 오류 / `date` 형식 오류 | `400` | `{"error":"예약 링크가 필요습니다."}` |
+| 접근 코드 불일치 | `403` | `{"error":"접근 코드가 올바르지 않습니다."}` |
+| GET 요청 | `405` | `{"error":"Method not allowed"}` |
+
+**자동 검증**
+
+- 스키마 검증: `scripts/lib/get-schedule-schema.mjs`
+- 통합 테스트: `scripts/test-get-schedule-integration.mjs` (month/week/day 200, 잘못된 입력 400, GET 405)
+- E2E: `tests/e2e/public-booking.spec.ts` 내 `public-meeting-booking get-schedule` describe 블록
