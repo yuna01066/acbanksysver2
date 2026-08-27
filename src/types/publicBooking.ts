@@ -52,6 +52,8 @@ export type PublicBookingScheduleBlock = {
   resourceFloor: string | null;
   startsAt: string;
   endsAt: string;
+  status: 'confirmed' | 'pending_review';
+  source: 'calendar_event' | 'public_request';
 };
 
 export type PublicBookingLinkRow = {

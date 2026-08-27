@@ -63,6 +63,8 @@ type ScheduleBlock = {
   resourceFloor: string | null;
   startsAt: string;
   endsAt: string;
+  status: "confirmed" | "pending_review";
+  source: "calendar_event" | "public_request";
 };
 
 const RATE_LIMIT_WINDOW_MINUTES = 10;
@@ -644,7 +646,7 @@ async function handleSchedule(origin: string | null, body: JsonObject, supabase:
     .neq("calendar_events.status", "canceled");
   if (error) throw error;
 
-  const blocks = ((data || []) as unknown[]).flatMap((row) => {
+  const eventBlocks = ((data || []) as unknown[]).flatMap((row) => {
     const record = asObject(row);
     const event = asObject(record.calendar_events);
     const resource = asObject(record.calendar_resources);
@@ -659,8 +661,43 @@ async function handleSchedule(origin: string | null, body: JsonObject, supabase:
       resourceFloor: optionalText(resource.floor, 80),
       startsAt,
       endsAt,
+      status: "confirmed",
+      source: "calendar_event",
     } satisfies ScheduleBlock];
-  }).sort((a, b) => a.startsAt.localeCompare(b.startsAt) || a.resourceName.localeCompare(b.resourceName));
+  });
+
+  const resourceById = new Map(resources.map((resource) => [resource.id, resource]));
+  const { data: pendingRequests, error: pendingError } = await supabase
+    .from("public_booking_requests")
+    .select("id, status, starts_at, ends_at, resource_id")
+    .eq("link_id", link.id)
+    .in("status", ["pending_review"])
+    .in("resource_id", resourceIds)
+    .lt("starts_at", rangeEnd)
+    .gt("ends_at", rangeStart);
+  if (pendingError) throw pendingError;
+
+  const pendingBlocks = ((pendingRequests || []) as unknown[]).flatMap((row) => {
+    const record = asObject(row);
+    const resourceId = text(record.resource_id, 80);
+    const resource = resourceById.get(resourceId);
+    const resourceName = resource?.name || "";
+    const startsAt = text(record.starts_at, 80);
+    const endsAt = text(record.ends_at, 80);
+    if (!resourceId || !resourceName || !startsAt || !endsAt) return [];
+    return [{
+      resourceId,
+      resourceName,
+      resourceFloor: resource?.floor || null,
+      startsAt,
+      endsAt,
+      status: "pending_review",
+      source: "public_request",
+    } satisfies ScheduleBlock];
+  });
+
+  const blocks = [...eventBlocks, ...pendingBlocks]
+    .sort((a, b) => a.startsAt.localeCompare(b.startsAt) || a.resourceName.localeCompare(b.resourceName));
 
   return ok(origin, {
     view,
