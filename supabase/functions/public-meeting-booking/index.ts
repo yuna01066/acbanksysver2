@@ -5,6 +5,7 @@ type JsonObject = Record<string, unknown>;
 type PublicBookingLinkType = "customer_request" | "partner_room" | "consultation_booking";
 type MeetingMode = "visit" | "phone" | "online";
 type ContactPreference = "phone" | "email" | "kakao" | "any";
+type ScheduleView = "month" | "week" | "day";
 type PublicBookingLink = {
   id: string;
   slug: string;
@@ -55,6 +56,13 @@ type AvailabilitySlot = {
   endsAt: string;
   time: string;
   label: string;
+};
+type ScheduleBlock = {
+  resourceId: string;
+  resourceName: string;
+  resourceFloor: string | null;
+  startsAt: string;
+  endsAt: string;
 };
 
 const RATE_LIMIT_WINDOW_MINUTES = 10;
@@ -192,6 +200,11 @@ function getDateOnly(value: unknown) {
   return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "";
 }
 
+function getScheduleView(value: unknown): ScheduleView {
+  const next = text(value, 20);
+  return ["month", "week", "day"].includes(next) ? next as ScheduleView : "month";
+}
+
 function getTimeOnly(value: unknown) {
   const time = text(value, 10);
   return /^\d{2}:\d{2}$/.test(time) ? time : "";
@@ -209,6 +222,51 @@ function normalizeMeetingModes(link: PublicBookingLink): MeetingMode[] {
   const rawModes = Array.isArray(link.meeting_modes) ? link.meeting_modes : [];
   const modes = rawModes.filter((mode): mode is MeetingMode => isMeetingMode(String(mode)));
   return modes.length > 0 ? modes : ["visit"];
+}
+
+function formatSeoulDateKey(value: Date) {
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(value);
+  const year = parts.find((part) => part.type === "year")?.value || "1970";
+  const month = parts.find((part) => part.type === "month")?.value || "01";
+  const day = parts.find((part) => part.type === "day")?.value || "01";
+  return `${year}-${month}-${day}`;
+}
+
+function addDaysToDateKey(date: string, days: number) {
+  const base = new Date(`${date}T12:00:00+09:00`);
+  return formatSeoulDateKey(addMinutes(base, days * 24 * 60));
+}
+
+function getSeoulWeekday(date: string) {
+  return new Date(`${date}T12:00:00+09:00`).getUTCDay();
+}
+
+function getScheduleRange(date: string, view: ScheduleView) {
+  let startDate = date;
+  let endDate = addDaysToDateKey(date, 1);
+
+  if (view === "week") {
+    startDate = addDaysToDateKey(date, -getSeoulWeekday(date));
+    endDate = addDaysToDateKey(startDate, 7);
+  }
+
+  if (view === "month") {
+    const [year, month] = date.split("-").map(Number);
+    const nextMonth = month === 12 ? 1 : month + 1;
+    const nextYear = month === 12 ? year + 1 : year;
+    startDate = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-01`;
+    endDate = `${String(nextYear).padStart(4, "0")}-${String(nextMonth).padStart(2, "0")}-01`;
+  }
+
+  return {
+    rangeStart: `${startDate}T00:00:00+09:00`,
+    rangeEnd: `${endDate}T00:00:00+09:00`,
+  };
 }
 
 function getMeetingModeLabel(mode: MeetingMode) {
@@ -555,6 +613,68 @@ async function handleAvailability(origin: string | null, body: JsonObject, supab
   return ok(origin, { slots });
 }
 
+async function handleSchedule(origin: string | null, body: JsonObject, supabase: ReturnType<typeof getServiceClient>) {
+  const slug = text(body.slug, 100);
+  const date = getDateOnly(body.date);
+  if (!slug || !date) return fail(origin, "예약 링크와 기준 날짜가 필요합니다.", 400);
+
+  const link = await loadLink(supabase, slug);
+  assertLinkUsable(link);
+  if (!(await verifyAccessCode(link, body.accessCode))) return fail(origin, "접근 코드가 올바르지 않습니다.", 403);
+
+  const resources = await loadResources(supabase, link.allowed_resource_ids || []);
+  const resourceIds = resources.map((resource) => resource.id);
+  const view = getScheduleView(body.view);
+  const { rangeStart, rangeEnd } = getScheduleRange(date, view);
+
+  if (resourceIds.length === 0) {
+    return ok(origin, { view, rangeStart, rangeEnd, resources: [], blocks: [] });
+  }
+
+  const { data, error } = await supabase
+    .from("calendar_event_resources")
+    .select(`
+      resource_id,
+      calendar_resources!inner(id, name, floor, display_order),
+      calendar_events!inner(id, starts_at, ends_at, status)
+    `)
+    .in("resource_id", resourceIds)
+    .lt("calendar_events.starts_at", rangeEnd)
+    .gt("calendar_events.ends_at", rangeStart)
+    .neq("calendar_events.status", "canceled");
+  if (error) throw error;
+
+  const blocks = ((data || []) as unknown[]).flatMap((row) => {
+    const record = asObject(row);
+    const event = asObject(record.calendar_events);
+    const resource = asObject(record.calendar_resources);
+    const resourceId = text(record.resource_id, 80);
+    const resourceName = text(resource.name, 120);
+    const startsAt = text(event.starts_at, 80);
+    const endsAt = text(event.ends_at, 80);
+    if (!resourceId || !resourceName || !startsAt || !endsAt) return [];
+    return [{
+      resourceId,
+      resourceName,
+      resourceFloor: optionalText(resource.floor, 80),
+      startsAt,
+      endsAt,
+    } satisfies ScheduleBlock];
+  }).sort((a, b) => a.startsAt.localeCompare(b.startsAt) || a.resourceName.localeCompare(b.resourceName));
+
+  return ok(origin, {
+    view,
+    rangeStart,
+    rangeEnd,
+    resources: resources.map((resource) => ({
+      id: resource.id,
+      name: resource.name,
+      floor: resource.floor,
+    })),
+    blocks,
+  });
+}
+
 async function loadExistingConsultationByToken(
   supabase: ReturnType<typeof getServiceClient>,
   submissionToken: string | null,
@@ -864,6 +984,7 @@ serve(async (req) => {
 
     if (action === "get-link") return await handleGetLink(origin, body, supabase);
     if (action === "get-availability") return await handleAvailability(origin, body, supabase);
+    if (action === "get-schedule") return await handleSchedule(origin, body, supabase);
     if (action === "create-request") return await handleCreateRequest(req, origin, body, supabase);
     if (action === "confirm-request") return await handleConfirmRequest(req, origin, body, supabase);
     if (action === "reject-request") return await handleRejectRequest(req, origin, body, supabase);

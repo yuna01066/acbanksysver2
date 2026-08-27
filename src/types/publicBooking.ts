@@ -44,6 +44,16 @@ export type PublicBookingSlot = {
   label: string;
 };
 
+export type PublicBookingScheduleView = 'month' | 'week' | 'day';
+
+export type PublicBookingScheduleBlock = {
+  resourceId: string;
+  resourceName: string;
+  resourceFloor: string | null;
+  startsAt: string;
+  endsAt: string;
+};
+
 export type PublicBookingLinkRow = {
   id: string;
   slug: string;

@@ -12,6 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { PublicRoomScheduleViewer } from '@/components/public-booking/PublicRoomScheduleViewer';
 import type { PublicBookingLinkPublic, PublicBookingMeetingMode, PublicBookingSlot } from '@/types/publicBooking';
 
 const todayString = () => format(new Date(), 'yyyy-MM-dd');
@@ -89,6 +90,7 @@ const PublicBookingPage = () => {
   );
 
   const isConsultation = link?.linkType === 'consultation_booking';
+  const isPartnerRoom = link?.linkType === 'partner_room';
 
   useEffect(() => {
     let mounted = true;
@@ -325,6 +327,19 @@ const PublicBookingPage = () => {
                   />
                 </div>
               </div>
+            )}
+
+            {isPartnerRoom && (
+              <PublicRoomScheduleViewer
+                slug={slug}
+                link={link}
+                accessCode={accessCode}
+                selectedDate={date}
+                onSelectDate={(nextDate) => {
+                  setDate(nextDate);
+                  setSelectedSlotKey('');
+                }}
+              />
             )}
 
             <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
