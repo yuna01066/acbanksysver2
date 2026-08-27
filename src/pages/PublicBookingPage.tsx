@@ -552,7 +552,16 @@ const PublicBookingPage = () => {
           </div>
         </section>
       </section>
+      {link.linkType === 'partner_room' && (
+        <PublicRoomScheduleSection
+          slug={slug}
+          date={date}
+          accessCode={accessCode}
+          className="mx-auto mt-4 max-w-5xl"
+        />
+      )}
     </main>
+
   );
 };
 
