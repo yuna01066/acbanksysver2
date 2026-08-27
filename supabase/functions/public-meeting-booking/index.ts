@@ -555,6 +555,159 @@ async function handleAvailability(origin: string | null, body: JsonObject, supab
   return ok(origin, { slots });
 }
 
+type ScheduleView = "month" | "week" | "day";
+
+function isScheduleView(value: string): value is ScheduleView {
+  return value === "month" || value === "week" || value === "day";
+}
+
+function seoulDateKey(value: Date) {
+  return value.toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
+}
+
+function seoulClock(value: Date) {
+  return value.toLocaleTimeString("en-GB", {
+    timeZone: "Asia/Seoul",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+function getScheduleRange(view: ScheduleView, date: string) {
+  const anchor = new Date(`${date}T00:00:00+09:00`);
+  if (view === "day") {
+    const end = addMinutes(anchor, 24 * 60);
+    return { start: anchor, end, startDate: date, endDate: seoulDateKey(addMinutes(end, -1)) };
+  }
+  if (view === "week") {
+    const weekday = Number(anchor.toLocaleDateString("en-US", { timeZone: "Asia/Seoul", weekday: "numeric" }).replace(/\D/g, "")) || 0;
+    const dayIndex = new Date(`${date}T12:00:00+09:00`).getUTCDay();
+    const offset = Number.isFinite(dayIndex) ? dayIndex : weekday;
+    const start = addMinutes(anchor, -offset * 24 * 60);
+    const end = addMinutes(start, 7 * 24 * 60);
+    return { start, end, startDate: seoulDateKey(start), endDate: seoulDateKey(addMinutes(end, -1)) };
+  }
+  const [year, month] = date.split("-").map(Number);
+  const start = new Date(`${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-01T00:00:00+09:00`);
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear = month === 12 ? year + 1 : year;
+  const end = new Date(`${String(nextYear).padStart(4, "0")}-${String(nextMonth).padStart(2, "0")}-01T00:00:00+09:00`);
+  return { start, end, startDate: seoulDateKey(start), endDate: seoulDateKey(addMinutes(end, -1)) };
+}
+
+async function handleGetSchedule(origin: string | null, body: JsonObject, supabase: ReturnType<typeof getServiceClient>) {
+  const slug = text(body.slug, 100);
+  const rawView = text(body.view, 10) || "month";
+  const date = getDateOnly(body.date) || seoulDateKey(new Date());
+  if (!slug) return fail(origin, "예약 링크가 필요합니다.", 400);
+  if (!isScheduleView(rawView)) return fail(origin, "조회 단위가 올바르지 않습니다.", 400);
+
+  const link = await loadLink(supabase, slug);
+  assertLinkUsable(link);
+  if (!(await verifyAccessCode(link, body.accessCode))) return fail(origin, "접근 코드가 올바르지 않습니다.", 403);
+
+  const resources = await loadResources(supabase, link.allowed_resource_ids || []);
+  const resourceIds = resources.map((resource) => resource.id);
+  const resourceNames = new Map(resources.map((resource) => [resource.id, resource.name]));
+  const range = getScheduleRange(rawView, date);
+
+  const blocks: JsonObject[] = [];
+
+  if (resourceIds.length > 0) {
+    const { data: eventLinks, error: linkError } = await supabase
+      .from("calendar_event_resources")
+      .select("event_id, resource_id")
+      .in("resource_id", resourceIds);
+    if (linkError) throw linkError;
+
+    const eventIds = [...new Set((eventLinks || []).map((row: { event_id: string }) => row.event_id))];
+    if (eventIds.length > 0) {
+      const { data: events, error: eventError } = await supabase
+        .from("calendar_events")
+        .select("id, starts_at, ends_at, all_day, status, source_type")
+        .in("id", eventIds)
+        .lt("starts_at", range.end.toISOString())
+        .gt("ends_at", range.start.toISOString())
+        .order("starts_at", { ascending: true });
+      if (eventError) throw eventError;
+
+      const eventById = new Map((events || []).map((event: JsonObject) => [String(event.id), event]));
+      for (const row of (eventLinks || []) as { event_id: string; resource_id: string }[]) {
+        const event = eventById.get(row.event_id);
+        if (!event) continue;
+        if (typeof event.status === "string" && event.status === "canceled") continue;
+        const startsAt = new Date(String(event.starts_at));
+        const endsAt = new Date(String(event.ends_at));
+        blocks.push({
+          id: `event:${row.event_id}:${row.resource_id}`,
+          kind: "confirmed",
+          resourceId: row.resource_id,
+          resourceName: resourceNames.get(row.resource_id) || "회의실",
+          date: seoulDateKey(startsAt),
+          startsAt: startsAt.toISOString(),
+          endsAt: endsAt.toISOString(),
+          allDay: Boolean(event.all_day),
+          time: seoulClock(startsAt),
+          label: event.all_day ? "종일 예약" : `${seoulClock(startsAt)} - ${seoulClock(endsAt)}`,
+          sourceType: event.source_type ?? null,
+        });
+      }
+    }
+  }
+
+  const { data: pending, error: pendingError } = await supabase
+    .from("public_booking_requests")
+    .select("id, starts_at, ends_at, resource_id, status")
+    .eq("link_id", link.id)
+    .eq("status", "pending_review")
+    .lt("starts_at", range.end.toISOString())
+    .gt("ends_at", range.start.toISOString())
+    .order("starts_at", { ascending: true });
+  if (pendingError) throw pendingError;
+
+  for (const row of (pending || []) as { id: string; starts_at: string; ends_at: string; resource_id: string | null }[]) {
+    const startsAt = new Date(row.starts_at);
+    const endsAt = new Date(row.ends_at);
+    blocks.push({
+      id: `request:${row.id}`,
+      kind: "pending",
+      resourceId: row.resource_id,
+      resourceName: row.resource_id ? resourceNames.get(row.resource_id) || "회의실" : "미지정",
+      date: seoulDateKey(startsAt),
+      startsAt: startsAt.toISOString(),
+      endsAt: endsAt.toISOString(),
+      allDay: false,
+      time: seoulClock(startsAt),
+      label: `${seoulClock(startsAt)} - ${seoulClock(endsAt)} (승인 대기)`,
+      sourceType: "public_booking_request",
+    });
+  }
+
+  blocks.sort((a, b) => String(a.startsAt).localeCompare(String(b.startsAt)));
+
+  return ok(origin, {
+    view: rawView,
+    range: {
+      startDate: range.startDate,
+      endDate: range.endDate,
+      startsAt: range.start.toISOString(),
+      endsAt: range.end.toISOString(),
+    },
+    resources: resources.map((resource) => ({ id: resource.id, name: resource.name, floor: resource.floor })),
+    rules: {
+      allowedWeekdays: link.allowed_weekdays,
+      startTime: link.start_time.slice(0, 5),
+      endTime: link.end_time.slice(0, 5),
+      slotMinutes: link.slot_minutes,
+      durationMinutes: link.duration_minutes,
+    },
+    blocks,
+  });
+}
+
+
+
 async function loadExistingConsultationByToken(
   supabase: ReturnType<typeof getServiceClient>,
   submissionToken: string | null,
