@@ -267,3 +267,12 @@ POST https://zwloyqcwyfkimwkohpnd.supabase.co/functions/v1/public-meeting-bookin
 - 스키마 검증: `scripts/lib/get-schedule-schema.mjs`
 - 통합 테스트: `scripts/test-get-schedule-integration.mjs` (month/week/day 200, 잘못된 입력 400, GET 405)
 - E2E: `tests/e2e/public-booking.spec.ts` 내 `public-meeting-booking get-schedule` describe 블록
+
+**응답 캐시 (성능)**
+
+- `get-schedule` 결과(blocks/range/resources/rules)는 `link_id : view : date` 키로 캐시됩니다.
+- 2단 구성: L1은 Edge Function 인스턴스 메모리, L2는 공용 테이블 `public_booking_schedule_cache`(service role 전용). 인스턴스가 교체되어도 L2에서 재사용됩니다.
+- TTL 기본 60초, 환경변수 `GET_SCHEDULE_CACHE_TTL_MS`로 조정(0 이하로 두면 캐시 비활성화).
+- 응답에 `cached`(boolean)와 캐시 적중 시 `cachedAt`(ISO)이 포함됩니다.
+- 예약 생성/승인/거절 시 해당 링크의 캐시를 즉시 무효화하므로 일정 변경이 지연 노출되지 않습니다.
+- 관련 로그 이벤트: `get-schedule.cache_hit`(`cacheSource`: memory|shared), `cache_store`, `cache_invalidated`, `cache_read_failed`, `cache_write_failed`.

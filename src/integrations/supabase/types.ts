@@ -6219,6 +6219,38 @@ export type Database = {
           },
         ]
       }
+      public_booking_schedule_cache: {
+        Row: {
+          cache_key: string
+          expires_at: string
+          link_id: string
+          payload: Json
+          stored_at: string
+        }
+        Insert: {
+          cache_key: string
+          expires_at: string
+          link_id: string
+          payload: Json
+          stored_at?: string
+        }
+        Update: {
+          cache_key?: string
+          expires_at?: string
+          link_id?: string
+          payload?: Json
+          stored_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "public_booking_schedule_cache_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "public_booking_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quote_activity_history: {
         Row: {
           action_type: string
