@@ -1075,7 +1075,9 @@ async function handleCreateRequest(req: Request, origin: string | null, body: Js
   }
 
   const requestForNotification = { ...requestRow, status: nextStatus } as PublicBookingRequest;
+  invalidateScheduleCache(link.id);
   await notifyTargets(supabase, link, requestForNotification, nextStatus === "confirmed" ? "confirmed" : "pending");
+
 
   return ok(origin, {
     requestId: requestRow.id,
