@@ -143,6 +143,58 @@ function fail(origin: string | null, message: string, status = 400, extra: JsonO
   return ok(origin, { error: message, ...extra }, status);
 }
 
+// ---------- telemetry ----------
+const SCHEDULE_TIMEOUT_MS = Number(Deno.env.get("GET_SCHEDULE_TIMEOUT_MS") || 8000);
+
+type TelemetryLevel = "info" | "warn" | "error";
+
+function logEvent(level: TelemetryLevel, event: string, fields: JsonObject = {}) {
+  const payload = JSON.stringify({
+    fn: "public-meeting-booking",
+    event,
+    level,
+    at: new Date().toISOString(),
+    ...fields,
+  });
+  if (level === "error") console.error(payload);
+  else if (level === "warn") console.warn(payload);
+  else console.log(payload);
+}
+
+function errorFields(error: unknown): JsonObject {
+  if (error instanceof Error) {
+    return {
+      errorName: error.name,
+      errorMessage: error.message,
+      errorCode: (error as { code?: string }).code ?? null,
+      stack: error.stack?.split("\n").slice(0, 5).join(" | ") ?? null,
+    };
+  }
+  return { errorName: "Unknown", errorMessage: String(error) };
+}
+
+class ScheduleTimeoutError extends Error {
+  constructor(public readonly timeoutMs: number) {
+    super(`get-schedule timed out after ${timeoutMs}ms`);
+    this.name = "ScheduleTimeoutError";
+  }
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timer: number | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new ScheduleTimeoutError(timeoutMs)), timeoutMs) as unknown as number;
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
+
 function asObject(value: unknown): JsonObject {
   return value && typeof value === "object" && !Array.isArray(value) ? value as JsonObject : {};
 }
@@ -594,16 +646,36 @@ function getScheduleRange(view: ScheduleView, date: string) {
   return { start, end, startDate: seoulDateKey(start), endDate: seoulDateKey(addMinutes(end, -1)) };
 }
 
-async function handleGetSchedule(origin: string | null, body: JsonObject, supabase: ReturnType<typeof getServiceClient>) {
+async function handleGetSchedule(
+  origin: string | null,
+  body: JsonObject,
+  supabase: ReturnType<typeof getServiceClient>,
+  traceId = crypto.randomUUID(),
+) {
   const slug = text(body.slug, 100);
   const rawView = text(body.view, 10) || "month";
+  const rawDate = text(body.date, 20);
   const date = getDateOnly(body.date) || seoulDateKey(new Date());
-  if (!slug) return fail(origin, "예약 링크가 필요합니다.", 400);
-  if (!isScheduleView(rawView)) return fail(origin, "조회 단위가 올바르지 않습니다.", 400);
+  if (!slug) {
+    logEvent("warn", "get-schedule.validation_failed", { traceId, reason: "missing_slug", view: rawView });
+    return fail(origin, "예약 링크가 필요합니다.", 400, { traceId });
+  }
+  if (!isScheduleView(rawView)) {
+    logEvent("warn", "get-schedule.validation_failed", { traceId, reason: "invalid_view", slug, view: rawView });
+    return fail(origin, "조회 단위가 올바르지 않습니다.", 400, { traceId });
+  }
+  if (rawDate && !getDateOnly(body.date)) {
+    logEvent("warn", "get-schedule.validation_failed", { traceId, reason: "invalid_date", slug, date: rawDate });
+    return fail(origin, "조회 날짜 형식이 올바르지 않습니다.", 400, { traceId });
+  }
 
   const link = await loadLink(supabase, slug);
   assertLinkUsable(link);
-  if (!(await verifyAccessCode(link, body.accessCode))) return fail(origin, "접근 코드가 올바르지 않습니다.", 403);
+  if (!(await verifyAccessCode(link, body.accessCode))) {
+    logEvent("warn", "get-schedule.access_denied", { traceId, slug, reason: "invalid_access_code" });
+    return fail(origin, "접근 코드가 올바르지 않습니다.", 403, { traceId });
+  }
+
 
   const resources = await loadResources(supabase, link.allowed_resource_ids || []);
   const resourceIds = resources.map((resource) => resource.id);
@@ -1008,21 +1080,59 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders(origin) });
   if (req.method !== "POST") return fail(origin, "Method not allowed", 405);
 
+  const traceId = crypto.randomUUID();
+  const startedAt = Date.now();
+  let action = "";
+
   try {
     const supabase = getServiceClient();
     const body = asObject(await req.json().catch(() => ({})));
-    const action = text(body.action, 80);
+    action = text(body.action, 80);
 
     if (action === "get-link") return await handleGetLink(origin, body, supabase);
     if (action === "get-availability") return await handleAvailability(origin, body, supabase);
-    if (action === "get-schedule") return await handleGetSchedule(origin, body, supabase);
+    if (action === "get-schedule") {
+      logEvent("info", "get-schedule.started", {
+        traceId,
+        slug: text(body.slug, 100) || null,
+        view: text(body.view, 10) || "month",
+        date: text(body.date, 20) || null,
+        origin,
+      });
+      const response = await withTimeout(
+        handleGetSchedule(origin, body, supabase, traceId),
+        SCHEDULE_TIMEOUT_MS,
+      );
+      logEvent(response.status >= 400 ? "warn" : "info", "get-schedule.completed", {
+        traceId,
+        status: response.status,
+        durationMs: Date.now() - startedAt,
+      });
+      return response;
+    }
     if (action === "create-request") return await handleCreateRequest(req, origin, body, supabase);
     if (action === "confirm-request") return await handleConfirmRequest(req, origin, body, supabase);
     if (action === "reject-request") return await handleRejectRequest(req, origin, body, supabase);
 
     return fail(origin, "지원하지 않는 요청입니다.", 400);
   } catch (error) {
-    console.error("public-meeting-booking failed", error);
-    return fail(origin, error instanceof Error ? error.message : "예약 처리에 실패했습니다.", 500);
+    const durationMs = Date.now() - startedAt;
+    if (error instanceof ScheduleTimeoutError) {
+      logEvent("error", "get-schedule.timeout", {
+        traceId,
+        durationMs,
+        timeoutMs: error.timeoutMs,
+        ...errorFields(error),
+      });
+      return fail(origin, "일정 조회 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.", 504, { traceId });
+    }
+    logEvent("error", action === "get-schedule" ? "get-schedule.failed" : "request.failed", {
+      traceId,
+      action: action || null,
+      durationMs,
+      ...errorFields(error),
+    });
+    return fail(origin, error instanceof Error ? error.message : "예약 처리에 실패했습니다.", 500, { traceId });
   }
+
 });
