@@ -4,7 +4,9 @@ import { ko } from 'date-fns/locale';
 import { CalendarCheck2, CheckCircle2, Clock3, Loader2, LockKeyhole, MapPin, Phone, Send, UserRound, Video } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import PublicRoomScheduleSection from '@/components/meeting/PublicRoomScheduleSection';
 import { cn } from '@/lib/utils';
+
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -552,7 +554,16 @@ const PublicBookingPage = () => {
           </div>
         </section>
       </section>
+      {link.linkType === 'partner_room' && (
+        <PublicRoomScheduleSection
+          slug={slug}
+          date={date}
+          accessCode={accessCode}
+          className="mx-auto mt-4 max-w-5xl"
+        />
+      )}
     </main>
+
   );
 };
 
