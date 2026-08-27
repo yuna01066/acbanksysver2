@@ -195,7 +195,54 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
 }
 
 
+// ---------- get-schedule in-memory cache ----------
+const SCHEDULE_CACHE_TTL_MS = Number(Deno.env.get("GET_SCHEDULE_CACHE_TTL_MS") || 60000);
+const SCHEDULE_CACHE_MAX_ENTRIES = 200;
+
+type ScheduleCacheEntry = { payload: JsonObject; storedAt: number; expiresAt: number };
+const scheduleCache = new Map<string, ScheduleCacheEntry>();
+
+function readScheduleCache(key: string): ScheduleCacheEntry | null {
+  if (SCHEDULE_CACHE_TTL_MS <= 0) return null;
+  const entry = scheduleCache.get(key);
+  if (!entry) return null;
+  if (entry.expiresAt <= Date.now()) {
+    scheduleCache.delete(key);
+    return null;
+  }
+  return entry;
+}
+
+function writeScheduleCache(key: string, payload: JsonObject) {
+  if (SCHEDULE_CACHE_TTL_MS <= 0) return;
+  const now = Date.now();
+  scheduleCache.set(key, { payload, storedAt: now, expiresAt: now + SCHEDULE_CACHE_TTL_MS });
+  if (scheduleCache.size > SCHEDULE_CACHE_MAX_ENTRIES) {
+    for (const [cacheKey, entry] of scheduleCache) {
+      if (entry.expiresAt <= now) scheduleCache.delete(cacheKey);
+    }
+    while (scheduleCache.size > SCHEDULE_CACHE_MAX_ENTRIES) {
+      const oldest = scheduleCache.keys().next();
+      if (oldest.done) break;
+      scheduleCache.delete(oldest.value);
+    }
+  }
+}
+
+function invalidateScheduleCache(linkId: string | null | undefined) {
+  if (!linkId) return;
+  let removed = 0;
+  for (const key of [...scheduleCache.keys()]) {
+    if (key.startsWith(`${linkId}:`)) {
+      scheduleCache.delete(key);
+      removed += 1;
+    }
+  }
+  if (removed > 0) logEvent("info", "get-schedule.cache_invalidated", { linkId, removed });
+}
+
 function asObject(value: unknown): JsonObject {
+
   return value && typeof value === "object" && !Array.isArray(value) ? value as JsonObject : {};
 }
 
