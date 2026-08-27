@@ -581,9 +581,7 @@ function getScheduleRange(view: ScheduleView, date: string) {
     return { start: anchor, end, startDate: date, endDate: seoulDateKey(addMinutes(end, -1)) };
   }
   if (view === "week") {
-    const weekday = Number(anchor.toLocaleDateString("en-US", { timeZone: "Asia/Seoul", weekday: "numeric" }).replace(/\D/g, "")) || 0;
-    const dayIndex = new Date(`${date}T12:00:00+09:00`).getUTCDay();
-    const offset = Number.isFinite(dayIndex) ? dayIndex : weekday;
+    const offset = new Date(`${date}T12:00:00+09:00`).getUTCDay();
     const start = addMinutes(anchor, -offset * 24 * 60);
     const end = addMinutes(start, 7 * 24 * 60);
     return { start, end, startDate: seoulDateKey(start), endDate: seoulDateKey(addMinutes(end, -1)) };
