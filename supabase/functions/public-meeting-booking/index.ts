@@ -143,6 +143,58 @@ function fail(origin: string | null, message: string, status = 400, extra: JsonO
   return ok(origin, { error: message, ...extra }, status);
 }
 
+// ---------- telemetry ----------
+const SCHEDULE_TIMEOUT_MS = Number(Deno.env.get("GET_SCHEDULE_TIMEOUT_MS") || 8000);
+
+type TelemetryLevel = "info" | "warn" | "error";
+
+function logEvent(level: TelemetryLevel, event: string, fields: JsonObject = {}) {
+  const payload = JSON.stringify({
+    fn: "public-meeting-booking",
+    event,
+    level,
+    at: new Date().toISOString(),
+    ...fields,
+  });
+  if (level === "error") console.error(payload);
+  else if (level === "warn") console.warn(payload);
+  else console.log(payload);
+}
+
+function errorFields(error: unknown): JsonObject {
+  if (error instanceof Error) {
+    return {
+      errorName: error.name,
+      errorMessage: error.message,
+      errorCode: (error as { code?: string }).code ?? null,
+      stack: error.stack?.split("\n").slice(0, 5).join(" | ") ?? null,
+    };
+  }
+  return { errorName: "Unknown", errorMessage: String(error) };
+}
+
+class ScheduleTimeoutError extends Error {
+  constructor(public readonly timeoutMs: number) {
+    super(`get-schedule timed out after ${timeoutMs}ms`);
+    this.name = "ScheduleTimeoutError";
+  }
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timer: number | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new ScheduleTimeoutError(timeoutMs)), timeoutMs) as unknown as number;
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
+
 function asObject(value: unknown): JsonObject {
   return value && typeof value === "object" && !Array.isArray(value) ? value as JsonObject : {};
 }
