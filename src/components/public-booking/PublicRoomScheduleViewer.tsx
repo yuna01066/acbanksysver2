@@ -2,20 +2,28 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   addDays,
   addMonths,
-  addWeeks,
   eachDayOfInterval,
   endOfMonth,
   endOfWeek,
   format,
-  isSameDay,
+  isBefore,
   isSameMonth,
+  isToday,
+  startOfDay,
   startOfMonth,
   startOfWeek,
   subMonths,
-  subWeeks,
 } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Loader2 } from 'lucide-react';
+import {
+  CalendarDays,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  Loader2,
+  LockKeyhole,
+} from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -24,6 +32,7 @@ import type {
   PublicBookingLinkPublic,
   PublicBookingScheduleBlock,
   PublicBookingScheduleView,
+  PublicBookingSlot,
 } from '@/types/publicBooking';
 
 type PublicRoomScheduleViewerProps = {
@@ -31,10 +40,15 @@ type PublicRoomScheduleViewerProps = {
   link: PublicBookingLinkPublic;
   accessCode: string;
   selectedDate: string;
+  slots: PublicBookingSlot[];
+  selectedSlotKey: string;
+  isSlotsLoading: boolean;
   onSelectDate: (date: string) => void;
+  onSelectSlot: (slotKey: string) => void;
 };
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+const ROOM_COLORS = ['#111827', '#64748b', '#0f766e', '#92400e'];
 
 function dateKey(date: Date) {
   return format(date, 'yyyy-MM-dd');
@@ -77,10 +91,20 @@ function overlaps(block: PublicBookingScheduleBlock, startsAt: Date, endsAt: Dat
   return blockStart < endsAt && blockEnd > startsAt;
 }
 
+function containsTime(block: PublicBookingScheduleBlock, value: Date) {
+  const blockStart = new Date(block.startsAt);
+  const blockEnd = new Date(block.endsAt);
+  return blockStart <= value && blockEnd > value;
+}
+
 function formatBlockTime(block: PublicBookingScheduleBlock) {
   const startsAt = new Date(block.startsAt);
   const endsAt = new Date(block.endsAt);
   return `${format(startsAt, 'HH:mm')} - ${format(endsAt, 'HH:mm')}`;
+}
+
+function getSlotKey(slot: PublicBookingSlot) {
+  return `${slot.meetingMode}:${slot.resourceId || 'none'}:${slot.time}`;
 }
 
 function getRangeLabel(view: PublicBookingScheduleView, anchorDate: Date) {
@@ -93,24 +117,43 @@ function getRangeLabel(view: PublicBookingScheduleView, anchorDate: Date) {
   return format(anchorDate, 'M월 d일 EEEE', { locale: ko });
 }
 
+function getResourceColor(resourceId: string, resourceIds: string[]) {
+  const index = Math.max(0, resourceIds.indexOf(resourceId));
+  return ROOM_COLORS[index % ROOM_COLORS.length];
+}
+
+function getStatusLabel(status: PublicBookingScheduleBlock['status']) {
+  return status === 'pending_review' ? '승인 대기' : '사용 중';
+}
+
+function getBlockDateKey(block: PublicBookingScheduleBlock) {
+  return format(new Date(block.startsAt), 'yyyy-MM-dd');
+}
+
 export function PublicRoomScheduleViewer({
   slug,
   link,
   accessCode,
   selectedDate,
+  slots,
+  selectedSlotKey,
+  isSlotsLoading,
   onSelectDate,
+  onSelectSlot,
 }: PublicRoomScheduleViewerProps) {
   const [view, setView] = useState<PublicBookingScheduleView>('month');
-  const [anchorDate, setAnchorDate] = useState(() => parseDateKey(selectedDate));
+  const [anchorDate, setAnchorDate] = useState(() => startOfMonth(parseDateKey(selectedDate)));
   const [blocks, setBlocks] = useState<PublicBookingScheduleBlock[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
   const isLocked = link.requiresAccessCode && !accessCode.trim();
+  const selectedDateValue = useMemo(() => parseDateKey(selectedDate), [selectedDate]);
+  const resourceIds = useMemo(() => link.resources.map((resource) => resource.id), [link.resources]);
 
   useEffect(() => {
     const nextDate = parseDateKey(selectedDate);
-    setAnchorDate((current) => (isSameDay(nextDate, current) ? current : nextDate));
+    setAnchorDate((current) => (isSameMonth(nextDate, current) ? current : startOfMonth(nextDate)));
   }, [selectedDate]);
 
   useEffect(() => {
@@ -129,7 +172,7 @@ export function PublicRoomScheduleViewer({
             action: 'get-schedule',
             slug,
             view,
-            date: dateKey(anchorDate),
+            date: dateKey(view === 'month' ? anchorDate : selectedDateValue),
             accessCode,
           },
         });
@@ -150,12 +193,12 @@ export function PublicRoomScheduleViewer({
     return () => {
       mounted = false;
     };
-  }, [accessCode, anchorDate, isLocked, slug, view]);
+  }, [accessCode, anchorDate, isLocked, selectedDateValue, slug, view]);
 
   const blocksByDate = useMemo(() => {
     const grouped = new Map<string, PublicBookingScheduleBlock[]>();
     blocks.forEach((block) => {
-      const key = format(new Date(block.startsAt), 'yyyy-MM-dd');
+      const key = getBlockDateKey(block);
       const current = grouped.get(key) || [];
       current.push(block);
       grouped.set(key, current);
@@ -171,10 +214,34 @@ export function PublicRoomScheduleViewer({
   }, [anchorDate]);
 
   const weekDays = useMemo(() => {
-    const start = startOfWeek(anchorDate, { weekStartsOn: 0 });
-    const end = endOfWeek(anchorDate, { weekStartsOn: 0 });
+    const start = startOfWeek(selectedDateValue, { weekStartsOn: 0 });
+    const end = endOfWeek(selectedDateValue, { weekStartsOn: 0 });
     return eachDayOfInterval({ start, end });
-  }, [anchorDate]);
+  }, [selectedDateValue]);
+
+  const visibleDays = view === 'week' ? weekDays : view === 'day' ? [selectedDateValue] : monthDays;
+  const selectedDayBlocks = blocksByDate.get(selectedDate) || [];
+
+  const blocksByResourceForSelectedDate = useMemo(() => {
+    const grouped = new Map<string, PublicBookingScheduleBlock[]>();
+    selectedDayBlocks.forEach((block) => {
+      const current = grouped.get(block.resourceId) || [];
+      current.push(block);
+      grouped.set(block.resourceId, current);
+    });
+    grouped.forEach((items) => items.sort((a, b) => a.startsAt.localeCompare(b.startsAt)));
+    return grouped;
+  }, [selectedDayBlocks]);
+
+  const selectedDateSlots = useMemo(
+    () => [...slots].sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
+    [slots],
+  );
+
+  const availableResourceCount = useMemo(() => {
+    const resourceSet = new Set(selectedDateSlots.map((slot) => slot.resourceId).filter(Boolean));
+    return resourceSet.size;
+  }, [selectedDateSlots]);
 
   const timeRows = useMemo(() => {
     const start = clockToMinutes(link.rules.startTime);
@@ -186,223 +253,356 @@ export function PublicRoomScheduleViewer({
     return rows;
   }, [link.rules.durationMinutes, link.rules.endTime, link.rules.slotMinutes, link.rules.startTime]);
 
+  const todayKey = dateKey(new Date());
+  const todayBlocks = blocksByDate.get(todayKey) || [];
+  const now = new Date();
+  const roomsInUseNow = new Set(todayBlocks.filter((block) => containsTime(block, now)).map((block) => block.resourceId)).size;
+  const nextAvailableSlot = selectedDateSlots.find((slot) => new Date(slot.startsAt) > now) || selectedDateSlots[0] || null;
+
   const moveRange = (direction: -1 | 1) => {
-    setAnchorDate((current) => {
-      if (view === 'month') return direction > 0 ? addMonths(current, 1) : subMonths(current, 1);
-      if (view === 'week') return direction > 0 ? addWeeks(current, 1) : subWeeks(current, 1);
-      return addDays(current, direction);
-    });
+    if (view === 'month') {
+      setAnchorDate((current) => (direction > 0 ? addMonths(current, 1) : subMonths(current, 1)));
+      return;
+    }
+
+    const nextDate = addDays(selectedDateValue, direction * (view === 'week' ? 7 : 1));
+    setAnchorDate(startOfMonth(nextDate));
+    onSelectDate(dateKey(nextDate));
   };
 
-  const selectDate = (date: Date, nextView?: PublicBookingScheduleView) => {
-    setAnchorDate(date);
-    onSelectDate(dateKey(date));
-    if (nextView) setView(nextView);
+  const selectDate = (date: Date) => {
+    const key = dateKey(date);
+    onSelectDate(key);
+  };
+
+  const goToday = () => {
+    const today = new Date();
+    setAnchorDate(startOfMonth(today));
+    onSelectDate(dateKey(today));
+  };
+
+  const renderCalendarDot = (block: PublicBookingScheduleBlock, index: number) => {
+    const color = getResourceColor(block.resourceId, resourceIds);
+    return (
+      <span
+        key={`${block.resourceId}-${block.startsAt}-${index}`}
+        title={`${block.resourceName} ${getStatusLabel(block.status)} ${formatBlockTime(block)}`}
+        className={cn(
+          'h-2.5 w-2.5 shrink-0 rounded-full',
+          block.status === 'pending_review' && 'border border-dashed bg-transparent',
+        )}
+        style={{
+          backgroundColor: block.status === 'confirmed' ? color : 'transparent',
+          borderColor: color,
+        }}
+      />
+    );
   };
 
   return (
-    <section className="rounded-lg border border-border bg-card p-4 shadow-none">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <CalendarDays className="h-4 w-4 text-muted-foreground" />
-            <h2 className="font-bold">회의실 이용 시간표</h2>
-            {isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+    <section className="rounded-lg border border-border bg-card shadow-none">
+      <div className="border-b border-border p-4 sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-muted-foreground" />
+              <h2 className="font-bold">회의실 이용 시간표</h2>
+              {isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              내부 일정 제목은 숨기고 회의실 점유 상태만 표시합니다.
+            </p>
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            내부 일정 상세는 숨기고 회의실 사용 여부만 표시합니다.
-          </p>
+          <div className="inline-flex rounded-full border border-border bg-background p-1">
+            {(['month', 'week', 'day'] as PublicBookingScheduleView[]).map((item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => setView(item)}
+                className={cn(
+                  'h-8 rounded-full px-3 text-xs font-semibold transition-colors',
+                  view === item
+                    ? 'bg-foreground text-background'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                )}
+              >
+                {item === 'month' ? '월간' : item === 'week' ? '주간' : '일간'}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {(['month', 'week', 'day'] as PublicBookingScheduleView[]).map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => setView(item)}
-              className={cn(
-                'h-8 rounded-full border px-3 text-xs font-semibold transition-colors',
-                view === item
-                  ? 'border-foreground bg-foreground text-background'
-                  : 'border-border bg-background text-muted-foreground hover:border-foreground/30 hover:text-foreground',
-              )}
-            >
-              {item === 'month' ? '월간' : item === 'week' ? '주간' : '일간'}
-            </button>
-          ))}
-        </div>
-      </div>
 
-      <div className="mt-4 flex items-center justify-between gap-3">
-        <Button type="button" variant="outline" size="icon" className="h-9 w-9 rounded-full" onClick={() => moveRange(-1)}>
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <button
-          type="button"
-          className="rounded-full border border-border bg-background px-4 py-2 text-sm font-bold"
-          onClick={() => selectDate(new Date())}
-        >
-          {getRangeLabel(view, anchorDate)}
-        </button>
-        <Button type="button" variant="outline" size="icon" className="h-9 w-9 rounded-full" onClick={() => moveRange(1)}>
-          <ChevronRight className="h-4 w-4" />
-        </Button>
+        <div className="mt-4 grid gap-2 sm:grid-cols-4">
+          <div className="rounded-lg border border-border bg-background p-3">
+            <p className="text-xs text-muted-foreground">오늘 예약</p>
+            <p className="mt-2 text-2xl font-bold">{todayBlocks.length}</p>
+          </div>
+          <div className="rounded-lg border border-border bg-background p-3">
+            <p className="text-xs text-muted-foreground">다음 가능 시간</p>
+            <p className="mt-2 truncate text-lg font-bold">
+              {nextAvailableSlot ? `${nextAvailableSlot.time} ${nextAvailableSlot.resourceName}` : '없음'}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border bg-background p-3">
+            <p className="text-xs text-muted-foreground">현재 사용 중</p>
+            <p className="mt-2 text-2xl font-bold">{roomsInUseNow}</p>
+          </div>
+          <div className="rounded-lg border border-border bg-background p-3">
+            <p className="text-xs text-muted-foreground">선택일 가능 회의실</p>
+            <p className="mt-2 text-2xl font-bold">{availableResourceCount}</p>
+          </div>
+        </div>
       </div>
 
       {isLocked ? (
-        <div className="mt-4 rounded-lg border border-dashed border-border bg-muted/20 p-4 text-center text-sm text-muted-foreground">
-          접근 코드를 입력하면 회의실 이용 시간표를 볼 수 있습니다.
+        <div className="p-5">
+          <div className="rounded-lg border border-dashed border-border bg-muted/20 p-5 text-center">
+            <LockKeyhole className="mx-auto h-5 w-5 text-muted-foreground" />
+            <p className="mt-2 text-sm font-semibold">접근 코드가 필요합니다.</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              코드를 입력하면 회의실 이용 시간표와 예약 가능 시간을 볼 수 있습니다.
+            </p>
+          </div>
         </div>
       ) : error ? (
-        <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-          {error}
-        </div>
-      ) : view === 'month' ? (
-        <div className="mt-4 overflow-hidden rounded-lg border border-border">
-          <div className="grid grid-cols-7 border-b border-border bg-muted/30 text-center text-xs font-semibold text-muted-foreground">
-            {WEEKDAYS.map((day) => (
-              <div key={day} className="py-2">{day}</div>
-            ))}
+        <div className="p-5">
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+            {error}
           </div>
-          <div className="grid grid-cols-7">
-            {monthDays.map((day) => {
-              const key = dateKey(day);
-              const dayBlocks = blocksByDate.get(key) || [];
-              const selected = selectedDate === key;
-              const visibleBlocks = dayBlocks.slice(0, 2);
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => selectDate(day, 'day')}
-                  className={cn(
-                    'min-h-24 border-b border-r border-border bg-card p-2 text-left transition-colors hover:bg-muted/30',
-                    !isSameMonth(day, anchorDate) && 'bg-muted/10 text-muted-foreground',
-                    selected && 'bg-foreground/[0.04] ring-1 ring-inset ring-foreground',
-                  )}
-                >
-                  <span className="text-sm font-bold">{format(day, 'd')}</span>
-                  <div className="mt-2 space-y-1">
-                    {visibleBlocks.map((block) => (
-                      <span
-                        key={`${block.resourceId}-${block.startsAt}`}
-                        className="block truncate rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground"
-                      >
-                        {format(new Date(block.startsAt), 'HH:mm')} {block.resourceName}
-                      </span>
-                    ))}
-                    {dayBlocks.length > visibleBlocks.length && (
-                      <span className="block text-[11px] font-semibold text-muted-foreground">
-                        +{dayBlocks.length - visibleBlocks.length}건
-                      </span>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      ) : view === 'week' ? (
-        <div className="mt-4 grid gap-2 sm:grid-cols-7">
-          {weekDays.map((day) => {
-            const key = dateKey(day);
-            const dayBlocks = blocksByDate.get(key) || [];
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => selectDate(day, 'day')}
-                className={cn(
-                  'min-h-40 rounded-lg border border-border bg-background p-3 text-left transition-colors hover:border-foreground/30',
-                  selectedDate === key && 'border-foreground',
-                )}
-              >
-                <span className="text-xs font-semibold text-muted-foreground">{format(day, 'EEE', { locale: ko })}</span>
-                <p className="mt-1 text-lg font-bold">{format(day, 'd')}</p>
-                <div className="mt-3 space-y-2">
-                  {dayBlocks.length > 0 ? dayBlocks.slice(0, 4).map((block) => (
-                    <div key={`${block.resourceId}-${block.startsAt}`} className="rounded-md border border-border bg-muted/30 px-2 py-1">
-                      <p className="truncate text-xs font-semibold">{block.resourceName}</p>
-                      <p className="text-[11px] text-muted-foreground">{formatBlockTime(block)}</p>
-                    </div>
-                  )) : (
-                    <p className="text-xs text-muted-foreground">예약 없음</p>
-                  )}
-                  {dayBlocks.length > 4 && (
-                    <Badge variant="outline" className="rounded-full text-[11px]">+{dayBlocks.length - 4}건</Badge>
-                  )}
-                </div>
-              </button>
-            );
-          })}
         </div>
       ) : (
-        <div className="mt-4 overflow-auto rounded-lg border border-border">
-          <div
-            className="grid min-w-[680px] border-b border-border bg-muted/30"
-            style={{ gridTemplateColumns: `90px repeat(${Math.max(link.resources.length, 1)}, minmax(150px, 1fr))` }}
-          >
-            <div className="px-3 py-2 text-xs font-semibold text-muted-foreground">시간</div>
-            {link.resources.map((resource) => (
-              <div key={resource.id} className="border-l border-border px-3 py-2 text-xs font-bold">
-                {resource.name}
+        <div className="grid gap-0 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="min-w-0 border-b border-border xl:border-b-0 xl:border-r">
+            <div className="flex flex-col gap-3 border-b border-border p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 rounded-full"
+                  onClick={() => moveRange(-1)}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <p className="min-w-32 text-center text-lg font-bold">{getRangeLabel(view, view === 'month' ? anchorDate : selectedDateValue)}</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 rounded-full"
+                  onClick={() => moveRange(1)}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button type="button" variant="ghost" className="h-9 rounded-full px-3 text-xs" onClick={goToday}>
+                  오늘
+                </Button>
               </div>
-            ))}
-          </div>
-          {timeRows.map((startMinutes) => {
-            const currentDate = dateKey(anchorDate);
-            const { startsAt, endsAt } = slotRange(currentDate, startMinutes, link.rules.durationMinutes);
-            return (
-              <div
-                key={startMinutes}
-                className="grid min-w-[680px] border-b border-border last:border-b-0"
-                style={{ gridTemplateColumns: `90px repeat(${Math.max(link.resources.length, 1)}, minmax(150px, 1fr))` }}
-              >
-                <div className="px-3 py-2 text-xs font-semibold text-muted-foreground">{minutesToClock(startMinutes)}</div>
-                {link.resources.map((resource) => {
-                  const busyBlock = blocks.find((block) => block.resourceId === resource.id && overlaps(block, startsAt, endsAt));
+              <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                {link.resources.map((resource) => (
+                  <span key={resource.id} className="inline-flex items-center gap-1.5">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: getResourceColor(resource.id, resourceIds) }}
+                    />
+                    {resource.name}
+                  </span>
+                ))}
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full border border-dashed border-foreground bg-transparent" />
+                  승인 대기
+                </span>
+              </div>
+            </div>
+
+            <div className="overflow-hidden">
+              {view !== 'day' && (
+                <div className="grid grid-cols-7 border-b border-border bg-muted/20 text-center text-xs font-semibold text-muted-foreground">
+                  {WEEKDAYS.map((day) => (
+                    <div key={day} className="py-2">{day}</div>
+                  ))}
+                </div>
+              )}
+              <div className={cn('grid', view === 'day' ? 'grid-cols-1' : 'grid-cols-7')}>
+                {visibleDays.map((day) => {
+                  const key = dateKey(day);
+                  const dayBlocks = blocksByDate.get(key) || [];
+                  const selected = selectedDate === key;
+                  const visibleBlocks = dayBlocks.slice(0, view === 'day' ? 12 : 4);
+                  const isPast = isBefore(startOfDay(day), startOfDay(new Date()));
                   return (
                     <button
-                      key={`${resource.id}-${startMinutes}`}
+                      key={key}
                       type="button"
-                      onClick={() => !busyBlock && onSelectDate(currentDate)}
+                      onClick={() => selectDate(day)}
+                      disabled={isPast}
                       className={cn(
-                        'border-l border-border px-3 py-2 text-left text-xs transition-colors',
-                        busyBlock
-                          ? 'bg-muted/50 text-muted-foreground'
-                          : 'bg-card text-foreground hover:bg-muted/20',
+                        'min-h-28 border-b border-r border-border bg-card p-3 text-left transition-colors last:border-r-0 hover:bg-muted/20 disabled:cursor-not-allowed disabled:opacity-50',
+                        view === 'day' && 'min-h-0 border-r-0',
+                        view === 'week' && 'min-h-44',
+                        !isSameMonth(day, anchorDate) && view === 'month' && 'bg-muted/10 text-muted-foreground',
+                        selected && 'bg-foreground/[0.04] ring-1 ring-inset ring-foreground',
                       )}
                     >
-                      {busyBlock ? (
-                        <>
-                          <span className="font-bold">사용 중</span>
-                          <span className="mt-0.5 block text-[11px]">{formatBlockTime(busyBlock)}</span>
-                        </>
-                      ) : (
-                        <span className="font-semibold">예약 가능</span>
+                      <div className="flex items-center justify-between gap-2">
+                        <span
+                          className={cn(
+                            'flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold',
+                            isToday(day) && 'bg-foreground text-background',
+                          )}
+                        >
+                          {format(day, 'd')}
+                        </span>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {visibleBlocks.map((block, index) => renderCalendarDot(block, index))}
+                        {dayBlocks.length > visibleBlocks.length && (
+                          <span className="text-[11px] font-semibold text-muted-foreground">
+                            +{dayBlocks.length - visibleBlocks.length}
+                          </span>
+                        )}
+                      </div>
+                      {view === 'day' && (
+                        <div className="mt-4 overflow-auto rounded-lg border border-border">
+                          <div
+                            className="grid min-w-[620px] border-b border-border bg-muted/20"
+                            style={{ gridTemplateColumns: `78px repeat(${Math.max(link.resources.length, 1)}, minmax(140px, 1fr))` }}
+                          >
+                            <div className="px-3 py-2 text-xs font-semibold text-muted-foreground">시간</div>
+                            {link.resources.map((resource) => (
+                              <div key={resource.id} className="border-l border-border px-3 py-2 text-xs font-bold">
+                                {resource.name}
+                              </div>
+                            ))}
+                          </div>
+                          {timeRows.map((startMinutes) => {
+                            const { startsAt, endsAt } = slotRange(key, startMinutes, link.rules.durationMinutes);
+                            return (
+                              <div
+                                key={startMinutes}
+                                className="grid min-w-[620px] border-b border-border last:border-b-0"
+                                style={{ gridTemplateColumns: `78px repeat(${Math.max(link.resources.length, 1)}, minmax(140px, 1fr))` }}
+                              >
+                                <div className="px-3 py-2 text-xs font-semibold text-muted-foreground">{minutesToClock(startMinutes)}</div>
+                                {link.resources.map((resource) => {
+                                  const busyBlock = dayBlocks.find((block) => block.resourceId === resource.id && overlaps(block, startsAt, endsAt));
+                                  return (
+                                    <span
+                                      key={`${resource.id}-${startMinutes}`}
+                                      className={cn(
+                                        'border-l border-border px-3 py-2 text-xs',
+                                        busyBlock
+                                          ? 'bg-muted/50 text-muted-foreground'
+                                          : 'bg-card text-foreground',
+                                      )}
+                                    >
+                                      {busyBlock ? getStatusLabel(busyBlock.status) : '예약 가능'}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })}
+                        </div>
                       )}
                     </button>
                   );
                 })}
               </div>
-            );
-          })}
+            </div>
+          </div>
+
+          <aside className="flex min-h-[520px] flex-col bg-card p-4">
+            <div className="flex items-start justify-between gap-3 border-b border-border pb-4">
+              <div>
+                <p className="text-lg font-bold">{format(selectedDateValue, 'M월 d일 EEEE', { locale: ko })}</p>
+                <p className="mt-1 text-xs text-muted-foreground">회의실별 사용 구간과 예약 가능 시간을 확인하세요.</p>
+              </div>
+              <Badge variant="outline" className="rounded-full">{selectedDayBlocks.length}건</Badge>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {link.resources.map((resource) => {
+                const resourceBlocks = blocksByResourceForSelectedDate.get(resource.id) || [];
+                const color = getResourceColor(resource.id, resourceIds);
+                return (
+                  <div key={resource.id} className="rounded-lg border border-border bg-background p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="inline-flex items-center gap-2 font-bold">
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+                        {resource.name}
+                      </span>
+                      <Badge variant="outline" className="rounded-full">
+                        {resourceBlocks.length > 0 ? `${resourceBlocks.length}건` : '비어 있음'}
+                      </Badge>
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      {resourceBlocks.length > 0 ? resourceBlocks.map((block) => (
+                        <div key={`${block.resourceId}-${block.startsAt}`} className="rounded-md border border-border bg-muted/20 px-3 py-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-semibold">{formatBlockTime(block)}</span>
+                            <Badge
+                              variant="outline"
+                              className={cn('rounded-full text-[11px]', block.status === 'pending_review' && 'border-dashed')}
+                            >
+                              {getStatusLabel(block.status)}
+                            </Badge>
+                          </div>
+                        </div>
+                      )) : (
+                        <p className="rounded-md border border-dashed border-border bg-card px-3 py-3 text-sm text-muted-foreground">
+                          선택한 날짜에 공개된 사용 구간이 없습니다.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-5 border-t border-border pt-4">
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-bold">예약 가능 시간</p>
+                {isSlotsLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+              </div>
+              <div className="mt-3 max-h-80 space-y-2 overflow-auto pr-1">
+                {selectedDateSlots.length > 0 ? selectedDateSlots.map((slot) => {
+                  const key = getSlotKey(slot);
+                  const selected = selectedSlotKey === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => onSelectSlot(key)}
+                      className={cn(
+                        'w-full rounded-lg border px-3 py-3 text-left transition-colors',
+                        selected
+                          ? 'border-foreground bg-foreground text-background'
+                          : 'border-border bg-background hover:border-foreground/30 hover:bg-muted/20',
+                      )}
+                    >
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="inline-flex items-center gap-2 text-sm font-bold">
+                          <Clock3 className="h-3.5 w-3.5" />
+                          {slot.label}
+                        </span>
+                        {selected && <CheckCircle2 className="h-4 w-4" />}
+                      </span>
+                      <span className={cn('mt-1 block text-xs', selected ? 'text-background/70' : 'text-muted-foreground')}>
+                        {slot.resourceName}
+                      </span>
+                    </button>
+                  );
+                }) : (
+                  <div className="rounded-lg border border-dashed border-border bg-background p-4 text-center text-sm text-muted-foreground">
+                    {isSlotsLoading ? '예약 가능 시간을 확인하고 있습니다.' : '선택한 날짜에 예약 가능한 시간이 없습니다.'}
+                  </div>
+                )}
+              </div>
+            </div>
+          </aside>
         </div>
       )}
-
-      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <span className="inline-flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-foreground" />
-          사용 중
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full border border-border bg-card" />
-          예약 가능
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <Clock3 className="h-3 w-3" />
-          날짜를 선택하면 아래 예약 가능 시간이 갱신됩니다.
-        </span>
-      </div>
     </section>
   );
 }

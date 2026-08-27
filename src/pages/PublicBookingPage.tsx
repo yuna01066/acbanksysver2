@@ -262,7 +262,12 @@ const PublicBookingPage = () => {
 
   return (
     <main className="min-h-screen bg-[#f5f6f8] px-4 py-8 text-foreground sm:px-6">
-      <section className="mx-auto grid max-w-5xl gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+      <section
+        className={cn(
+          'mx-auto grid gap-4',
+          isPartnerRoom ? 'max-w-7xl' : 'max-w-5xl lg:grid-cols-[0.9fr_1.1fr]',
+        )}
+      >
         <aside className="rounded-lg border border-border bg-card p-5 shadow-none">
           <div className="flex items-start gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border bg-background">
@@ -279,7 +284,7 @@ const PublicBookingPage = () => {
             </div>
           </div>
 
-          <div className="mt-6 grid gap-3 text-sm">
+          <div className={cn('mt-6 grid gap-3 text-sm', isPartnerRoom && 'sm:grid-cols-3')}>
             <div className="rounded-lg border border-border bg-muted/30 p-3">
               <p className="font-semibold">예약 가능 시간</p>
               <p className="mt-1 text-muted-foreground">
@@ -335,66 +340,72 @@ const PublicBookingPage = () => {
                 link={link}
                 accessCode={accessCode}
                 selectedDate={date}
+                slots={slots}
+                selectedSlotKey={selectedSlotKey}
+                isSlotsLoading={isSlotsLoading}
                 onSelectDate={(nextDate) => {
                   setDate(nextDate);
                   setSelectedSlotKey('');
                 }}
+                onSelectSlot={setSelectedSlotKey}
               />
             )}
 
-            <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
-              <div className="space-y-2">
-                <Label htmlFor="date" className="text-sm font-semibold">날짜</Label>
-                <Input
-                  id="date"
-                  type="date"
-                  value={date}
-                  min={todayString()}
-                  max={maxDate}
-                  onChange={(event) => setDate(event.target.value)}
-                  className="h-11 rounded-lg"
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <Label className="text-sm font-semibold">예약 가능 시간</Label>
-                  {isSlotsLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+            {!isPartnerRoom && (
+              <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
+                <div className="space-y-2">
+                  <Label htmlFor="date" className="text-sm font-semibold">날짜</Label>
+                  <Input
+                    id="date"
+                    type="date"
+                    value={date}
+                    min={todayString()}
+                    max={maxDate}
+                    onChange={(event) => setDate(event.target.value)}
+                    className="h-11 rounded-lg"
+                  />
                 </div>
-                <div className="grid max-h-48 gap-2 overflow-auto rounded-lg border border-border bg-muted/20 p-2 sm:grid-cols-2">
-                  {slots.length > 0 ? slots.map((slot) => {
-                    const key = `${slot.meetingMode}:${slot.resourceId || 'none'}:${slot.time}`;
-                    const selected = selectedSlotKey === key;
-                    const ModeIcon = getMeetingModeIcon(slot.meetingMode);
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => setSelectedSlotKey(key)}
-                        className={cn(
-                          'rounded-lg border px-3 py-2 text-left text-sm transition-colors',
-                          selected
-                            ? 'border-foreground bg-foreground text-background'
-                            : 'border-border bg-card hover:border-foreground/30',
-                        )}
-                      >
-                        <span className="flex items-center gap-2 font-semibold">
-                          <Clock3 className="h-3.5 w-3.5" />
-                          {slot.label}
-                        </span>
-                        <span className={cn('mt-1 flex items-center gap-1 text-xs', selected ? 'text-background/70' : 'text-muted-foreground')}>
-                          <ModeIcon className="h-3 w-3" />
-                          {isConsultation ? `${getMeetingModeLabel(slot.meetingMode)} · ${slot.resourceName}` : slot.resourceName}
-                        </span>
-                      </button>
-                    );
-                  }) : (
-                    <div className="col-span-full rounded-lg border border-dashed border-border bg-card p-4 text-center text-sm text-muted-foreground">
-                      {link.requiresAccessCode && !accessCode.trim() ? '접근 코드를 입력하면 시간을 확인할 수 있습니다.' : '선택한 날짜에 예약 가능한 시간이 없습니다.'}
-                    </div>
-                  )}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label className="text-sm font-semibold">예약 가능 시간</Label>
+                    {isSlotsLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                  </div>
+                  <div className="grid max-h-48 gap-2 overflow-auto rounded-lg border border-border bg-muted/20 p-2 sm:grid-cols-2">
+                    {slots.length > 0 ? slots.map((slot) => {
+                      const key = `${slot.meetingMode}:${slot.resourceId || 'none'}:${slot.time}`;
+                      const selected = selectedSlotKey === key;
+                      const ModeIcon = getMeetingModeIcon(slot.meetingMode);
+                      return (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setSelectedSlotKey(key)}
+                          className={cn(
+                            'rounded-lg border px-3 py-2 text-left text-sm transition-colors',
+                            selected
+                              ? 'border-foreground bg-foreground text-background'
+                              : 'border-border bg-card hover:border-foreground/30',
+                          )}
+                        >
+                          <span className="flex items-center gap-2 font-semibold">
+                            <Clock3 className="h-3.5 w-3.5" />
+                            {slot.label}
+                          </span>
+                          <span className={cn('mt-1 flex items-center gap-1 text-xs', selected ? 'text-background/70' : 'text-muted-foreground')}>
+                            <ModeIcon className="h-3 w-3" />
+                            {isConsultation ? `${getMeetingModeLabel(slot.meetingMode)} · ${slot.resourceName}` : slot.resourceName}
+                          </span>
+                        </button>
+                      );
+                    }) : (
+                      <div className="col-span-full rounded-lg border border-dashed border-border bg-card p-4 text-center text-sm text-muted-foreground">
+                        {link.requiresAccessCode && !accessCode.trim() ? '접근 코드를 입력하면 시간을 확인할 수 있습니다.' : '선택한 날짜에 예약 가능한 시간이 없습니다.'}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {isConsultation && (
               <div className="grid gap-3 rounded-lg border border-border bg-muted/20 p-3">
