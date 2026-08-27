@@ -676,8 +676,22 @@ async function handleGetSchedule(
     return fail(origin, "접근 코드가 올바르지 않습니다.", 403, { traceId });
   }
 
+  const cacheKey = `${link.id}:${rawView}:${date}`;
+  const cached = readScheduleCache(cacheKey);
+  if (cached) {
+    logEvent("info", "get-schedule.cache_hit", {
+      traceId,
+      slug,
+      view: rawView,
+      date,
+      ageMs: Date.now() - cached.storedAt,
+      blocks: Array.isArray(cached.payload.blocks) ? cached.payload.blocks.length : 0,
+    });
+    return ok(origin, { ...cached.payload, cached: true, cachedAt: new Date(cached.storedAt).toISOString() });
+  }
 
   const resources = await loadResources(supabase, link.allowed_resource_ids || []);
+
   const resourceIds = resources.map((resource) => resource.id);
   const resourceNames = new Map(resources.map((resource) => [resource.id, resource.name]));
   const range = getScheduleRange(rawView, date);
