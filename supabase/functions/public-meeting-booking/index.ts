@@ -1144,7 +1144,9 @@ async function handleRejectRequest(req: Request, origin: string | null, body: Js
   }
 
   const link = asObject(requestRow.public_booking_links) as unknown as PublicBookingLink;
+  invalidateScheduleCache(link?.id ?? requestRow.link_id);
   if (link?.id) await notifyTargets(supabase, link, requestRow as PublicBookingRequest, "rejected");
+
 
   return ok(origin, { status: "rejected" });
 }
