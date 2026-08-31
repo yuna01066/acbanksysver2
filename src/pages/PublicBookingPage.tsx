@@ -289,7 +289,15 @@ const PublicBookingPage = () => {
 
   return (
     <main className="min-h-screen bg-[#f5f6f8] px-4 py-8 text-foreground sm:px-6">
+      <div className="mx-auto mb-3 flex max-w-5xl justify-end">
+        <Button asChild variant="outline" size="icon" className="h-9 w-9 rounded-full" title="관리자 운영 화면">
+          <RouterLink to="/public-booking-approvals" aria-label="관리자 운영 화면">
+            <ShieldCheck className="h-4 w-4" />
+          </RouterLink>
+        </Button>
+      </div>
       <section className="mx-auto grid max-w-5xl gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+
         <aside className="rounded-lg border border-border bg-card p-5 shadow-none">
           <div className="flex items-start gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border bg-background">
