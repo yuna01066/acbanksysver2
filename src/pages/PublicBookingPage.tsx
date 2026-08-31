@@ -4,7 +4,7 @@ import { ko } from 'date-fns/locale';
 import { CalendarCheck2, CheckCircle2, Clock3, Loader2, LockKeyhole, MapPin, Phone, Send, UserRound, Video } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import PublicRoomScheduleSection from '@/components/meeting/PublicRoomScheduleSection';
+import PublicRoomScheduleViewer from '@/components/meeting/PublicRoomScheduleViewer';
 import { cn } from '@/lib/utils';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -555,7 +555,7 @@ const PublicBookingPage = () => {
         </section>
       </section>
       {link.linkType === 'partner_room' && (
-        <PublicRoomScheduleSection
+        <PublicRoomScheduleViewer
           slug={slug}
           date={date}
           accessCode={accessCode}
