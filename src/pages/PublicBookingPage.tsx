@@ -596,6 +596,7 @@ const PublicBookingPage = () => {
           date={date}
           accessCode={accessCode}
           refreshToken={result?.status ? `${result.status}:${selectedSlotKey}` : ''}
+          onSelectSlot={handleCalendarSlotSelect}
           className="mx-auto mt-4 max-w-5xl"
         />
       )}
