@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { addDays, format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { CalendarCheck2, CheckCircle2, Clock3, Loader2, LockKeyhole, MapPin, Phone, Send, UserRound, Video } from 'lucide-react';
-import { useParams } from 'react-router-dom';
+import { CalendarCheck2, CheckCircle2, Clock3, Loader2, LockKeyhole, MapPin, Phone, Send, ShieldCheck, UserRound, Video } from 'lucide-react';
+import { Link as RouterLink, useParams } from 'react-router-dom';
+
 import { supabase } from '@/integrations/supabase/client';
 import PublicRoomScheduleViewer from '@/components/meeting/PublicRoomScheduleViewer';
 import { cn } from '@/lib/utils';
@@ -288,7 +289,15 @@ const PublicBookingPage = () => {
 
   return (
     <main className="min-h-screen bg-[#f5f6f8] px-4 py-8 text-foreground sm:px-6">
+      <div className="mx-auto mb-3 flex max-w-5xl justify-end">
+        <Button asChild variant="outline" size="icon" className="h-9 w-9 rounded-full" title="관리자 운영 화면">
+          <RouterLink to="/public-booking-approvals" aria-label="관리자 운영 화면">
+            <ShieldCheck className="h-4 w-4" />
+          </RouterLink>
+        </Button>
+      </div>
       <section className="mx-auto grid max-w-5xl gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+
         <aside className="rounded-lg border border-border bg-card p-5 shadow-none">
           <div className="flex items-start gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border bg-background">
@@ -334,6 +343,11 @@ const PublicBookingPage = () => {
                 {link.requiresApproval ? '관리자 확인 후 확정' : '빈 시간 자동 확정'}
               </p>
             </div>
+            <div className="rounded-lg border border-border bg-muted/30 p-3">
+              <p className="font-semibold">최소 사전 예약 시간</p>
+              <p className="mt-1 text-muted-foreground">{link.rules.minNoticeMinutes}분 전까지 예약 가능</p>
+            </div>
+
           </div>
         </aside>
 

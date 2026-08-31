@@ -26,6 +26,7 @@ export type PublicBookingLinkPublic = {
   title: string;
   description: string | null;
   isActive: boolean;
+  publicScheduleDetailsEnabled?: boolean;
   requiresApproval: boolean;
   requiresAccessCode: boolean;
   meetingModes: PublicBookingMeetingMode[];

@@ -29,6 +29,8 @@ type PublicBookingLink = {
   preview_title: string | null;
   preview_description: string | null;
   preview_image_url: string | null;
+  metadata: JsonObject | null;
+
 };
 type CalendarResource = {
   id: string;
@@ -397,6 +399,17 @@ function isConsultationLink(link: PublicBookingLink) {
   return link.link_type === "consultation_booking";
 }
 
+/**
+ * Partner-room links may opt into showing coarse booking context
+ * (company name + purpose) on the public schedule. Never contact info.
+ */
+function publicScheduleDetailsEnabled(link: PublicBookingLink) {
+  if (link.link_type !== "partner_room") return false;
+  const flag = (link.metadata || {})["public_schedule_details_enabled"];
+  return flag !== false;
+}
+
+
 function requiresResource(link: PublicBookingLink, meetingMode: MeetingMode) {
   return !isConsultationLink(link) || meetingMode === "visit";
 }
@@ -414,6 +427,8 @@ function publicLinkResponse(link: PublicBookingLink, resources: CalendarResource
     previewTitle: link.preview_title ?? null,
     previewDescription: link.preview_description ?? null,
     previewImageUrl: link.preview_image_url ?? null,
+    publicScheduleDetailsEnabled: publicScheduleDetailsEnabled(link),
+
     rules: {
       allowedWeekdays: link.allowed_weekdays,
       startTime: link.start_time.slice(0, 5),
@@ -812,6 +827,28 @@ async function handleGetSchedule(
   const range = getScheduleRange(rawView, date);
 
   const blocks: JsonObject[] = [];
+  const showDetails = publicScheduleDetailsEnabled(link);
+
+  // Coarse public context (company + purpose only) for confirmed bookings that
+  // originated from this public link. Never contact info or internal notes.
+  const detailByEventId = new Map<string, { company: string | null; purpose: string | null }>();
+  if (showDetails) {
+    const { data: confirmedRows, error: confirmedError } = await supabase
+      .from("public_booking_requests")
+      .select("calendar_event_id, company_name, purpose")
+      .eq("link_id", link.id)
+      .eq("status", "confirmed")
+      .not("calendar_event_id", "is", null)
+      .lt("starts_at", range.end.toISOString())
+      .gt("ends_at", range.start.toISOString());
+    if (confirmedError) throw confirmedError;
+    for (const row of (confirmedRows || []) as { calendar_event_id: string; company_name: string | null; purpose: string | null }[]) {
+      detailByEventId.set(String(row.calendar_event_id), {
+        company: row.company_name || null,
+        purpose: row.purpose || null,
+      });
+    }
+  }
 
   if (resourceIds.length > 0) {
     const { data: eventLinks, error: linkError } = await supabase
@@ -838,6 +875,7 @@ async function handleGetSchedule(
         if (typeof event.status === "string" && event.status === "canceled") continue;
         const startsAt = new Date(String(event.starts_at));
         const endsAt = new Date(String(event.ends_at));
+        const detail = detailByEventId.get(row.event_id);
         blocks.push({
           id: `event:${row.event_id}:${row.resource_id}`,
           kind: "confirmed",
@@ -852,6 +890,12 @@ async function handleGetSchedule(
           time: seoulClock(startsAt),
           label: event.all_day ? "종일 예약" : `${seoulClock(startsAt)} - ${seoulClock(endsAt)}`,
           sourceType: event.source_type ?? null,
+          ...(showDetails && detail
+            ? {
+              publicCompanyName: detail.company ? text(detail.company, 60) : null,
+              publicPurpose: detail.purpose ? text(detail.purpose, 80) : null,
+            }
+            : {}),
         });
       }
     }
@@ -859,7 +903,7 @@ async function handleGetSchedule(
 
   const { data: pending, error: pendingError } = await supabase
     .from("public_booking_requests")
-    .select("id, starts_at, ends_at, resource_id, status")
+    .select("id, starts_at, ends_at, resource_id, status, company_name, purpose")
     .eq("link_id", link.id)
     .eq("status", "pending_review")
     .lt("starts_at", range.end.toISOString())
@@ -867,7 +911,16 @@ async function handleGetSchedule(
     .order("starts_at", { ascending: true });
   if (pendingError) throw pendingError;
 
-  for (const row of (pending || []) as { id: string; starts_at: string; ends_at: string; resource_id: string | null }[]) {
+  for (
+    const row of (pending || []) as {
+      id: string;
+      starts_at: string;
+      ends_at: string;
+      resource_id: string | null;
+      company_name: string | null;
+      purpose: string | null;
+    }[]
+  ) {
     const startsAt = new Date(row.starts_at);
     const endsAt = new Date(row.ends_at);
     blocks.push({
@@ -884,8 +937,15 @@ async function handleGetSchedule(
       time: seoulClock(startsAt),
       label: `${seoulClock(startsAt)} - ${seoulClock(endsAt)} (승인 대기)`,
       sourceType: "public_booking_request",
+      ...(showDetails
+        ? {
+          publicCompanyName: row.company_name ? text(row.company_name, 60) : null,
+          publicPurpose: row.purpose ? text(row.purpose, 80) : null,
+        }
+        : {}),
     });
   }
+
 
   blocks.sort((a, b) => String(a.startsAt).localeCompare(String(b.startsAt)));
 
@@ -898,6 +958,8 @@ async function handleGetSchedule(
       endsAt: range.end.toISOString(),
     },
     resources: resources.map((resource) => ({ id: resource.id, name: resource.name, floor: resource.floor })),
+    publicScheduleDetailsEnabled: showDetails,
+
     rules: {
       allowedWeekdays: link.allowed_weekdays,
       startTime: link.start_time.slice(0, 5),
