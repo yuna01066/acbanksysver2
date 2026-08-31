@@ -127,6 +127,24 @@ export function usePublicBookingRequests(enabled = true) {
   });
 }
 
+/** Processing history (requested / approved / rejected) for one public booking request. */
+export function usePublicBookingRequestEvents(requestId?: string | null) {
+  return useQuery<PublicBookingRequestEventRow[]>({
+    queryKey: ['public-booking-request-events', requestId],
+    queryFn: async () => {
+      const { data, error } = await supabaseAny
+        .from('public_booking_request_events')
+        .select('*')
+        .eq('request_id', requestId)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return (data || []) as PublicBookingRequestEventRow[];
+    },
+    enabled: Boolean(requestId),
+  });
+}
+
+
 export function useSavePublicBookingLink(userId?: string | null) {
   const queryClient = useQueryClient();
 
