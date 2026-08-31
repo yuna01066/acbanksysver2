@@ -80,8 +80,14 @@ function addDays(date: Date, days: number) {
   return next;
 }
 
-function seoulWeekday(dateKeyValue: string) {
-  return toDate(dateKeyValue).getUTCDay() === 0 ? 0 : toDate(dateKeyValue).getUTCDay();
+function weekdayIndex(dateKeyValue: string) {
+  const [year, month, day] = dateKeyValue.split('-').map(Number);
+  return new Date(Date.UTC(year, (month || 1) - 1, day || 1)).getUTCDay();
+}
+
+function resourceLabel(resource: ScheduleResource) {
+  if (resource.floor && !resource.name.includes(resource.floor)) return `${resource.floor} ${resource.name}`;
+  return resource.name;
 }
 
 function formatDayLabel(value: string) {
@@ -123,7 +129,7 @@ function seoulClock(iso: string) {
 function buildMonthCells(startDate: string, endDate: string) {
   const start = toDate(startDate);
   const end = toDate(endDate);
-  const leading = start.getUTCDay();
+  const leading = weekdayIndex(startDate);
   const cells: { key: string; inRange: boolean }[] = [];
   let cursor = addDays(start, -leading);
   while (cursor <= end || cells.length % 7 !== 0) {
@@ -239,7 +245,7 @@ const PublicRoomScheduleViewer = ({ slug, date, accessCode, className, refreshTo
     const close = rules?.endTime ? minutesFromClock(rules.endTime) : 18 * 60;
     const weekdayAllowed = !rules?.allowedWeekdays?.length
       ? true
-      : rules.allowedWeekdays.includes(seoulWeekday(activeDate));
+      : rules.allowedWeekdays.includes(weekdayIndex(activeDate));
 
     return resources.map((resource) => {
       const used = dayBlocks.filter((block) => block.resourceId === resource.id);
@@ -345,7 +351,7 @@ const PublicRoomScheduleViewer = ({ slug, date, accessCode, className, refreshTo
                       return (
                         <span
                           key={resource.id}
-                          title={`${resource.floor ? `${resource.floor} ` : ''}${resource.name} · ${STATUS_META[status].label} ${resourceBlocks.length}건`}
+                          title={`${resourceLabel(resource)} · ${STATUS_META[status].label} ${resourceBlocks.length}건`}
                           className={cn('h-2 w-2 rounded-full', STATUS_META[status].dot)}
                         />
                       );
@@ -360,7 +366,7 @@ const PublicRoomScheduleViewer = ({ slug, date, accessCode, className, refreshTo
               {resources.map((resource) => (
                 <span key={resource.id} className="flex items-center gap-1">
                   <span className="h-2 w-2 rounded-full bg-primary" />
-                  {resource.floor ? `${resource.floor} ` : ''}{resource.name}
+                  {resourceLabel(resource)}
                 </span>
               ))}
             </div>
@@ -376,7 +382,7 @@ const PublicRoomScheduleViewer = ({ slug, date, accessCode, className, refreshTo
             {dayDetail.map(({ resource, used, available, weekdayAllowed }) => (
               <div key={resource.id} className="rounded-lg border border-border bg-background p-3">
                 <p className="text-sm font-medium">
-                  {resource.floor ? `${resource.floor} · ` : ''}{resource.name}
+                  {resourceLabel(resource)}
                 </p>
                 <div className="mt-2 space-y-1">
                   <p className="text-xs font-semibold text-muted-foreground">사용 구간</p>
