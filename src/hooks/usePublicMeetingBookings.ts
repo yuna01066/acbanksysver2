@@ -218,6 +218,7 @@ export function useConfirmPublicBookingRequest() {
     onSuccess: (_data, variables) => {
       applyRequestStatus(queryClient, variables.requestId, 'confirmed', variables.reviewNote ?? null);
       queryClient.invalidateQueries({ queryKey: ['public-booking-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['public-booking-request-events'] });
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
       queryClient.invalidateQueries({ queryKey: ['calendar-dashboard-summary'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-meeting-booking-card'] });
@@ -245,6 +246,7 @@ export function useRejectPublicBookingRequest() {
     onSuccess: (_data, variables) => {
       applyRequestStatus(queryClient, variables.requestId, 'rejected', variables.reviewNote);
       queryClient.invalidateQueries({ queryKey: ['public-booking-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['public-booking-request-events'] });
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
       queryClient.invalidateQueries({ queryKey: ['calendar-dashboard-summary'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-meeting-booking-card'] });
