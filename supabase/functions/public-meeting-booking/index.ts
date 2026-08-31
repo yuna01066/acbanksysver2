@@ -370,6 +370,24 @@ function getPublicScheduleDetail(record: JsonObject | undefined) {
   };
 }
 
+function getPublicScheduleDetailFromEvent(event: JsonObject | undefined) {
+  if (!event) return {};
+  const metadata = asObject(event.metadata);
+  return {
+    publicCompanyName: optionalText(metadata.public_schedule_company_name, 120)
+      || optionalText(metadata.publicScheduleCompanyName, 120),
+    publicPurpose: optionalText(metadata.public_schedule_purpose, 220)
+      || optionalText(metadata.publicSchedulePurpose, 220),
+  };
+}
+
+function mergePublicScheduleDetail(primary: ReturnType<typeof getPublicScheduleDetail>, fallback: ReturnType<typeof getPublicScheduleDetail>) {
+  return {
+    publicCompanyName: primary.publicCompanyName ?? fallback.publicCompanyName ?? null,
+    publicPurpose: primary.publicPurpose ?? fallback.publicPurpose ?? null,
+  };
+}
+
 function requiresResource(link: PublicBookingLink, meetingMode: MeetingMode) {
   return !isConsultationLink(link) || meetingMode === "visit";
 }
@@ -782,7 +800,12 @@ async function handleSchedule(origin: string | null, body: JsonObject, supabase:
     const id = text(event.id, 80);
     if (!resourceId || !resourceName || !startsAt || !endsAt || !id) return [];
     const requestId = getPublicBookingRequestIdFromEvent(event);
-    const detail = exposeDetails ? getPublicScheduleDetail(requestId ? requestDetailById.get(requestId) : undefined) : {};
+    const detail = exposeDetails
+      ? mergePublicScheduleDetail(
+        getPublicScheduleDetail(requestId ? requestDetailById.get(requestId) : undefined),
+        getPublicScheduleDetailFromEvent(event),
+      )
+      : {};
     return [createScheduleBlock({
       id,
       resourceId,
