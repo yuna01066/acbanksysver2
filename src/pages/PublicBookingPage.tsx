@@ -559,6 +559,7 @@ const PublicBookingPage = () => {
           slug={slug}
           date={date}
           accessCode={accessCode}
+          refreshToken={result?.status ? `${result.status}:${selectedSlotKey}` : ''}
           className="mx-auto mt-4 max-w-5xl"
         />
       )}
