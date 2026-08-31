@@ -427,6 +427,8 @@ function publicLinkResponse(link: PublicBookingLink, resources: CalendarResource
     previewTitle: link.preview_title ?? null,
     previewDescription: link.preview_description ?? null,
     previewImageUrl: link.preview_image_url ?? null,
+    publicScheduleDetailsEnabled: publicScheduleDetailsEnabled(link),
+
     rules: {
       allowedWeekdays: link.allowed_weekdays,
       startTime: link.start_time.slice(0, 5),
