@@ -958,6 +958,8 @@ async function handleGetSchedule(
       endsAt: range.end.toISOString(),
     },
     resources: resources.map((resource) => ({ id: resource.id, name: resource.name, floor: resource.floor })),
+    publicScheduleDetailsEnabled: showDetails,
+
     rules: {
       allowedWeekdays: link.allowed_weekdays,
       startTime: link.start_time.slice(0, 5),
