@@ -447,6 +447,60 @@ function publicLinkResponse(link: PublicBookingLink, resources: CalendarResource
   };
 }
 
+const REQUEST_EVENTS_TABLE = "public_booking_request_events";
+
+/**
+ * Append an audit trail row so administrators can see who processed which
+ * public booking request and when. Failures are logged but never block the
+ * booking flow.
+ */
+async function recordRequestEvent(
+  supabase: ReturnType<typeof getServiceClient>,
+  input: {
+    requestId: string;
+    linkId?: string | null;
+    eventType: "requested" | "auto_confirmed" | "confirmed" | "rejected" | "canceled" | "expired" | "note";
+    fromStatus?: string | null;
+    toStatus?: string | null;
+    actorId?: string | null;
+    actorLabel?: string | null;
+    note?: string | null;
+    metadata?: JsonObject;
+  },
+) {
+  try {
+    let actorLabel = input.actorLabel ?? null;
+    if (!actorLabel && input.actorId) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", input.actorId)
+        .maybeSingle();
+      actorLabel = (profile as { full_name?: string | null } | null)?.full_name ?? null;
+    }
+
+    const { error } = await supabase.from(REQUEST_EVENTS_TABLE).insert({
+      request_id: input.requestId,
+      link_id: input.linkId ?? null,
+      event_type: input.eventType,
+      from_status: input.fromStatus ?? null,
+      to_status: input.toStatus ?? null,
+      actor_id: input.actorId ?? null,
+      actor_label: actorLabel,
+      note: input.note ?? null,
+      metadata: input.metadata ?? {},
+    });
+    if (error) throw error;
+  } catch (error) {
+    logEvent("warn", "request_event.record_failed", {
+      requestId: input.requestId,
+      eventType: input.eventType,
+      ...errorFields(error),
+    });
+  }
+}
+
+
 async function loadLink(supabase: ReturnType<typeof getServiceClient>, slug: string) {
   const { data: link, error } = await supabase
     .from("public_booking_links")
