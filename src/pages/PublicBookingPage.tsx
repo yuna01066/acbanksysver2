@@ -343,6 +343,11 @@ const PublicBookingPage = () => {
                 {link.requiresApproval ? '관리자 확인 후 확정' : '빈 시간 자동 확정'}
               </p>
             </div>
+            <div className="rounded-lg border border-border bg-muted/30 p-3">
+              <p className="font-semibold">최소 사전 예약 시간</p>
+              <p className="mt-1 text-muted-foreground">{link.rules.minNoticeMinutes}분 전까지 예약 가능</p>
+            </div>
+
           </div>
         </aside>
 
