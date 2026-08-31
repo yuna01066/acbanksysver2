@@ -357,14 +357,34 @@ const PublicRoomScheduleViewer = ({ slug, date, accessCode, className, refreshTo
                       if (resourceBlocks.length === 0) return null;
                       const status = resolveStatus(resourceBlocks[0]);
                       return (
-                        <span
-                          key={resource.id}
-                          title={`${resourceLabel(resource)} · ${STATUS_META[status].label} ${resourceBlocks.length}건`}
-                          className={cn('h-2 w-2 rounded-full', STATUS_META[status].dot)}
-                        />
+                        <span key={resource.id} className="group/dot relative flex">
+                          <span className={cn('h-2 w-2 rounded-full', STATUS_META[status].dot)} />
+                          <span className="pointer-events-none absolute bottom-3 left-0 z-20 hidden w-44 rounded-md border border-border bg-popover p-2 text-left text-[11px] leading-4 text-popover-foreground shadow-md group-hover/dot:block">
+                            <span className="block font-semibold">{resourceLabel(resource)}</span>
+                            {resourceBlocks.slice(0, 3).map((block) => (
+                              <span key={block.id} className="mt-1 block border-t border-border/60 pt-1">
+                                <span className="block">
+                                  {block.allDay ? '종일' : `${seoulClock(block.startsAt)}~${seoulClock(block.endsAt)}`}
+                                  {' · '}
+                                  {STATUS_META[resolveStatus(block)].label}
+                                </span>
+                                {block.publicCompanyName ? (
+                                  <span className="block text-muted-foreground">{block.publicCompanyName}</span>
+                                ) : null}
+                                {block.publicPurpose ? (
+                                  <span className="block text-muted-foreground">용무: {block.publicPurpose}</span>
+                                ) : null}
+                              </span>
+                            ))}
+                            {resourceBlocks.length > 3 ? (
+                              <span className="mt-1 block text-muted-foreground">외 {resourceBlocks.length - 3}건</span>
+                            ) : null}
+                          </span>
+                        </span>
                       );
                     })}
                   </span>
+
                 </button>
               );
             })}
