@@ -447,6 +447,60 @@ function publicLinkResponse(link: PublicBookingLink, resources: CalendarResource
   };
 }
 
+const REQUEST_EVENTS_TABLE = "public_booking_request_events";
+
+/**
+ * Append an audit trail row so administrators can see who processed which
+ * public booking request and when. Failures are logged but never block the
+ * booking flow.
+ */
+async function recordRequestEvent(
+  supabase: ReturnType<typeof getServiceClient>,
+  input: {
+    requestId: string;
+    linkId?: string | null;
+    eventType: "requested" | "auto_confirmed" | "confirmed" | "rejected" | "canceled" | "expired" | "note";
+    fromStatus?: string | null;
+    toStatus?: string | null;
+    actorId?: string | null;
+    actorLabel?: string | null;
+    note?: string | null;
+    metadata?: JsonObject;
+  },
+) {
+  try {
+    let actorLabel = input.actorLabel ?? null;
+    if (!actorLabel && input.actorId) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", input.actorId)
+        .maybeSingle();
+      actorLabel = (profile as { full_name?: string | null } | null)?.full_name ?? null;
+    }
+
+    const { error } = await supabase.from(REQUEST_EVENTS_TABLE).insert({
+      request_id: input.requestId,
+      link_id: input.linkId ?? null,
+      event_type: input.eventType,
+      from_status: input.fromStatus ?? null,
+      to_status: input.toStatus ?? null,
+      actor_id: input.actorId ?? null,
+      actor_label: actorLabel,
+      note: input.note ?? null,
+      metadata: input.metadata ?? {},
+    });
+    if (error) throw error;
+  } catch (error) {
+    logEvent("warn", "request_event.record_failed", {
+      requestId: input.requestId,
+      eventType: input.eventType,
+      ...errorFields(error),
+    });
+  }
+}
+
+
 async function loadLink(supabase: ReturnType<typeof getServiceClient>, slug: string) {
   const { data: link, error } = await supabase
     .from("public_booking_links")
@@ -1212,15 +1266,35 @@ async function handleCreateRequest(req: Request, origin: string | null, body: Js
     if (requestUpdateError) throw requestUpdateError;
   }
 
+  await recordRequestEvent(supabase, {
+    requestId: requestRow.id,
+    linkId: link.id,
+    eventType: "requested",
+    fromStatus: null,
+    toStatus: "pending_review",
+    actorLabel: "공개 예약 링크",
+    metadata: { linkSlug: link.slug, linkType: link.link_type, meetingMode },
+  });
+
   let nextStatus = "pending_review";
   if (!link.requires_approval) {
+    const autoNote = isConsultationLink(link) ? "공개 상담 예약 링크 자동 확정" : "공유회사 전용 링크 자동 확정";
     const { error: confirmError } = await supabase.rpc("confirm_public_booking_request", {
       _request_id: requestRow.id,
       _reviewer_id: null,
-      _review_note: isConsultationLink(link) ? "공개 상담 예약 링크 자동 확정" : "공유회사 전용 링크 자동 확정",
+      _review_note: autoNote,
     });
     if (confirmError) throw confirmError;
     nextStatus = "confirmed";
+    await recordRequestEvent(supabase, {
+      requestId: requestRow.id,
+      linkId: link.id,
+      eventType: "auto_confirmed",
+      fromStatus: "pending_review",
+      toStatus: "confirmed",
+      actorLabel: "자동 확정",
+      note: autoNote,
+    });
   }
 
   const requestForNotification = { ...requestRow, status: nextStatus } as PublicBookingRequest;
@@ -1255,6 +1329,16 @@ async function handleConfirmRequest(req: Request, origin: string | null, body: J
     .maybeSingle();
   const link = asObject(requestRow?.public_booking_links) as unknown as PublicBookingLink;
   await invalidateScheduleCache(supabase, link?.id ?? ((requestRow as JsonObject | null)?.link_id as string | undefined));
+  await recordRequestEvent(supabase, {
+    requestId,
+    linkId: link?.id ?? ((requestRow as JsonObject | null)?.link_id as string | undefined) ?? null,
+    eventType: "confirmed",
+    fromStatus: "pending_review",
+    toStatus: "confirmed",
+    actorId: reviewerId,
+    note: optionalText(body.reviewNote, 300),
+    metadata: { calendarEventId: eventId ?? null },
+  });
   if (requestRow && link?.id) await notifyTargets(supabase, link, requestRow as PublicBookingRequest, "confirmed");
 
 
@@ -1298,6 +1382,15 @@ async function handleRejectRequest(req: Request, origin: string | null, body: Js
 
   const link = asObject(requestRow.public_booking_links) as unknown as PublicBookingLink;
   await invalidateScheduleCache(supabase, link?.id ?? requestRow.link_id);
+  await recordRequestEvent(supabase, {
+    requestId,
+    linkId: link?.id ?? (requestRow as JsonObject).link_id as string | undefined ?? null,
+    eventType: "rejected",
+    fromStatus: "pending_review",
+    toStatus: "rejected",
+    actorId: reviewerId,
+    note: reviewNote,
+  });
   if (link?.id) await notifyTargets(supabase, link, requestRow as PublicBookingRequest, "rejected");
 
 

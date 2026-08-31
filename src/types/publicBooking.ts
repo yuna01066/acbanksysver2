@@ -3,6 +3,29 @@ export type PublicBookingRequestStatus = 'pending_review' | 'confirmed' | 'rejec
 export type PublicBookingMeetingMode = 'visit' | 'phone' | 'online';
 export type PublicBookingContactPreference = 'phone' | 'email' | 'kakao' | 'any';
 
+export type PublicBookingRequestEventType =
+  | 'requested'
+  | 'auto_confirmed'
+  | 'confirmed'
+  | 'rejected'
+  | 'canceled'
+  | 'expired'
+  | 'note';
+
+export type PublicBookingRequestEventRow = {
+  id: string;
+  request_id: string;
+  link_id: string | null;
+  event_type: PublicBookingRequestEventType;
+  from_status: string | null;
+  to_status: string | null;
+  actor_id: string | null;
+  actor_label: string | null;
+  note: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
+
 export type PublicBookingResource = {
   id: string;
   name: string;

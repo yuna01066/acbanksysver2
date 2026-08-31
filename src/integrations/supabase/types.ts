@@ -6099,6 +6099,63 @@ export type Database = {
         }
         Relationships: []
       }
+      public_booking_request_events: {
+        Row: {
+          actor_id: string | null
+          actor_label: string | null
+          created_at: string
+          event_type: string
+          from_status: string | null
+          id: string
+          link_id: string | null
+          metadata: Json
+          note: string | null
+          request_id: string
+          to_status: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_label?: string | null
+          created_at?: string
+          event_type: string
+          from_status?: string | null
+          id?: string
+          link_id?: string | null
+          metadata?: Json
+          note?: string | null
+          request_id: string
+          to_status?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_label?: string | null
+          created_at?: string
+          event_type?: string
+          from_status?: string | null
+          id?: string
+          link_id?: string | null
+          metadata?: Json
+          note?: string | null
+          request_id?: string
+          to_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "public_booking_request_events_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "public_booking_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "public_booking_request_events_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "public_booking_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       public_booking_requests: {
         Row: {
           assigned_to: string | null
