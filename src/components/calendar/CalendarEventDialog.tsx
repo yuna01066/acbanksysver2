@@ -446,8 +446,15 @@ const CalendarEventDialog = ({
     const calendarKind = personalOnly ? 'personal' : draft.mode;
     const baseMetadata = { ...(event?.metadata || {}) };
     delete baseMetadata.employee_meeting_type;
+    delete baseMetadata.public_schedule_company_name;
+    delete baseMetadata.public_schedule_purpose;
     const payloadMode = personalOnly ? 'personal' : draft.mode;
     const payloadDefaults = getModeDefaults(payloadMode);
+    const showsPublicScheduleFields = payloadMode !== 'holiday'
+      && payloadMode !== 'personal'
+      && draft.selectedResourceIds.length > 0;
+    const publicCompanyName = draft.publicScheduleCompanyName.trim().slice(0, 60);
+    const publicPurpose = draft.publicSchedulePurpose.trim().slice(0, 80);
     const payload = {
       ...(event ? { id: event.id } : {}),
       title: draft.title.trim(),
