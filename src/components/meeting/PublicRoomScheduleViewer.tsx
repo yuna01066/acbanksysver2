@@ -253,12 +253,13 @@ const PublicRoomScheduleViewer = ({ slug, date, accessCode, className, refreshTo
         start: block.allDay ? open : minutesFromClock(seoulClock(block.startsAt)),
         end: block.allDay ? close : minutesFromClock(seoulClock(block.endsAt)),
       }));
-      const available: string[] = [];
+      const available: { start: string; label: string }[] = [];
       if (weekdayAllowed) {
         for (let start = open; start + duration <= close; start += slotMinutes) {
           const end = start + duration;
           const overlaps = busy.some((item) => start < item.end && end > item.start);
-          if (!overlaps) available.push(`${clockFromMinutes(start)}~${clockFromMinutes(end)}`);
+          if (!overlaps) available.push({ start: clockFromMinutes(start), label: `${clockFromMinutes(start)}~${clockFromMinutes(end)}` });
+
         }
       }
       return { resource, used, available, weekdayAllowed };
