@@ -62,6 +62,8 @@ type Draft = {
   selectedResourceIds: string[];
   clientName: string;
   clientContact: string;
+  publicScheduleCompanyName: string;
+  publicSchedulePurpose: string;
   recurrenceFrequency: CalendarRecurrenceFrequency;
   recurrenceInterval: string;
   recurrenceUntil: string;
@@ -208,6 +210,15 @@ function getEventMode(event: InternalCalendarEvent): CalendarDialogMode {
     || (event.client_name ? 'client' : event.resource_ids.length > 0 ? 'room' : 'employee');
 }
 
+function getMetadataText(metadata: Record<string, unknown> | null | undefined, ...keys: string[]) {
+  if (!metadata) return '';
+  for (const key of keys) {
+    const value = metadata[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
+}
+
 function getRecurrenceInitial(rule: CalendarRecurrenceRule | null, startDate: Date) {
   return {
     recurrenceFrequency: (rule?.frequency || 'none') as CalendarRecurrenceFrequency,
@@ -246,6 +257,8 @@ function getInitialDraft({
       selectedResourceIds: [],
       clientName: '',
       clientContact: '',
+      publicScheduleCompanyName: '',
+      publicSchedulePurpose: '',
       recurrenceFrequency: 'none',
       recurrenceInterval: '1',
       recurrenceUntil: '',
@@ -259,6 +272,7 @@ function getInitialDraft({
   const duration = Math.max(30, differenceInMinutes(end, start));
   const eventMode = getEventMode(event);
   const recurrenceInitial = getRecurrenceInitial(event.recurrence_rule, start);
+  const metadata = event.metadata || {};
 
   return {
     mode: eventMode,
@@ -276,6 +290,8 @@ function getInitialDraft({
     selectedResourceIds: event.resource_ids,
     clientName: event.client_name || '',
     clientContact: event.client_contact || '',
+    publicScheduleCompanyName: getMetadataText(metadata, 'public_schedule_company_name', 'publicScheduleCompanyName'),
+    publicSchedulePurpose: getMetadataText(metadata, 'public_schedule_purpose', 'publicSchedulePurpose'),
     ...recurrenceInitial,
     reminderMinutes: event.reminder_minutes || [],
   };
@@ -436,8 +452,29 @@ const CalendarEventDialog = ({
     const calendarKind = personalOnly ? 'personal' : draft.mode;
     const baseMetadata = { ...(event?.metadata || {}) };
     delete baseMetadata.employee_meeting_type;
+    delete baseMetadata.public_schedule_company_name;
+    delete baseMetadata.public_schedule_purpose;
+    delete baseMetadata.publicScheduleCompanyName;
+    delete baseMetadata.publicSchedulePurpose;
     const payloadMode = personalOnly ? 'personal' : draft.mode;
     const payloadDefaults = getModeDefaults(payloadMode);
+    const publicScheduleCompanyName = draft.publicScheduleCompanyName.trim();
+    const publicSchedulePurpose = draft.publicSchedulePurpose.trim();
+    const shouldStorePublicScheduleDetails = payloadMode !== 'holiday'
+      && payloadMode !== 'personal'
+      && draft.selectedResourceIds.length > 0
+      && (publicScheduleCompanyName || publicSchedulePurpose);
+    const metadata: Record<string, unknown> = {
+      ...baseMetadata,
+      calendar_kind: calendarKind,
+      calendar_label: MODE_OPTIONS.find((option) => option.value === calendarKind)?.label || '일정',
+      ...(payloadMode === 'team' && selectedTeam ? { team_calendar_id: selectedTeam.id, team_calendar_name: selectedTeam.name } : {}),
+      ...(payloadMode === 'event' || payloadMode === 'holiday' ? { employee_meeting_type: 'all_hands' } : {}),
+      ...(shouldStorePublicScheduleDetails ? {
+        ...(publicScheduleCompanyName ? { public_schedule_company_name: publicScheduleCompanyName } : {}),
+        ...(publicSchedulePurpose ? { public_schedule_purpose: publicSchedulePurpose } : {}),
+      } : {}),
+    };
     const payload = {
       ...(event ? { id: event.id } : {}),
       title: draft.title.trim(),
@@ -464,13 +501,7 @@ const CalendarEventDialog = ({
       resource_ids: payloadMode === 'holiday' || payloadMode === 'personal' ? [] : draft.selectedResourceIds,
       recurrence_rule: recurrenceRule,
       reminder_minutes: draft.reminderMinutes,
-      metadata: {
-        ...baseMetadata,
-        calendar_kind: calendarKind,
-        calendar_label: MODE_OPTIONS.find((option) => option.value === calendarKind)?.label || '일정',
-        ...(payloadMode === 'team' && selectedTeam ? { team_calendar_id: selectedTeam.id, team_calendar_name: selectedTeam.name } : {}),
-        ...(payloadMode === 'event' || payloadMode === 'holiday' ? { employee_meeting_type: 'all_hands' } : {}),
-      },
+      metadata,
     };
 
     try {
@@ -731,6 +762,41 @@ const CalendarEventDialog = ({
                     />
                   </div>
                 </>
+              )}
+              {!personalOnly && draft.mode !== 'holiday' && draft.mode !== 'personal' && draft.selectedResourceIds.length > 0 && (
+                <div className="space-y-3 rounded-lg border border-[#e5e5e5] bg-[#fafafa] p-3 sm:col-span-2">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <Label className="text-xs font-semibold text-[#39393b]">공개 회의실 시간표 표시 정보</Label>
+                      <p className="mt-1 text-[11px] font-medium leading-5 text-[#707072]">
+                        공유회사 예약 링크에는 아래 회사명과 용무만 표시됩니다. 연락처, 참석자, 내부 메모는 공개하지 않습니다.
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="w-fit rounded-full bg-white px-2 py-0 text-[10px]">
+                      선택 입력
+                    </Badge>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] font-semibold text-[#707072]">공개 회사명</Label>
+                      <Input
+                        value={draft.publicScheduleCompanyName}
+                        onChange={(event) => setDraftField('publicScheduleCompanyName', event.target.value)}
+                        placeholder={draft.clientName || '예: PROG'}
+                        className="h-9 rounded-lg border-[#cacacb] bg-white text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] font-semibold text-[#707072]">공개 용무</Label>
+                      <Input
+                        value={draft.publicSchedulePurpose}
+                        onChange={(event) => setDraftField('publicSchedulePurpose', event.target.value)}
+                        placeholder="예: 샘플 검토 미팅"
+                        className="h-9 rounded-lg border-[#cacacb] bg-white text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
 
