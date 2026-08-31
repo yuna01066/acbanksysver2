@@ -8,9 +8,15 @@ import { Button } from '@/components/ui/button';
 
 type ScheduleView = 'month' | 'week' | 'day';
 
+type ScheduleBlockStatus = 'confirmed' | 'pending_review';
+type ScheduleBlockSource = 'calendar_event' | 'public_request';
+
 type ScheduleBlock = {
   id: string;
-  kind: 'confirmed' | 'pending';
+  /** @deprecated use status */
+  kind?: 'confirmed' | 'pending';
+  status?: ScheduleBlockStatus;
+  source?: ScheduleBlockSource;
   resourceId: string | null;
   resourceName: string;
   date: string;
@@ -21,6 +27,17 @@ type ScheduleBlock = {
   label: string;
   sourceType: string | null;
 };
+
+function resolveStatus(block: ScheduleBlock): ScheduleBlockStatus {
+  if (block.status === 'confirmed' || block.status === 'pending_review') return block.status;
+  return block.kind === 'pending' ? 'pending_review' : 'confirmed';
+}
+
+const STATUS_META: Record<ScheduleBlockStatus, { label: string; variant: 'secondary' | 'outline'; hint: string }> = {
+  confirmed: { label: '확정', variant: 'secondary', hint: '승인 완료된 예약입니다.' },
+  pending_review: { label: '승인 대기', variant: 'outline', hint: '요청 접수 후 승인 대기 중입니다.' },
+};
+
 
 type ScheduleResponse = {
   view: ScheduleView;
@@ -59,9 +76,11 @@ type Props = {
   date: string;
   accessCode?: string;
   className?: string;
+  /** Change this value to force a schedule refetch (e.g. after a booking request). */
+  refreshToken?: string | number;
 };
 
-const PublicRoomScheduleSection = ({ slug, date, accessCode, className }: Props) => {
+const PublicRoomScheduleSection = ({ slug, date, accessCode, className, refreshToken }: Props) => {
   const [view, setView] = useState<ScheduleView>('month');
   const [schedule, setSchedule] = useState<ScheduleResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -102,7 +121,7 @@ const PublicRoomScheduleSection = ({ slug, date, accessCode, className }: Props)
     return () => {
       canceled = true;
     };
-  }, [slug, view, date, accessCode, reloadKey]);
+  }, [slug, view, date, accessCode, reloadKey, refreshToken]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, ScheduleBlock[]>();
@@ -112,6 +131,12 @@ const PublicRoomScheduleSection = ({ slug, date, accessCode, className }: Props)
       map.set(block.date, list);
     }
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
+  }, [schedule]);
+
+  const statusCounts = useMemo(() => {
+    const counts = { confirmed: 0, pending_review: 0 };
+    for (const block of schedule?.blocks || []) counts[resolveStatus(block)] += 1;
+    return counts;
   }, [schedule]);
 
   return (
@@ -163,6 +188,12 @@ const PublicRoomScheduleSection = ({ slug, date, accessCode, className }: Props)
         </Alert>
       ) : null}
 
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <Badge variant="secondary" className="rounded-full">확정 {statusCounts.confirmed}</Badge>
+        <Badge variant="outline" className="rounded-full">승인 대기 {statusCounts.pending_review}</Badge>
+        <span>승인 대기 예약은 관리자가 승인하면 확정으로 바뀝니다.</span>
+      </div>
+
       <div className="mt-4 space-y-3">
         {grouped.length === 0 && !isLoading && !error ? (
           <p className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
@@ -183,8 +214,8 @@ const PublicRoomScheduleSection = ({ slug, date, accessCode, className }: Props)
                     <span className="font-medium">{block.allDay ? '종일' : block.time}</span>
                     <span className="ml-2 truncate text-muted-foreground">{block.resourceName}</span>
                   </span>
-                  <Badge variant={block.kind === 'confirmed' ? 'secondary' : 'outline'} className="rounded-full">
-                    {block.kind === 'confirmed' ? '확정' : '대기'}
+                  <Badge variant={STATUS_META[resolveStatus(block)].variant} className="rounded-full" title={STATUS_META[resolveStatus(block)].hint}>
+                    {STATUS_META[resolveStatus(block)].label}
                   </Badge>
                 </li>
               ))}
