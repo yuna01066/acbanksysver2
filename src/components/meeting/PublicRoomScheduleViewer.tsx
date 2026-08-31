@@ -26,7 +26,11 @@ type ScheduleBlock = {
   time: string;
   label: string;
   sourceType: string | null;
+  /** Coarse public context, only for links with public schedule details enabled. */
+  publicCompanyName?: string | null;
+  publicPurpose?: string | null;
 };
+
 
 type ScheduleResource = { id: string; name: string; floor: string | null };
 
