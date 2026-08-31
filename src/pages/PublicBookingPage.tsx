@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { addDays, format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { CalendarCheck2, CheckCircle2, Clock3, Loader2, LockKeyhole, MapPin, Phone, Send, UserRound, Video } from 'lucide-react';
+import { CalendarCheck2, CheckCircle2, Clock3, Loader2, LockKeyhole, MapPin, Phone, Send, Settings2, UserRound, Video } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -45,6 +45,8 @@ const CONTACT_PREFERENCES = [
   { value: 'email', label: '이메일' },
   { value: 'kakao', label: '카카오톡' },
 ];
+
+const PUBLIC_BOOKING_ADMIN_PATH = '/meeting-reservations?tab=public';
 
 function getMeetingModeLabel(mode: PublicBookingMeetingMode) {
   if (mode === 'phone') return '전화 상담';
@@ -91,6 +93,22 @@ const PublicBookingPage = () => {
 
   const isConsultation = link?.linkType === 'consultation_booking';
   const isPartnerRoom = link?.linkType === 'partner_room';
+  const canShowRequestForm = !isPartnerRoom || Boolean(selectedSlot);
+
+  const adminLinkButton = (
+    <Button
+      asChild
+      variant="outline"
+      size="icon"
+      className="fixed right-4 top-4 z-20 h-10 w-10 rounded-full border-border bg-card/90 text-muted-foreground shadow-none backdrop-blur hover:bg-background hover:text-foreground sm:right-6 sm:top-6"
+      title="관리자 운영 화면"
+    >
+      <a href={PUBLIC_BOOKING_ADMIN_PATH} aria-label="관리자 운영 화면으로 이동">
+        <Settings2 className="h-4 w-4" />
+        <span className="sr-only">관리자 운영 화면</span>
+      </a>
+    </Button>
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -231,6 +249,7 @@ const PublicBookingPage = () => {
   if (result) {
     return (
       <main className="min-h-screen bg-[#f5f6f8] px-4 py-8 text-foreground sm:px-6">
+        {adminLinkButton}
         <section className="mx-auto max-w-2xl rounded-lg border border-border bg-card p-8 text-center shadow-none">
           <CheckCircle2 className="mx-auto h-10 w-10 text-emerald-500" />
           <h1 className="mt-4 text-2xl font-bold">
@@ -262,6 +281,7 @@ const PublicBookingPage = () => {
 
   return (
     <main className="min-h-screen bg-[#f5f6f8] px-4 py-8 text-foreground sm:px-6">
+      {adminLinkButton}
       <section
         className={cn(
           'mx-auto grid gap-4',
@@ -290,6 +310,9 @@ const PublicBookingPage = () => {
               <p className="mt-1 text-muted-foreground">
                 {link.rules.startTime} - {link.rules.endTime} / {link.rules.durationMinutes}분 단위
               </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                최소 {link.rules.minNoticeMinutes}분 전 예약 가능
+              </p>
             </div>
             <div className="rounded-lg border border-border bg-muted/30 p-3">
               <p className="font-semibold">회의실</p>
@@ -316,7 +339,11 @@ const PublicBookingPage = () => {
           </div>
         </aside>
 
-        <section className="rounded-lg border border-border bg-card p-5 shadow-none">
+        <section
+          className={cn(
+            isPartnerRoom ? 'grid gap-4' : 'rounded-lg border border-border bg-card p-5 shadow-none',
+          )}
+        >
           <div className="grid gap-5">
             {link.requiresAccessCode && (
               <div className="space-y-2">
@@ -349,6 +376,21 @@ const PublicBookingPage = () => {
                 }}
                 onSelectSlot={setSelectedSlotKey}
               />
+            )}
+
+            {isPartnerRoom && !selectedSlot && (
+              <div className="rounded-lg border border-dashed border-border bg-card p-5 text-sm text-muted-foreground shadow-none">
+                <p className="font-semibold text-foreground">예약할 시간을 먼저 선택해주세요.</p>
+                <p className="mt-1 leading-6">
+                  달력에서 날짜를 고른 뒤 우측 패널의 예약 가능 시간을 누르면 예약자 정보 입력란이 열립니다.
+                </p>
+              </div>
+            )}
+
+            {isPartnerRoom && !selectedSlot && error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
             )}
 
             {!isPartnerRoom && (
@@ -406,6 +448,31 @@ const PublicBookingPage = () => {
                 </div>
               </div>
             )}
+
+            {canShowRequestForm && (
+              <div className={cn('grid gap-5', isPartnerRoom && 'rounded-lg border border-border bg-card p-5 shadow-none')}>
+                {isPartnerRoom && (
+                  <div>
+                    <h2 className="text-lg font-bold">예약자 정보 입력</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">선택한 시간으로 회의실을 예약하려면 기본 정보를 입력해주세요.</p>
+                  </div>
+                )}
+
+                {selectedSlot && (
+                  <div className="rounded-lg border border-border bg-muted/20 p-4">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-bold">선택한 예약 시간</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {formatDateLabel(date)} / {selectedSlot.resourceName} / {selectedSlot.label}
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="w-fit rounded-full">
+                        {link.requiresApproval ? '요청 후 확정' : '즉시 확정'}
+                      </Badge>
+                    </div>
+                  </div>
+                )}
 
             {isConsultation && (
               <div className="grid gap-3 rounded-lg border border-border bg-muted/20 p-3">
@@ -575,6 +642,8 @@ const PublicBookingPage = () => {
                 ? link.requiresApproval ? '상담 예약 요청 보내기' : '상담 예약 확정하기'
                 : link.requiresApproval ? '예약 요청 보내기' : '예약 확정하기'}
             </Button>
+              </div>
+            )}
           </div>
         </section>
       </section>

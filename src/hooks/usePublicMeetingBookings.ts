@@ -18,6 +18,15 @@ function normalizeTime(value: string) {
   return value.length === 5 ? `${value}:00` : value;
 }
 
+function buildPublicBookingMetadata(draft: PublicBookingLinkDraft) {
+  return {
+    ...(draft.metadata || {}),
+    public_schedule_details_enabled: draft.link_type === 'partner_room'
+      ? Boolean(draft.metadata?.public_schedule_details_enabled)
+      : false,
+  };
+}
+
 async function buildLinkPayload(draft: PublicBookingLinkDraft, userId?: string | null) {
   const payload: Record<string, unknown> = {
     slug: draft.slug.trim().toLowerCase(),
@@ -38,6 +47,10 @@ async function buildLinkPayload(draft: PublicBookingLinkDraft, userId?: string |
     max_days_ahead: draft.max_days_ahead,
     requires_approval: draft.requires_approval,
     notify_user_ids: draft.notify_user_ids,
+    preview_title: draft.preview_title?.trim() || null,
+    preview_description: draft.preview_description?.trim() || null,
+    preview_image_url: draft.preview_image_url?.trim() || null,
+    metadata: buildPublicBookingMetadata(draft),
     updated_at: new Date().toISOString(),
   };
 

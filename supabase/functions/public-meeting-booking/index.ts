@@ -30,6 +30,7 @@ type PublicBookingLink = {
   preview_title: string | null;
   preview_description: string | null;
   preview_image_url: string | null;
+  metadata: JsonObject;
 };
 type CalendarResource = {
   id: string;
@@ -56,8 +57,11 @@ type AvailabilitySlot = {
   endsAt: string;
   time: string;
   label: string;
+  publicCompanyName?: string | null;
+  publicPurpose?: string | null;
 };
 type ScheduleBlock = {
+  id: string;
   resourceId: string;
   resourceName: string;
   resourceFloor: string | null;
@@ -65,6 +69,14 @@ type ScheduleBlock = {
   endsAt: string;
   status: "confirmed" | "pending_review";
   source: "calendar_event" | "public_request";
+  kind: "confirmed" | "pending";
+  sourceType: "calendar_event" | "public_request";
+  date: string;
+  allDay: false;
+  time: string;
+  label: string;
+  publicCompanyName: string | null;
+  publicPurpose: string | null;
 };
 
 const RATE_LIMIT_WINDOW_MINUTES = 10;
@@ -271,6 +283,53 @@ function getScheduleRange(date: string, view: ScheduleView) {
   };
 }
 
+function formatSeoulClock(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString("en-GB", {
+    timeZone: "Asia/Seoul",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+function createScheduleBlock(input: {
+  id: string;
+  resourceId: string;
+  resourceName: string;
+  resourceFloor: string | null;
+  startsAt: string;
+  endsAt: string;
+  status: "confirmed" | "pending_review";
+  source: "calendar_event" | "public_request";
+  publicCompanyName?: string | null;
+  publicPurpose?: string | null;
+}): ScheduleBlock {
+  const date = formatSeoulDateKey(new Date(input.startsAt));
+  const startTime = formatSeoulClock(input.startsAt);
+  const endTime = formatSeoulClock(input.endsAt);
+  return {
+    ...input,
+    kind: input.status === "pending_review" ? "pending" : "confirmed",
+    sourceType: input.source,
+    date,
+    allDay: false,
+    time: startTime,
+    label: startTime && endTime ? `${startTime} - ${endTime}` : "",
+    publicCompanyName: input.publicCompanyName ?? null,
+    publicPurpose: input.publicPurpose ?? null,
+  };
+}
+
+function getBufferedRange(link: PublicBookingLink, startsAt: Date, endsAt: Date) {
+  const buffer = Math.max(0, Number(link.buffer_minutes) || 0);
+  return {
+    startsAt: addMinutes(startsAt, -buffer).toISOString(),
+    endsAt: addMinutes(endsAt, buffer).toISOString(),
+  };
+}
+
 function getMeetingModeLabel(mode: MeetingMode) {
   if (mode === "phone") return "전화 상담";
   if (mode === "online") return "온라인 상담";
@@ -291,6 +350,26 @@ function isConsultationLink(link: PublicBookingLink) {
   return link.link_type === "consultation_booking";
 }
 
+function isPublicScheduleDetailsEnabled(link: PublicBookingLink) {
+  return link.link_type === "partner_room" && link.metadata?.public_schedule_details_enabled === true;
+}
+
+function getPublicBookingRequestIdFromEvent(event: JsonObject) {
+  const sourceId = optionalText(event.source_id, 80);
+  if (sourceId) return sourceId;
+  const metadata = asObject(event.metadata);
+  return optionalText(metadata.publicBookingRequestId, 80)
+    || optionalText(metadata.public_booking_request_id, 80);
+}
+
+function getPublicScheduleDetail(record: JsonObject | undefined) {
+  if (!record) return {};
+  return {
+    publicCompanyName: optionalText(record.company_name, 120),
+    publicPurpose: optionalText(record.purpose, 220),
+  };
+}
+
 function requiresResource(link: PublicBookingLink, meetingMode: MeetingMode) {
   return !isConsultationLink(link) || meetingMode === "visit";
 }
@@ -305,6 +384,7 @@ function publicLinkResponse(link: PublicBookingLink, resources: CalendarResource
     requiresApproval: link.requires_approval,
     requiresAccessCode: Boolean(link.access_code_hash),
     meetingModes: normalizeMeetingModes(link),
+    publicScheduleDetailsEnabled: isPublicScheduleDetailsEnabled(link),
     previewTitle: link.preview_title ?? null,
     previewDescription: link.preview_description ?? null,
     previewImageUrl: link.preview_image_url ?? null,
@@ -417,6 +497,28 @@ async function findConflict(
   });
   if (error) throw error;
   return typeof data === "string" && data ? data : null;
+}
+
+async function findPendingRequestConflict(
+  supabase: ReturnType<typeof getServiceClient>,
+  resources: CalendarResource[],
+  startsAt: string,
+  endsAt: string,
+) {
+  const resourceIds = resources.map((resource) => resource.id);
+  if (resourceIds.length === 0) return null;
+  const { data, error } = await supabase
+    .from("public_booking_requests")
+    .select("resource_id")
+    .in("status", ["pending_review"])
+    .in("resource_id", resourceIds)
+    .lt("starts_at", endsAt)
+    .gt("ends_at", startsAt)
+    .limit(1);
+  if (error) throw error;
+  const resourceId = text((data || [])[0]?.resource_id, 80);
+  if (!resourceId) return null;
+  return resources.find((resource) => resource.id === resourceId)?.name || "승인 대기 예약";
 }
 
 async function findUserConflict(
@@ -573,10 +675,11 @@ async function handleAvailability(origin: string | null, body: JsonObject, supab
     } catch {
       continue;
     }
+    const conflictRange = getBufferedRange(link, startsAt, endsAt);
 
     for (const mode of modes) {
       const assignedTo = isConsultationLink(link)
-        ? await selectAvailableAssignee(supabase, link, startsAt.toISOString(), endsAt.toISOString())
+        ? await selectAvailableAssignee(supabase, link, conflictRange.startsAt, conflictRange.endsAt)
         : null;
       if (isConsultationLink(link) && link.assigned_user_ids.length > 0 && !assignedTo) continue;
 
@@ -595,8 +698,9 @@ async function handleAvailability(origin: string | null, body: JsonObject, supab
       }
 
       for (const resource of resources) {
-        const conflict = await findConflict(supabase, [resource.id], startsAt.toISOString(), endsAt.toISOString());
-        if (!conflict) {
+        const confirmedConflict = await findConflict(supabase, [resource.id], conflictRange.startsAt, conflictRange.endsAt);
+        const pendingConflict = confirmedConflict ? null : await findPendingRequestConflict(supabase, [resource], conflictRange.startsAt, conflictRange.endsAt);
+        if (!confirmedConflict && !pendingConflict) {
           slots.push({
             resourceId: resource.id,
             resourceName: resource.name,
@@ -628,6 +732,7 @@ async function handleSchedule(origin: string | null, body: JsonObject, supabase:
   const resourceIds = resources.map((resource) => resource.id);
   const view = getScheduleView(body.view);
   const { rangeStart, rangeEnd } = getScheduleRange(date, view);
+  const exposeDetails = isPublicScheduleDetailsEnabled(link);
 
   if (resourceIds.length === 0) {
     return ok(origin, { view, rangeStart, rangeEnd, resources: [], blocks: [] });
@@ -638,7 +743,7 @@ async function handleSchedule(origin: string | null, body: JsonObject, supabase:
     .select(`
       resource_id,
       calendar_resources!inner(id, name, floor, display_order),
-      calendar_events!inner(id, starts_at, ends_at, status)
+      calendar_events!inner(id, starts_at, ends_at, status, source_id, source_type, source_subtype, metadata)
     `)
     .in("resource_id", resourceIds)
     .lt("calendar_events.starts_at", rangeEnd)
@@ -646,7 +751,27 @@ async function handleSchedule(origin: string | null, body: JsonObject, supabase:
     .neq("calendar_events.status", "canceled");
   if (error) throw error;
 
-  const eventBlocks = ((data || []) as unknown[]).flatMap((row) => {
+  const eventRows = ((data || []) as unknown[]).map(asObject);
+  const linkedRequestIds = exposeDetails
+    ? [...new Set(eventRows
+      .map((row) => getPublicBookingRequestIdFromEvent(asObject(row.calendar_events)))
+      .filter((id): id is string => Boolean(id)))]
+    : [];
+  const requestDetailById = new Map<string, JsonObject>();
+  if (linkedRequestIds.length > 0) {
+    const { data: requestDetails, error: requestDetailsError } = await supabase
+      .from("public_booking_requests")
+      .select("id, company_name, requester_name, purpose")
+      .eq("link_id", link.id)
+      .in("id", linkedRequestIds);
+    if (requestDetailsError) throw requestDetailsError;
+    ((requestDetails || []) as unknown[]).map(asObject).forEach((record) => {
+      const id = text(record.id, 80);
+      if (id) requestDetailById.set(id, record);
+    });
+  }
+
+  const eventBlocks = eventRows.flatMap((row) => {
     const record = asObject(row);
     const event = asObject(record.calendar_events);
     const resource = asObject(record.calendar_resources);
@@ -654,8 +779,12 @@ async function handleSchedule(origin: string | null, body: JsonObject, supabase:
     const resourceName = text(resource.name, 120);
     const startsAt = text(event.starts_at, 80);
     const endsAt = text(event.ends_at, 80);
-    if (!resourceId || !resourceName || !startsAt || !endsAt) return [];
-    return [{
+    const id = text(event.id, 80);
+    if (!resourceId || !resourceName || !startsAt || !endsAt || !id) return [];
+    const requestId = getPublicBookingRequestIdFromEvent(event);
+    const detail = exposeDetails ? getPublicScheduleDetail(requestId ? requestDetailById.get(requestId) : undefined) : {};
+    return [createScheduleBlock({
+      id,
       resourceId,
       resourceName,
       resourceFloor: optionalText(resource.floor, 80),
@@ -663,13 +792,14 @@ async function handleSchedule(origin: string | null, body: JsonObject, supabase:
       endsAt,
       status: "confirmed",
       source: "calendar_event",
-    } satisfies ScheduleBlock];
+      ...detail,
+    })];
   });
 
   const resourceById = new Map(resources.map((resource) => [resource.id, resource]));
   const { data: pendingRequests, error: pendingError } = await supabase
     .from("public_booking_requests")
-    .select("id, status, starts_at, ends_at, resource_id")
+    .select("id, status, starts_at, ends_at, resource_id, company_name, requester_name, purpose")
     .eq("link_id", link.id)
     .in("status", ["pending_review"])
     .in("resource_id", resourceIds)
@@ -684,8 +814,11 @@ async function handleSchedule(origin: string | null, body: JsonObject, supabase:
     const resourceName = resource?.name || "";
     const startsAt = text(record.starts_at, 80);
     const endsAt = text(record.ends_at, 80);
-    if (!resourceId || !resourceName || !startsAt || !endsAt) return [];
-    return [{
+    const id = text(record.id, 80);
+    if (!resourceId || !resourceName || !startsAt || !endsAt || !id) return [];
+    const detail = exposeDetails ? getPublicScheduleDetail(record) : {};
+    return [createScheduleBlock({
+      id,
       resourceId,
       resourceName,
       resourceFloor: resource?.floor || null,
@@ -693,7 +826,8 @@ async function handleSchedule(origin: string | null, body: JsonObject, supabase:
       endsAt,
       status: "pending_review",
       source: "public_request",
-    } satisfies ScheduleBlock];
+      ...detail,
+    })];
   });
 
   const blocks = [...eventBlocks, ...pendingBlocks]
@@ -836,10 +970,13 @@ async function handleCreateRequest(req: Request, origin: string | null, body: Js
   const resourceId = optionalText(body.resourceId, 80);
   if (requiresResource(link, meetingMode) && !resourceId) return fail(origin, "예약 가능한 회의실을 선택해주세요.", 400);
   if (resourceId && !link.allowed_resource_ids.includes(resourceId)) return fail(origin, "예약 가능한 회의실이 아닙니다.", 400);
+  const selectedResources = resourceId ? await loadResources(supabase, [resourceId]) : [];
+  if (resourceId && selectedResources.length === 0) return fail(origin, "예약 가능한 회의실을 찾을 수 없습니다.", 400);
 
   const startsAt = new Date(toSeoulDateTime(date, time));
   const endsAt = addMinutes(startsAt, link.duration_minutes);
   validateWindow(link, date, startsAt, endsAt);
+  const conflictRange = getBufferedRange(link, startsAt, endsAt);
 
   const requesterName = text(body.requesterName, 80);
   const purpose = text(body.purpose, 500);
@@ -868,12 +1005,14 @@ async function handleCreateRequest(req: Request, origin: string | null, body: Js
   await checkRateLimit(supabase, link.id, ipHash);
 
   if (resourceId) {
-    const conflict = await findConflict(supabase, [resourceId], startsAt.toISOString(), endsAt.toISOString());
+    const conflict = await findConflict(supabase, [resourceId], conflictRange.startsAt, conflictRange.endsAt);
     if (conflict) return fail(origin, `이미 예약된 회의실입니다: ${conflict}`, 409);
+    const pendingConflict = await findPendingRequestConflict(supabase, selectedResources, conflictRange.startsAt, conflictRange.endsAt);
+    if (pendingConflict) return fail(origin, `승인 대기 중인 예약이 있습니다: ${pendingConflict}`, 409);
   }
 
   const assignedTo = isConsultationLink(link)
-    ? await selectAvailableAssignee(supabase, link, startsAt.toISOString(), endsAt.toISOString(), optionalText(body.assignedTo, 80))
+    ? await selectAvailableAssignee(supabase, link, conflictRange.startsAt, conflictRange.endsAt, optionalText(body.assignedTo, 80))
     : null;
   if (isConsultationLink(link) && link.assigned_user_ids.length > 0 && !assignedTo) {
     return fail(origin, "선택한 시간에 상담 가능한 담당자가 없습니다.", 409);

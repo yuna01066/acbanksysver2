@@ -29,6 +29,10 @@ export type PublicBookingLinkPublic = {
   requiresApproval: boolean;
   requiresAccessCode: boolean;
   meetingModes: PublicBookingMeetingMode[];
+  publicScheduleDetailsEnabled?: boolean;
+  previewTitle?: string | null;
+  previewDescription?: string | null;
+  previewImageUrl?: string | null;
   rules: PublicBookingLinkRules;
   resources: PublicBookingResource[];
 };
@@ -47,6 +51,7 @@ export type PublicBookingSlot = {
 export type PublicBookingScheduleView = 'month' | 'week' | 'day';
 
 export type PublicBookingScheduleBlock = {
+  id?: string;
   resourceId: string;
   resourceName: string;
   resourceFloor: string | null;
@@ -54,6 +59,14 @@ export type PublicBookingScheduleBlock = {
   endsAt: string;
   status: 'confirmed' | 'pending_review';
   source: 'calendar_event' | 'public_request';
+  kind?: 'confirmed' | 'pending';
+  sourceType?: 'calendar_event' | 'public_request';
+  date?: string;
+  allDay?: boolean;
+  time?: string;
+  label?: string;
+  publicCompanyName?: string | null;
+  publicPurpose?: string | null;
 };
 
 export type PublicBookingLinkRow = {
@@ -77,6 +90,9 @@ export type PublicBookingLinkRow = {
   requires_approval: boolean;
   access_code_hash: string | null;
   notify_user_ids: string[];
+  preview_title?: string | null;
+  preview_description?: string | null;
+  preview_image_url?: string | null;
   metadata: Record<string, unknown>;
   created_by: string | null;
   created_at: string;
@@ -143,4 +159,8 @@ export type PublicBookingLinkDraft = {
   access_code?: string;
   clear_access_code?: boolean;
   notify_user_ids: string[];
+  preview_title?: string | null;
+  preview_description?: string | null;
+  preview_image_url?: string | null;
+  metadata: Record<string, unknown>;
 };

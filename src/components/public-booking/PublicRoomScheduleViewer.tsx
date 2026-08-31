@@ -3,9 +3,9 @@ import {
   addDays,
   addMonths,
   eachDayOfInterval,
-  endOfMonth,
   endOfWeek,
   format,
+  isAfter,
   isBefore,
   isSameMonth,
   isToday,
@@ -28,6 +28,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import type {
   PublicBookingLinkPublic,
   PublicBookingScheduleBlock,
@@ -48,7 +49,7 @@ type PublicRoomScheduleViewerProps = {
 };
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
-const ROOM_COLORS = ['#111827', '#64748b', '#0f766e', '#92400e'];
+const ROOM_COLORS = ['#2563eb', '#0f766e', '#334155', '#92400e'];
 
 function dateKey(date: Date) {
   return format(date, 'yyyy-MM-dd');
@@ -103,6 +104,14 @@ function formatBlockTime(block: PublicBookingScheduleBlock) {
   return `${format(startsAt, 'HH:mm')} - ${format(endsAt, 'HH:mm')}`;
 }
 
+function getBlockCompanyLabel(block: PublicBookingScheduleBlock) {
+  return block.publicCompanyName?.trim() || '회사명 미입력';
+}
+
+function getBlockPurposeLabel(block: PublicBookingScheduleBlock) {
+  return block.publicPurpose?.trim() || '용무 미입력';
+}
+
 function getSlotKey(slot: PublicBookingSlot) {
   return `${slot.meetingMode}:${slot.resourceId || 'none'}:${slot.time}`;
 }
@@ -128,6 +137,58 @@ function getStatusLabel(status: PublicBookingScheduleBlock['status']) {
 
 function getBlockDateKey(block: PublicBookingScheduleBlock) {
   return format(new Date(block.startsAt), 'yyyy-MM-dd');
+}
+
+function normalizeScheduleStatus(value: unknown, kind: unknown): PublicBookingScheduleBlock['status'] {
+  if (value === 'pending_review' || value === 'pending' || kind === 'pending_review' || kind === 'pending') {
+    return 'pending_review';
+  }
+  return 'confirmed';
+}
+
+function normalizeScheduleSource(value: unknown, sourceType: unknown): PublicBookingScheduleBlock['source'] {
+  if (value === 'public_request' || sourceType === 'public_request') return 'public_request';
+  return 'calendar_event';
+}
+
+function normalizeScheduleBlock(value: unknown): PublicBookingScheduleBlock | null {
+  if (!value || typeof value !== 'object') return null;
+  const block = value as Record<string, unknown>;
+  const resourceId = typeof block.resourceId === 'string' ? block.resourceId : '';
+  const resourceName = typeof block.resourceName === 'string' ? block.resourceName : '';
+  const startsAt = typeof block.startsAt === 'string' ? block.startsAt : '';
+  const endsAt = typeof block.endsAt === 'string' ? block.endsAt : '';
+  if (!resourceId || !resourceName || !startsAt || !endsAt) return null;
+
+  const status = normalizeScheduleStatus(block.status, block.kind);
+  const source = normalizeScheduleSource(block.source, block.sourceType);
+  return {
+    id: typeof block.id === 'string' ? block.id : undefined,
+    resourceId,
+    resourceName,
+    resourceFloor: typeof block.resourceFloor === 'string' ? block.resourceFloor : null,
+    startsAt,
+    endsAt,
+    status,
+    source,
+    kind: status === 'pending_review' ? 'pending' : 'confirmed',
+    sourceType: source,
+    date: typeof block.date === 'string' ? block.date : getBlockDateKey({ resourceId, resourceName, resourceFloor: null, startsAt, endsAt, status, source }),
+    allDay: Boolean(block.allDay),
+    time: typeof block.time === 'string' ? block.time : format(new Date(startsAt), 'HH:mm'),
+    label: typeof block.label === 'string' ? block.label : `${format(new Date(startsAt), 'HH:mm')} - ${format(new Date(endsAt), 'HH:mm')}`,
+    publicCompanyName: typeof block.publicCompanyName === 'string' ? block.publicCompanyName : null,
+    publicPurpose: typeof block.publicPurpose === 'string' ? block.publicPurpose : null,
+  };
+}
+
+function isAllowedBookingDate(date: Date, link: PublicBookingLinkPublic) {
+  const today = startOfDay(new Date());
+  const day = startOfDay(date);
+  const maxDate = startOfDay(addDays(today, link.rules.maxDaysAhead));
+  return !isBefore(day, today)
+    && !isAfter(day, maxDate)
+    && link.rules.allowedWeekdays.includes(day.getDay());
 }
 
 export function PublicRoomScheduleViewer({
@@ -178,7 +239,11 @@ export function PublicRoomScheduleViewer({
         });
         if (invokeError) throw invokeError;
         if (data?.error) throw new Error(String(data.error));
-        if (mounted) setBlocks((data?.blocks || []) as PublicBookingScheduleBlock[]);
+        if (mounted) {
+          setBlocks(((data?.blocks || []) as unknown[])
+            .map(normalizeScheduleBlock)
+            .filter((block): block is PublicBookingScheduleBlock => Boolean(block)));
+        }
       } catch (nextError) {
         if (mounted) {
           setBlocks([]);
@@ -209,8 +274,7 @@ export function PublicRoomScheduleViewer({
 
   const monthDays = useMemo(() => {
     const start = startOfWeek(startOfMonth(anchorDate), { weekStartsOn: 0 });
-    const end = endOfWeek(endOfMonth(anchorDate), { weekStartsOn: 0 });
-    return eachDayOfInterval({ start, end });
+    return Array.from({ length: 42 }, (_, index) => addDays(start, index));
   }, [anchorDate]);
 
   const weekDays = useMemo(() => {
@@ -258,6 +322,7 @@ export function PublicRoomScheduleViewer({
   const now = new Date();
   const roomsInUseNow = new Set(todayBlocks.filter((block) => containsTime(block, now)).map((block) => block.resourceId)).size;
   const nextAvailableSlot = selectedDateSlots.find((slot) => new Date(slot.startsAt) > now) || selectedDateSlots[0] || null;
+  const canShowPublicDetails = Boolean(link.publicScheduleDetailsEnabled);
 
   const moveRange = (direction: -1 | 1) => {
     if (view === 'month') {
@@ -284,18 +349,45 @@ export function PublicRoomScheduleViewer({
   const renderCalendarDot = (block: PublicBookingScheduleBlock, index: number) => {
     const color = getResourceColor(block.resourceId, resourceIds);
     return (
-      <span
-        key={`${block.resourceId}-${block.startsAt}-${index}`}
-        title={`${block.resourceName} ${getStatusLabel(block.status)} ${formatBlockTime(block)}`}
-        className={cn(
-          'h-2.5 w-2.5 shrink-0 rounded-full',
-          block.status === 'pending_review' && 'border border-dashed bg-transparent',
-        )}
-        style={{
-          backgroundColor: block.status === 'confirmed' ? color : 'transparent',
-          borderColor: color,
-        }}
-      />
+      <HoverCard key={`${block.resourceId}-${block.startsAt}-${index}`} openDelay={120} closeDelay={80}>
+        <HoverCardTrigger asChild>
+          <span
+            data-testid="public-room-schedule-dot"
+            title={`${block.resourceName} ${getStatusLabel(block.status)} ${formatBlockTime(block)}`}
+            className={cn(
+              'h-2.5 w-2.5 shrink-0 rounded-full outline-none ring-offset-background transition-transform hover:scale-125 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+              block.status === 'pending_review' && 'border border-dashed bg-transparent',
+            )}
+            style={{
+              backgroundColor: block.status === 'confirmed' ? color : 'transparent',
+              borderColor: color,
+            }}
+          />
+        </HoverCardTrigger>
+        <HoverCardContent align="start" side="top" className="w-72 rounded-lg border-border bg-card p-3 text-sm shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate font-bold text-foreground">
+                {canShowPublicDetails ? getBlockCompanyLabel(block) : block.resourceName}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">{block.resourceName} · {formatBlockTime(block)}</p>
+            </div>
+            <Badge variant="outline" className={cn('shrink-0 rounded-full text-[11px]', block.status === 'pending_review' && 'border-dashed')}>
+              {getStatusLabel(block.status)}
+            </Badge>
+          </div>
+          {canShowPublicDetails ? (
+            <div className="mt-3 rounded-md border border-border bg-muted/20 px-3 py-2">
+              <p className="text-[11px] font-semibold text-muted-foreground">용무</p>
+              <p className="mt-1 line-clamp-3 text-sm leading-5 text-foreground">{getBlockPurposeLabel(block)}</p>
+            </div>
+          ) : (
+            <p className="mt-3 rounded-md border border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+              세부 정보는 공개되지 않습니다.
+            </p>
+          )}
+        </HoverCardContent>
+      </HoverCard>
     );
   };
 
@@ -310,7 +402,9 @@ export function PublicRoomScheduleViewer({
               {isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              내부 일정 제목은 숨기고 회의실 점유 상태만 표시합니다.
+              {canShowPublicDetails
+                ? '같은 공유 링크 예약의 회사명, 시간, 용무만 표시합니다.'
+                : '내부 일정 제목은 숨기고 회의실 점유 상태만 표시합니다.'}
             </p>
           </div>
           <div className="inline-flex rounded-full border border-border bg-background p-1">
@@ -429,18 +523,19 @@ export function PublicRoomScheduleViewer({
                   const dayBlocks = blocksByDate.get(key) || [];
                   const selected = selectedDate === key;
                   const visibleBlocks = dayBlocks.slice(0, view === 'day' ? 12 : 4);
-                  const isPast = isBefore(startOfDay(day), startOfDay(new Date()));
+                  const isDateDisabled = !isAllowedBookingDate(day, link);
                   return (
                     <button
                       key={key}
                       type="button"
                       onClick={() => selectDate(day)}
-                      disabled={isPast}
+                      disabled={isDateDisabled}
                       className={cn(
-                        'min-h-28 border-b border-r border-border bg-card p-3 text-left transition-colors last:border-r-0 hover:bg-muted/20 disabled:cursor-not-allowed disabled:opacity-50',
+                        'min-h-28 border-b border-r border-border bg-card p-3 text-left transition-colors last:border-r-0 hover:bg-muted/20 disabled:cursor-not-allowed',
                         view === 'day' && 'min-h-0 border-r-0',
                         view === 'week' && 'min-h-44',
                         !isSameMonth(day, anchorDate) && view === 'month' && 'bg-muted/10 text-muted-foreground',
+                        isDateDisabled && 'text-muted-foreground',
                         selected && 'bg-foreground/[0.04] ring-1 ring-inset ring-foreground',
                       )}
                     >
@@ -539,8 +634,15 @@ export function PublicRoomScheduleViewer({
                     <div className="mt-3 space-y-2">
                       {resourceBlocks.length > 0 ? resourceBlocks.map((block) => (
                         <div key={`${block.resourceId}-${block.startsAt}`} className="rounded-md border border-border bg-muted/20 px-3 py-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-semibold">{formatBlockTime(block)}</span>
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="min-w-0">
+                              <span className="block text-sm font-semibold">{formatBlockTime(block)}</span>
+                              {canShowPublicDetails && (
+                                <span className="mt-1 block truncate text-xs font-medium text-foreground">
+                                  {getBlockCompanyLabel(block)}
+                                </span>
+                              )}
+                            </span>
                             <Badge
                               variant="outline"
                               className={cn('rounded-full text-[11px]', block.status === 'pending_review' && 'border-dashed')}
@@ -548,6 +650,9 @@ export function PublicRoomScheduleViewer({
                               {getStatusLabel(block.status)}
                             </Badge>
                           </div>
+                          <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                            {canShowPublicDetails ? getBlockPurposeLabel(block) : '점유 상태만 공개됩니다.'}
+                          </p>
                         </div>
                       )) : (
                         <p className="rounded-md border border-dashed border-border bg-card px-3 py-3 text-sm text-muted-foreground">
