@@ -248,6 +248,8 @@ function getInitialDraft({
       selectedResourceIds: [],
       clientName: '',
       clientContact: '',
+      publicScheduleCompanyName: '',
+      publicSchedulePurpose: '',
       recurrenceFrequency: 'none',
       recurrenceInterval: '1',
       recurrenceUntil: '',
