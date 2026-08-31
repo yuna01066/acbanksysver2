@@ -62,6 +62,8 @@ type Draft = {
   selectedResourceIds: string[];
   clientName: string;
   clientContact: string;
+  publicScheduleCompanyName: string;
+  publicSchedulePurpose: string;
   recurrenceFrequency: CalendarRecurrenceFrequency;
   recurrenceInterval: string;
   recurrenceUntil: string;
@@ -246,6 +248,8 @@ function getInitialDraft({
       selectedResourceIds: [],
       clientName: '',
       clientContact: '',
+      publicScheduleCompanyName: '',
+      publicSchedulePurpose: '',
       recurrenceFrequency: 'none',
       recurrenceInterval: '1',
       recurrenceUntil: '',
@@ -276,6 +280,12 @@ function getInitialDraft({
     selectedResourceIds: event.resource_ids,
     clientName: event.client_name || '',
     clientContact: event.client_contact || '',
+    publicScheduleCompanyName: typeof event.metadata?.public_schedule_company_name === 'string'
+      ? event.metadata.public_schedule_company_name
+      : '',
+    publicSchedulePurpose: typeof event.metadata?.public_schedule_purpose === 'string'
+      ? event.metadata.public_schedule_purpose
+      : '',
     ...recurrenceInitial,
     reminderMinutes: event.reminder_minutes || [],
   };
@@ -436,8 +446,15 @@ const CalendarEventDialog = ({
     const calendarKind = personalOnly ? 'personal' : draft.mode;
     const baseMetadata = { ...(event?.metadata || {}) };
     delete baseMetadata.employee_meeting_type;
+    delete baseMetadata.public_schedule_company_name;
+    delete baseMetadata.public_schedule_purpose;
     const payloadMode = personalOnly ? 'personal' : draft.mode;
     const payloadDefaults = getModeDefaults(payloadMode);
+    const showsPublicScheduleFields = payloadMode !== 'holiday'
+      && payloadMode !== 'personal'
+      && draft.selectedResourceIds.length > 0;
+    const publicCompanyName = draft.publicScheduleCompanyName.trim().slice(0, 60);
+    const publicPurpose = draft.publicSchedulePurpose.trim().slice(0, 80);
     const payload = {
       ...(event ? { id: event.id } : {}),
       title: draft.title.trim(),
@@ -470,6 +487,8 @@ const CalendarEventDialog = ({
         calendar_label: MODE_OPTIONS.find((option) => option.value === calendarKind)?.label || '일정',
         ...(payloadMode === 'team' && selectedTeam ? { team_calendar_id: selectedTeam.id, team_calendar_name: selectedTeam.name } : {}),
         ...(payloadMode === 'event' || payloadMode === 'holiday' ? { employee_meeting_type: 'all_hands' } : {}),
+        ...(showsPublicScheduleFields && publicCompanyName ? { public_schedule_company_name: publicCompanyName } : {}),
+        ...(showsPublicScheduleFields && publicPurpose ? { public_schedule_purpose: publicPurpose } : {}),
       },
     };
 
@@ -892,6 +911,40 @@ const CalendarEventDialog = ({
                   );
                 })}
               </div>
+              {draft.selectedResourceIds.length > 0 && (
+                <div className="mt-3 space-y-2 rounded-lg border border-[#e5e5e5] bg-white p-3">
+                  <p className="text-xs font-semibold text-[#39393b]">공개 시간표 표시 정보 (선택)</p>
+                  <p className="text-[11px] leading-4 text-[#707072]">
+                    입력하면 공개 예약 링크 시간표에 회사명과 용무만 표시됩니다. 비워두면 사용 구간만 표시됩니다.
+                  </p>
+                  <div className="grid gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-[#707072]">공개 회사명</Label>
+                      <Input
+                        value={draft.publicScheduleCompanyName}
+                        onChange={(inputEvent) => setDraft((current) => ({
+                          ...current,
+                          publicScheduleCompanyName: inputEvent.target.value,
+                        }))}
+                        maxLength={60}
+                        placeholder="예: 에이씨뱅크"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-[#707072]">공개 용무</Label>
+                      <Input
+                        value={draft.publicSchedulePurpose}
+                        onChange={(inputEvent) => setDraft((current) => ({
+                          ...current,
+                          publicSchedulePurpose: inputEvent.target.value,
+                        }))}
+                        maxLength={80}
+                        placeholder="예: 제품 상담"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             )}
 
