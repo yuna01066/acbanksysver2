@@ -628,13 +628,17 @@ async function notifyTargets(
     type: "public_booking_request",
     title,
     description,
+    is_read: false,
     data: {
       publicBookingRequestId: request.id,
       publicBookingLinkId: link.id,
       status: request.status,
+      reviewStage: kind,
       linkType: link.link_type,
     },
-    dedupe_key: `public-booking:${request.id}`,
+    // Keep one notification per review stage so approval/rejection alerts are
+    // delivered as new rows instead of silently updating the pending alert.
+    dedupe_key: `public-booking:${request.id}:${kind}`,
   }));
 
   const { error } = await supabase
