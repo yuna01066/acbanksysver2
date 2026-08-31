@@ -155,6 +155,32 @@ const PublicBookingPage = () => {
     loadAvailability();
   }, [link, date, accessCode, result]);
 
+  const [pendingSlot, setPendingSlot] = useState<{ resourceId: string | null; time: string } | null>(null);
+
+  useEffect(() => {
+    if (!pendingSlot || slots.length === 0) return;
+    const match = slots.find(
+      (slot) => slot.time === pendingSlot.time && (slot.resourceId || null) === pendingSlot.resourceId,
+    );
+    if (match) {
+      setSelectedSlotKey(`${match.meetingMode}:${match.resourceId || 'none'}:${match.time}`);
+      setPendingSlot(null);
+    }
+  }, [pendingSlot, slots]);
+
+  const handleCalendarSlotSelect = (nextDate: string, resourceId: string | null, time: string) => {
+    setPendingSlot({ resourceId, time });
+    if (nextDate !== date) setDate(nextDate);
+    else {
+      const match = slots.find((slot) => slot.time === time && (slot.resourceId || null) === resourceId);
+      if (match) {
+        setSelectedSlotKey(`${match.meetingMode}:${match.resourceId || 'none'}:${match.time}`);
+        setPendingSlot(null);
+      }
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const updateForm = (key: keyof typeof form, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
