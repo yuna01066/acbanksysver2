@@ -487,6 +487,8 @@ const CalendarEventDialog = ({
         calendar_label: MODE_OPTIONS.find((option) => option.value === calendarKind)?.label || '일정',
         ...(payloadMode === 'team' && selectedTeam ? { team_calendar_id: selectedTeam.id, team_calendar_name: selectedTeam.name } : {}),
         ...(payloadMode === 'event' || payloadMode === 'holiday' ? { employee_meeting_type: 'all_hands' } : {}),
+        ...(showsPublicScheduleFields && publicCompanyName ? { public_schedule_company_name: publicCompanyName } : {}),
+        ...(showsPublicScheduleFields && publicPurpose ? { public_schedule_purpose: publicPurpose } : {}),
       },
     };
 
