@@ -861,7 +861,7 @@ async function handleGetSchedule(
     if (eventIds.length > 0) {
       const { data: events, error: eventError } = await supabase
         .from("calendar_events")
-        .select("id, starts_at, ends_at, all_day, status, source_type")
+        .select("id, starts_at, ends_at, all_day, status, source_type, metadata")
         .in("id", eventIds)
         .lt("starts_at", range.end.toISOString())
         .gt("ends_at", range.start.toISOString())
