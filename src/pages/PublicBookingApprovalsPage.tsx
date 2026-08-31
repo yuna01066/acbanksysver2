@@ -18,10 +18,78 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   getPublicBookingErrorMessage,
   useConfirmPublicBookingRequest,
+  usePublicBookingRequestEvents,
   usePublicBookingRequests,
   useRejectPublicBookingRequest,
 } from '@/hooks/usePublicMeetingBookings';
-import type { PublicBookingRequestRow, PublicBookingRequestStatus } from '@/types/publicBooking';
+import type {
+  PublicBookingRequestEventType,
+  PublicBookingRequestRow,
+  PublicBookingRequestStatus,
+} from '@/types/publicBooking';
+
+const EVENT_LABELS: Record<PublicBookingRequestEventType, string> = {
+  requested: '예약 요청 접수',
+  auto_confirmed: '자동 확정',
+  confirmed: '승인 · 확정',
+  rejected: '거절',
+  canceled: '취소',
+  expired: '만료',
+  note: '메모',
+};
+
+const EVENT_DOT_CLASS: Record<PublicBookingRequestEventType, string> = {
+  requested: 'bg-muted-foreground',
+  auto_confirmed: 'bg-emerald-500',
+  confirmed: 'bg-emerald-500',
+  rejected: 'bg-red-500',
+  canceled: 'bg-muted-foreground',
+  expired: 'bg-muted-foreground',
+  note: 'bg-primary',
+};
+
+const RequestEventTimeline = ({ requestId }: { requestId: string }) => {
+  const { data: events = [], isLoading } = usePublicBookingRequestEvents(requestId);
+
+  return (
+    <div className="rounded-lg border border-border bg-muted/20 p-3">
+      <p className="text-sm font-semibold">처리 이력</p>
+      {isLoading ? (
+        <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          이력을 불러오는 중입니다.
+        </p>
+      ) : events.length === 0 ? (
+        <p className="mt-2 text-xs text-muted-foreground">기록된 처리 이력이 없습니다.</p>
+      ) : (
+        <ol className="mt-2 space-y-2">
+          {events.map((event) => (
+            <li key={event.id} className="flex gap-2">
+              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${EVENT_DOT_CLASS[event.event_type] || 'bg-muted-foreground'}`} />
+              <div className="min-w-0 space-y-0.5">
+                <p className="text-xs font-medium">
+                  {EVENT_LABELS[event.event_type] || event.event_type}
+                  {event.to_status ? (
+                    <span className="text-muted-foreground">
+                      {' '}· {STATUS_LABELS[event.to_status] || event.to_status}
+                    </span>
+                  ) : null}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {format(new Date(event.created_at), 'yyyy-MM-dd HH:mm')}
+                  {event.actor_label ? ` · ${event.actor_label}` : ''}
+                </p>
+                {event.note ? (
+                  <p className="whitespace-pre-wrap text-[11px] text-muted-foreground">{event.note}</p>
+                ) : null}
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+};
 
 const STATUS_LABELS: Record<string, string> = {
   pending_review: '승인 대기',
