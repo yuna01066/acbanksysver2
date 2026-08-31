@@ -44,6 +44,8 @@ const WEEKDAYS = [
 ];
 const DURATION_OPTIONS = [30, 60, 90, 120, 180, 240];
 const SLOT_OPTIONS = [15, 30, 60];
+const DEFAULT_MIN_NOTICE_MINUTES = 120;
+const PARTNER_ROOM_MIN_NOTICE_MINUTES = 30;
 const MEETING_MODE_OPTIONS: Array<{ value: PublicBookingMeetingMode; label: string; description: string }> = [
   { value: 'visit', label: '방문', description: '회의실 가능 시간까지 확인' },
   { value: 'phone', label: '전화', description: '담당자 일정만 확인' },
@@ -56,6 +58,11 @@ const STATUS_LABELS: Record<string, string> = {
   canceled: '취소',
   expired: '만료',
 };
+const PUBLIC_BOOKING_BASE_URL = (import.meta.env.VITE_PUBLIC_BOOKING_BASE_URL || 'https://acbanksysver2.lovable.app').replace(/\/$/, '');
+
+function getPublicBookingUrl(slug: string) {
+  return `${PUBLIC_BOOKING_BASE_URL}/public-booking/${slug}`;
+}
 
 function createDefaultDraft(resourceIds: string[]): PublicBookingLinkDraft {
   return {
@@ -73,12 +80,18 @@ function createDefaultDraft(resourceIds: string[]): PublicBookingLinkDraft {
     slot_minutes: 30,
     duration_minutes: 60,
     buffer_minutes: 0,
-    min_notice_minutes: 120,
+    min_notice_minutes: DEFAULT_MIN_NOTICE_MINUTES,
     max_days_ahead: 60,
     requires_approval: true,
     access_code: '',
     clear_access_code: false,
     notify_user_ids: [],
+    preview_title: '',
+    preview_description: '',
+    preview_image_url: '',
+    metadata: {
+      public_schedule_details_enabled: false,
+    },
   };
 }
 
@@ -105,6 +118,10 @@ function draftFromLink(link: PublicBookingLinkRow): PublicBookingLinkDraft {
     access_code: '',
     clear_access_code: false,
     notify_user_ids: link.notify_user_ids || [],
+    preview_title: link.preview_title || '',
+    preview_description: link.preview_description || '',
+    preview_image_url: link.preview_image_url || '',
+    metadata: link.metadata || {},
   };
 }
 
@@ -113,6 +130,10 @@ function formatRequestDate(request: PublicBookingRequestRow) {
   const end = new Date(request.ends_at);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '-';
   return `${format(start, 'M월 d일 EEE HH:mm', { locale: ko })} - ${format(end, 'HH:mm')}`;
+}
+
+function isPublicScheduleDetailsEnabled(metadata: Record<string, unknown> | undefined) {
+  return metadata?.public_schedule_details_enabled === true;
 }
 
 const PublicBookingManagementPanel = () => {
@@ -133,6 +154,16 @@ const PublicBookingManagementPanel = () => {
 
   const updateDraft = <K extends keyof PublicBookingLinkDraft>(key: K, value: PublicBookingLinkDraft[K]) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const updateDraftMetadata = (key: string, value: unknown) => {
+    setDraft((prev) => ({
+      ...prev,
+      metadata: {
+        ...(prev.metadata || {}),
+        [key]: value,
+      },
+    }));
   };
 
   const toggleResource = (resourceId: string) => {
@@ -196,8 +227,19 @@ const PublicBookingManagementPanel = () => {
         : isConsultation
         ? '상담 유형과 가능한 시간을 선택하면 내부 상담 리드와 캘린더에 연결됩니다.'
         : '상담 또는 방문 미팅을 요청해주세요. 담당자가 확인 후 확정합니다.',
+      preview_title: isPartner ? '아크뱅크 공유 회의실 예약' : isConsultation ? '아크뱅크 상담 예약' : '아크뱅크 미팅 예약 요청',
+      preview_description: isPartner
+        ? '공유 사무실 회의실 이용 가능 시간을 확인하고 예약하세요.'
+        : isConsultation
+        ? '상담 가능한 시간을 확인하고 제작 상담을 예약하세요.'
+        : '방문 미팅 가능 시간을 확인하고 요청하세요.',
       requires_approval: !isPartner,
       meeting_modes: isConsultation ? ['visit', 'phone', 'online'] : ['visit'],
+      min_notice_minutes: isPartner ? PARTNER_ROOM_MIN_NOTICE_MINUTES : DEFAULT_MIN_NOTICE_MINUTES,
+      metadata: {
+        ...(prev.metadata || {}),
+        public_schedule_details_enabled: isPartner,
+      },
       slug: generatePublicBookingSlug(isPartner ? 'partner-room' : isConsultation ? 'consultation-booking' : 'customer-booking'),
     }));
   };
@@ -213,7 +255,7 @@ const PublicBookingManagementPanel = () => {
   };
 
   const copyLink = async (slug: string) => {
-    const url = `${window.location.origin}/public-booking/${slug}`;
+    const url = getPublicBookingUrl(slug);
     await navigator.clipboard.writeText(url);
     toast.success('공개 예약 링크를 복사했습니다.');
   };
@@ -444,6 +486,43 @@ const PublicBookingManagementPanel = () => {
                 />
               </div>
 
+              <div className="grid gap-3 rounded-lg border border-border bg-muted/20 p-3">
+                <div>
+                  <p className="text-sm font-bold">링크 미리보기</p>
+                  <p className="text-xs text-muted-foreground">카카오톡 등에서 공유될 제목과 설명입니다.</p>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="publicBookingPreviewTitle">미리보기 제목</Label>
+                  <Input
+                    id="publicBookingPreviewTitle"
+                    value={draft.preview_title || ''}
+                    onChange={(event) => updateDraft('preview_title', event.target.value)}
+                    placeholder={draft.title || '아크뱅크 예약 링크'}
+                    className="h-10 rounded-lg"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="publicBookingPreviewDescription">미리보기 설명</Label>
+                  <Input
+                    id="publicBookingPreviewDescription"
+                    value={draft.preview_description || ''}
+                    onChange={(event) => updateDraft('preview_description', event.target.value)}
+                    placeholder={draft.description || '예약 가능 시간을 확인하고 신청하세요.'}
+                    className="h-10 rounded-lg"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="publicBookingPreviewImage">미리보기 이미지 URL</Label>
+                  <Input
+                    id="publicBookingPreviewImage"
+                    value={draft.preview_image_url || ''}
+                    onChange={(event) => updateDraft('preview_image_url', event.target.value)}
+                    placeholder="https://..."
+                    className="h-10 rounded-lg"
+                  />
+                </div>
+              </div>
+
               {draft.link_type === 'consultation_booking' && (
                 <div className="grid gap-2">
                   <Label>상담 방식</Label>
@@ -572,6 +651,20 @@ const PublicBookingManagementPanel = () => {
                   </span>
                   <Switch checked={draft.is_active} onCheckedChange={(checked) => updateDraft('is_active', checked)} />
                 </label>
+                {draft.link_type === 'partner_room' && (
+                  <label className="flex items-center justify-between gap-3 border-t border-border pt-3 text-sm">
+                    <span>
+                      <span className="block font-semibold">공개 시간표 상세 노출</span>
+                      <span className="text-xs text-muted-foreground">
+                        같은 공유 링크 예약의 회사명, 시간, 용무만 공개합니다. 연락처와 메모는 숨깁니다.
+                      </span>
+                    </span>
+                    <Switch
+                      checked={isPublicScheduleDetailsEnabled(draft.metadata)}
+                      onCheckedChange={(checked) => updateDraftMetadata('public_schedule_details_enabled', checked)}
+                    />
+                  </label>
+                )}
               </div>
 
               <div className="grid gap-2">
@@ -628,7 +721,9 @@ const PublicBookingManagementPanel = () => {
               {isLinksLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
             </div>
             <div className="divide-y divide-border">
-              {links.length > 0 ? links.map((link) => (
+              {links.length > 0 ? links.map((link) => {
+                const publicUrl = getPublicBookingUrl(link.slug);
+                return (
                 <div key={link.id} className="grid gap-3 px-4 py-3 text-sm">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -641,17 +736,33 @@ const PublicBookingManagementPanel = () => {
                           {link.is_active ? '활성' : '비활성'}
                         </Badge>
                       </div>
-                      <p className="mt-1 truncate font-mono text-xs text-muted-foreground">/public-booking/{link.slug}</p>
+                      <p className="mt-1 truncate font-mono text-xs text-muted-foreground">{publicUrl}</p>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {link.start_time.slice(0, 5)}-{link.end_time.slice(0, 5)} / {link.duration_minutes}분 / {link.requires_approval ? '관리자 확정' : '자동 확정'}
                         {link.link_type === 'consultation_booking' && ` / ${link.meeting_modes.map((mode) => MEETING_MODE_OPTIONS.find((item) => item.value === mode)?.label || mode).join(', ')}`}
                       </p>
+                      {link.link_type === 'partner_room' && (
+                        <Badge variant="outline" className="mt-2 rounded-full text-[11px]">
+                          {isPublicScheduleDetailsEnabled(link.metadata) ? '시간표 상세 공개' : '점유 여부만 공개'}
+                        </Badge>
+                      )}
+                      <div className="mt-2 rounded-lg border border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                        <p className="truncate font-semibold text-foreground">
+                          {link.preview_title || link.title}
+                        </p>
+                        <p className="mt-1 truncate">
+                          {link.preview_description || link.description || '공유 시 표시할 설명이 없습니다.'}
+                        </p>
+                        {link.preview_image_url && (
+                          <p className="mt-1 truncate font-mono">{link.preview_image_url}</p>
+                        )}
+                      </div>
                     </div>
                     <div className="flex shrink-0 gap-2">
                       <Button type="button" variant="outline" size="icon" className="h-8 w-8 rounded-full" onClick={() => copyLink(link.slug)}>
                         <ClipboardCopy className="h-3.5 w-3.5" />
                       </Button>
-                      <Button type="button" variant="outline" size="icon" className="h-8 w-8 rounded-full" onClick={() => window.open(`/public-booking/${link.slug}`, '_blank')}>
+                      <Button type="button" variant="outline" size="icon" className="h-8 w-8 rounded-full" onClick={() => window.open(publicUrl, '_blank')}>
                         <ExternalLink className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -666,7 +777,8 @@ const PublicBookingManagementPanel = () => {
                     </Button>
                   </div>
                 </div>
-              )) : (
+                );
+              }) : (
                 <div className="px-4 py-8 text-center text-sm text-muted-foreground">생성된 공개 예약 링크가 없습니다.</div>
               )}
             </div>
