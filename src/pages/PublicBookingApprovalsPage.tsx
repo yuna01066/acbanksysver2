@@ -114,8 +114,12 @@ const PublicBookingApprovalsPage = () => {
   const handleConfirm = async (request: PublicBookingRequestRow) => {
     try {
       await confirmRequest.mutateAsync({ requestId: request.id });
-      toast.success('예약 요청을 승인했습니다.');
-      setSelected(null);
+      toast.success('예약 요청을 승인했습니다. 담당자에게 알림이 발송되었습니다.');
+      setSelected((current) =>
+        current && current.id === request.id
+          ? { ...current, status: 'confirmed', reviewed_at: new Date().toISOString() }
+          : current,
+      );
     } catch (error) {
       toast.error(getPublicBookingErrorMessage(error, '예약 승인에 실패했습니다.'));
     }
@@ -130,10 +134,14 @@ const PublicBookingApprovalsPage = () => {
     }
     try {
       await rejectRequest.mutateAsync({ requestId: rejectTarget.id, reviewNote: reason });
-      toast.success('예약 요청을 거절했습니다.');
+      toast.success('예약 요청을 거절했습니다. 담당자에게 알림이 발송되었습니다.');
+      setSelected((current) =>
+        current && current.id === rejectTarget.id
+          ? { ...current, status: 'rejected', review_note: reason, reviewed_at: new Date().toISOString() }
+          : current,
+      );
       setRejectTarget(null);
       setRejectReason('');
-      setSelected(null);
     } catch (error) {
       toast.error(getPublicBookingErrorMessage(error, '예약 거절에 실패했습니다.'));
     }
