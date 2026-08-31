@@ -1266,15 +1266,35 @@ async function handleCreateRequest(req: Request, origin: string | null, body: Js
     if (requestUpdateError) throw requestUpdateError;
   }
 
+  await recordRequestEvent(supabase, {
+    requestId: requestRow.id,
+    linkId: link.id,
+    eventType: "requested",
+    fromStatus: null,
+    toStatus: "pending_review",
+    actorLabel: "공개 예약 링크",
+    metadata: { linkSlug: link.slug, linkType: link.link_type, meetingMode },
+  });
+
   let nextStatus = "pending_review";
   if (!link.requires_approval) {
+    const autoNote = isConsultationLink(link) ? "공개 상담 예약 링크 자동 확정" : "공유회사 전용 링크 자동 확정";
     const { error: confirmError } = await supabase.rpc("confirm_public_booking_request", {
       _request_id: requestRow.id,
       _reviewer_id: null,
-      _review_note: isConsultationLink(link) ? "공개 상담 예약 링크 자동 확정" : "공유회사 전용 링크 자동 확정",
+      _review_note: autoNote,
     });
     if (confirmError) throw confirmError;
     nextStatus = "confirmed";
+    await recordRequestEvent(supabase, {
+      requestId: requestRow.id,
+      linkId: link.id,
+      eventType: "auto_confirmed",
+      fromStatus: "pending_review",
+      toStatus: "confirmed",
+      actorLabel: "자동 확정",
+      note: autoNote,
+    });
   }
 
   const requestForNotification = { ...requestRow, status: nextStatus } as PublicBookingRequest;
