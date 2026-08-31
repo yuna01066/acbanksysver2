@@ -419,13 +419,23 @@ const PublicRoomScheduleViewer = ({ slug, date, accessCode, className, refreshTo
                   ) : (
                     <ul className="space-y-1">
                       {used.map((block) => (
-                        <li key={block.id} className="flex items-center justify-between gap-2 text-xs">
-                          <span>{block.allDay ? '종일' : `${seoulClock(block.startsAt)}~${seoulClock(block.endsAt)}`}</span>
-                          <Badge variant={STATUS_META[resolveStatus(block)].variant} className="rounded-full">
-                            {STATUS_META[resolveStatus(block)].label}
-                          </Badge>
+                        <li key={block.id} className="text-xs">
+                          <div className="flex items-center justify-between gap-2">
+                            <span>{block.allDay ? '종일' : `${seoulClock(block.startsAt)}~${seoulClock(block.endsAt)}`}</span>
+                            <Badge variant={STATUS_META[resolveStatus(block)].variant} className="rounded-full">
+                              {STATUS_META[resolveStatus(block)].label}
+                            </Badge>
+                          </div>
+                          {block.publicCompanyName || block.publicPurpose ? (
+                            <p className="mt-0.5 text-[11px] text-muted-foreground">
+                              {[block.publicCompanyName, block.publicPurpose ? `용무: ${block.publicPurpose}` : null]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </p>
+                          ) : null}
                         </li>
                       ))}
+
                     </ul>
                   )}
                 </div>
