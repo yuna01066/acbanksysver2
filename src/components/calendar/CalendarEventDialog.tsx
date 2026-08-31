@@ -62,6 +62,8 @@ type Draft = {
   selectedResourceIds: string[];
   clientName: string;
   clientContact: string;
+  publicScheduleCompanyName: string;
+  publicSchedulePurpose: string;
   recurrenceFrequency: CalendarRecurrenceFrequency;
   recurrenceInterval: string;
   recurrenceUntil: string;
