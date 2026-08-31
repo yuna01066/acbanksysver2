@@ -383,7 +383,14 @@ const PublicBookingPage = () => {
               </div>
             </div>
 
-            {isConsultation && (
+            {!selectedSlot && (
+              <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-center text-sm text-muted-foreground">
+                예약 가능 시간을 먼저 선택하면 예약자 정보 입력 폼이 표시됩니다.
+              </div>
+            )}
+
+            {isConsultation && selectedSlot && (
+
               <div className="grid gap-3 rounded-lg border border-border bg-muted/20 p-3">
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">상담 유형</Label>
