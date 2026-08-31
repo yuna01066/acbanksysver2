@@ -460,6 +460,7 @@ const PublicBookingPage = () => {
               </div>
             )}
 
+            {selectedSlot && (<>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="requesterName" className="text-sm font-semibold">예약자 이름</Label>
