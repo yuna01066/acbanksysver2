@@ -8,9 +8,15 @@ import { Button } from '@/components/ui/button';
 
 type ScheduleView = 'month' | 'week' | 'day';
 
+type ScheduleBlockStatus = 'confirmed' | 'pending_review';
+type ScheduleBlockSource = 'calendar_event' | 'public_request';
+
 type ScheduleBlock = {
   id: string;
-  kind: 'confirmed' | 'pending';
+  /** @deprecated use status */
+  kind?: 'confirmed' | 'pending';
+  status?: ScheduleBlockStatus;
+  source?: ScheduleBlockSource;
   resourceId: string | null;
   resourceName: string;
   date: string;
@@ -21,6 +27,17 @@ type ScheduleBlock = {
   label: string;
   sourceType: string | null;
 };
+
+function resolveStatus(block: ScheduleBlock): ScheduleBlockStatus {
+  if (block.status === 'confirmed' || block.status === 'pending_review') return block.status;
+  return block.kind === 'pending' ? 'pending_review' : 'confirmed';
+}
+
+const STATUS_META: Record<ScheduleBlockStatus, { label: string; variant: 'secondary' | 'outline'; hint: string }> = {
+  confirmed: { label: '확정', variant: 'secondary', hint: '승인 완료된 예약입니다.' },
+  pending_review: { label: '승인 대기', variant: 'outline', hint: '요청 접수 후 승인 대기 중입니다.' },
+};
+
 
 type ScheduleResponse = {
   view: ScheduleView;
