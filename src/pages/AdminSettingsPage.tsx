@@ -99,6 +99,17 @@ const ADMIN_FEATURES: AdminFeatureItem[] = [
     path: '/review-hub',
   },
   {
+    id: 'public-booking-approvals',
+    title: '공개 예약 승인 관리',
+    description: '공개 링크로 접수된 회의실·상담 예약 요청을 확인하고 승인 또는 거절합니다.',
+    category: 'approval',
+    icon: CalendarCheck2,
+    keywords: '공개 예약 승인 대기 회의실 상담 booking approval public link',
+    access: 'admin-or-moderator',
+    priority: 30,
+    path: '/public-booking-approvals',
+  },
+  {
     id: 'employee-profiles',
     title: '직원 관리',
     description: '구성원 프로필, 권한, 인사 문서와 직원 상태를 관리합니다.',
