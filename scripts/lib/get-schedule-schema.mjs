@@ -93,6 +93,10 @@ export function validateGetScheduleResponse(payload, expected = {}) {
       const at = `blocks[${index}]`;
       if (typeof block.id !== "string" || !block.id) push(`${at}.id must be a non-empty string`);
       if (!BLOCK_KINDS.has(block.kind)) push(`${at}.kind must be confirmed|pending (got ${JSON.stringify(block.kind)})`);
+      const expectedStatus = block.kind === "pending" ? "pending_review" : "confirmed";
+      if (block.status !== expectedStatus) push(`${at}.status must be ${expectedStatus} for kind ${block.kind} (got ${JSON.stringify(block.status)})`);
+      const expectedSource = block.kind === "pending" ? "public_request" : "calendar_event";
+      if (block.source !== expectedSource) push(`${at}.source must be ${expectedSource} for kind ${block.kind} (got ${JSON.stringify(block.source)})`);
       if (!(block.resourceId === null || typeof block.resourceId === "string")) push(`${at}.resourceId must be string or null`);
       if (typeof block.resourceId === "string" && resourceIds.size > 0 && !resourceIds.has(block.resourceId)) {
         push(`${at}.resourceId ${block.resourceId} is not part of the link resources`);
