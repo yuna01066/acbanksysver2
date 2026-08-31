@@ -29,6 +29,8 @@ type PublicBookingLink = {
   preview_title: string | null;
   preview_description: string | null;
   preview_image_url: string | null;
+  metadata: JsonObject | null;
+
 };
 type CalendarResource = {
   id: string;
