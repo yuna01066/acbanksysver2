@@ -876,6 +876,17 @@ async function handleGetSchedule(
         const startsAt = new Date(String(event.starts_at));
         const endsAt = new Date(String(event.ends_at));
         const detail = detailByEventId.get(row.event_id);
+        const eventMetadata = event.metadata && typeof event.metadata === "object"
+          ? event.metadata as Record<string, unknown>
+          : {};
+        const manualCompany = typeof eventMetadata.public_schedule_company_name === "string"
+          ? eventMetadata.public_schedule_company_name.trim()
+          : "";
+        const manualPurpose = typeof eventMetadata.public_schedule_purpose === "string"
+          ? eventMetadata.public_schedule_purpose.trim()
+          : "";
+        const publicCompany = detail?.company || manualCompany || null;
+        const publicPurpose = detail?.purpose || manualPurpose || null;
         blocks.push({
           id: `event:${row.event_id}:${row.resource_id}`,
           kind: "confirmed",
@@ -890,10 +901,10 @@ async function handleGetSchedule(
           time: seoulClock(startsAt),
           label: event.all_day ? "종일 예약" : `${seoulClock(startsAt)} - ${seoulClock(endsAt)}`,
           sourceType: event.source_type ?? null,
-          ...(showDetails && detail
+          ...(showDetails && (publicCompany || publicPurpose)
             ? {
-              publicCompanyName: detail.company ? text(detail.company, 60) : null,
-              publicPurpose: detail.purpose ? text(detail.purpose, 80) : null,
+              publicCompanyName: publicCompany ? text(publicCompany, 60) : null,
+              publicPurpose: publicPurpose ? text(publicPurpose, 80) : null,
             }
             : {}),
         });
