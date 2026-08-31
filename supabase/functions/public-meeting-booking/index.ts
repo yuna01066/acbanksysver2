@@ -1329,6 +1329,16 @@ async function handleConfirmRequest(req: Request, origin: string | null, body: J
     .maybeSingle();
   const link = asObject(requestRow?.public_booking_links) as unknown as PublicBookingLink;
   await invalidateScheduleCache(supabase, link?.id ?? ((requestRow as JsonObject | null)?.link_id as string | undefined));
+  await recordRequestEvent(supabase, {
+    requestId,
+    linkId: link?.id ?? ((requestRow as JsonObject | null)?.link_id as string | undefined) ?? null,
+    eventType: "confirmed",
+    fromStatus: "pending_review",
+    toStatus: "confirmed",
+    actorId: reviewerId,
+    note: optionalText(body.reviewNote, 300),
+    metadata: { calendarEventId: eventId ?? null },
+  });
   if (requestRow && link?.id) await notifyTargets(supabase, link, requestRow as PublicBookingRequest, "confirmed");
 
 
