@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type {
   PublicBookingLinkDraft,
   PublicBookingLinkRow,
+  PublicBookingRequestEventRow,
   PublicBookingRequestRow,
 } from '@/types/publicBooking';
 
