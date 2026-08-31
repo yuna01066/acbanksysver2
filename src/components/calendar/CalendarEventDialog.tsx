@@ -280,6 +280,12 @@ function getInitialDraft({
     selectedResourceIds: event.resource_ids,
     clientName: event.client_name || '',
     clientContact: event.client_contact || '',
+    publicScheduleCompanyName: typeof event.metadata?.public_schedule_company_name === 'string'
+      ? event.metadata.public_schedule_company_name
+      : '',
+    publicSchedulePurpose: typeof event.metadata?.public_schedule_purpose === 'string'
+      ? event.metadata.public_schedule_purpose
+      : '',
     ...recurrenceInitial,
     reminderMinutes: event.reminder_minutes || [],
   };
