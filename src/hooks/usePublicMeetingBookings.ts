@@ -159,6 +159,27 @@ export function useSavePublicBookingLink(userId?: string | null) {
   });
 }
 
+function applyRequestStatus(
+  queryClient: ReturnType<typeof useQueryClient>,
+  requestId: string,
+  status: PublicBookingRequestRow['status'],
+  reviewNote?: string | null,
+) {
+  queryClient.setQueryData<PublicBookingRequestRow[]>(['public-booking-requests'], (current) => {
+    if (!current) return current;
+    return current.map((request) =>
+      request.id === requestId
+        ? {
+            ...request,
+            status,
+            review_note: reviewNote ?? request.review_note,
+            reviewed_at: new Date().toISOString(),
+          }
+        : request,
+    );
+  });
+}
+
 export function useConfirmPublicBookingRequest() {
   const queryClient = useQueryClient();
 
@@ -175,11 +196,13 @@ export function useConfirmPublicBookingRequest() {
       if (data?.error) throw new Error(String(data.error));
       return data as { eventId: string; status: string };
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      applyRequestStatus(queryClient, variables.requestId, 'confirmed', variables.reviewNote ?? null);
       queryClient.invalidateQueries({ queryKey: ['public-booking-requests'] });
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
       queryClient.invalidateQueries({ queryKey: ['calendar-dashboard-summary'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-meeting-booking-card'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
 }
@@ -200,8 +223,13 @@ export function useRejectPublicBookingRequest() {
       if (data?.error) throw new Error(String(data.error));
       return data as { status: string };
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      applyRequestStatus(queryClient, variables.requestId, 'rejected', variables.reviewNote);
       queryClient.invalidateQueries({ queryKey: ['public-booking-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar-dashboard-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-meeting-booking-card'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
 }
