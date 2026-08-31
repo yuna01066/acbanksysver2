@@ -148,9 +148,12 @@ type Props = {
   className?: string;
   /** Change this value to force a schedule refetch (e.g. after a booking request). */
   refreshToken?: string | number;
+  /** Called when a visitor picks an open slot from the calendar detail panel. */
+  onSelectSlot?: (date: string, resourceId: string | null, time: string) => void;
 };
 
-const PublicRoomScheduleViewer = ({ slug, date, accessCode, className, refreshToken }: Props) => {
+const PublicRoomScheduleViewer = ({ slug, date, accessCode, className, refreshToken, onSelectSlot }: Props) => {
+
   const [view, setView] = useState<ScheduleView>('month');
   const [schedule, setSchedule] = useState<ScheduleResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
