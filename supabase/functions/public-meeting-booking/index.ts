@@ -399,6 +399,17 @@ function isConsultationLink(link: PublicBookingLink) {
   return link.link_type === "consultation_booking";
 }
 
+/**
+ * Partner-room links may opt into showing coarse booking context
+ * (company name + purpose) on the public schedule. Never contact info.
+ */
+function publicScheduleDetailsEnabled(link: PublicBookingLink) {
+  if (link.link_type !== "partner_room") return false;
+  const flag = (link.metadata || {})["public_schedule_details_enabled"];
+  return flag !== false;
+}
+
+
 function requiresResource(link: PublicBookingLink, meetingMode: MeetingMode) {
   return !isConsultationLink(link) || meetingMode === "visit";
 }
