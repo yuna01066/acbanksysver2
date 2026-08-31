@@ -25,6 +25,7 @@ export const EXPLICIT_PROTECTED_PAGE_DEFAULTS: Readonly<Record<string, AccessRol
   '/performance-review': 'employee',
   '/portfolio': 'employee',
   '/project-management': 'employee',
+  '/public-booking-approvals': 'moderator',
   '/quote-drafts': 'employee',
   '/quote-calculation-settings': 'admin',
   '/quote-template-management': 'moderator',
