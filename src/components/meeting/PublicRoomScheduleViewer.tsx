@@ -411,11 +411,17 @@ const PublicRoomScheduleViewer = ({ slug, date, accessCode, className, refreshTo
                   ) : (
                     <div className="flex flex-wrap gap-1">
                       {available.map((slot) => (
-                        <span key={slot} className="rounded-full border border-border px-2 py-0.5 text-xs">
-                          {slot}
-                        </span>
+                        <button
+                          key={slot.start}
+                          type="button"
+                          onClick={() => onSelectSlot?.(activeDate, resource.id, slot.start)}
+                          className="rounded-full border border-border px-2 py-0.5 text-xs transition-colors hover:border-foreground hover:bg-muted"
+                        >
+                          {slot.label}
+                        </button>
                       ))}
                     </div>
+
                   )}
                 </div>
               </div>
