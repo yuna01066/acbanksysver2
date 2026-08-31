@@ -371,7 +371,7 @@ const PublicBookingApprovalsPage = () => {
       </Card>
 
       <Dialog open={Boolean(selected)} onOpenChange={(open) => !open && setSelected(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
           <DialogHeader>
             <DialogTitle>예약 요청 상세</DialogTitle>
           </DialogHeader>
@@ -394,6 +394,7 @@ const PublicBookingApprovalsPage = () => {
                 <dt className="text-muted-foreground">접수 시각</dt>
                 <dd>{format(new Date(selected.created_at), 'yyyy-MM-dd HH:mm')}</dd>
               </dl>
+              <RequestEventTimeline requestId={selected.id} />
             </div>
           ) : null}
           <DialogFooter>
