@@ -148,9 +148,12 @@ type Props = {
   className?: string;
   /** Change this value to force a schedule refetch (e.g. after a booking request). */
   refreshToken?: string | number;
+  /** Called when a visitor picks an open slot from the calendar detail panel. */
+  onSelectSlot?: (date: string, resourceId: string | null, time: string) => void;
 };
 
-const PublicRoomScheduleViewer = ({ slug, date, accessCode, className, refreshToken }: Props) => {
+const PublicRoomScheduleViewer = ({ slug, date, accessCode, className, refreshToken, onSelectSlot }: Props) => {
+
   const [view, setView] = useState<ScheduleView>('month');
   const [schedule, setSchedule] = useState<ScheduleResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -253,12 +256,13 @@ const PublicRoomScheduleViewer = ({ slug, date, accessCode, className, refreshTo
         start: block.allDay ? open : minutesFromClock(seoulClock(block.startsAt)),
         end: block.allDay ? close : minutesFromClock(seoulClock(block.endsAt)),
       }));
-      const available: string[] = [];
+      const available: { start: string; label: string }[] = [];
       if (weekdayAllowed) {
         for (let start = open; start + duration <= close; start += slotMinutes) {
           const end = start + duration;
           const overlaps = busy.some((item) => start < item.end && end > item.start);
-          if (!overlaps) available.push(`${clockFromMinutes(start)}~${clockFromMinutes(end)}`);
+          if (!overlaps) available.push({ start: clockFromMinutes(start), label: `${clockFromMinutes(start)}~${clockFromMinutes(end)}` });
+
         }
       }
       return { resource, used, available, weekdayAllowed };
@@ -410,11 +414,17 @@ const PublicRoomScheduleViewer = ({ slug, date, accessCode, className, refreshTo
                   ) : (
                     <div className="flex flex-wrap gap-1">
                       {available.map((slot) => (
-                        <span key={slot} className="rounded-full border border-border px-2 py-0.5 text-xs">
-                          {slot}
-                        </span>
+                        <button
+                          key={slot.start}
+                          type="button"
+                          onClick={() => onSelectSlot?.(activeDate, resource.id, slot.start)}
+                          className="rounded-full border border-border px-2 py-0.5 text-xs transition-colors hover:border-foreground hover:bg-muted"
+                        >
+                          {slot.label}
+                        </button>
                       ))}
                     </div>
+
                   )}
                 </div>
               </div>

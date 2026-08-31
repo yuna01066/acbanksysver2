@@ -155,6 +155,32 @@ const PublicBookingPage = () => {
     loadAvailability();
   }, [link, date, accessCode, result]);
 
+  const [pendingSlot, setPendingSlot] = useState<{ resourceId: string | null; time: string } | null>(null);
+
+  useEffect(() => {
+    if (!pendingSlot || slots.length === 0) return;
+    const match = slots.find(
+      (slot) => slot.time === pendingSlot.time && (slot.resourceId || null) === pendingSlot.resourceId,
+    );
+    if (match) {
+      setSelectedSlotKey(`${match.meetingMode}:${match.resourceId || 'none'}:${match.time}`);
+      setPendingSlot(null);
+    }
+  }, [pendingSlot, slots]);
+
+  const handleCalendarSlotSelect = (nextDate: string, resourceId: string | null, time: string) => {
+    setPendingSlot({ resourceId, time });
+    if (nextDate !== date) setDate(nextDate);
+    else {
+      const match = slots.find((slot) => slot.time === time && (slot.resourceId || null) === resourceId);
+      if (match) {
+        setSelectedSlotKey(`${match.meetingMode}:${match.resourceId || 'none'}:${match.time}`);
+        setPendingSlot(null);
+      }
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const updateForm = (key: keyof typeof form, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
@@ -383,7 +409,14 @@ const PublicBookingPage = () => {
               </div>
             </div>
 
-            {isConsultation && (
+            {!selectedSlot && (
+              <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-center text-sm text-muted-foreground">
+                예약 가능 시간을 먼저 선택하면 예약자 정보 입력 폼이 표시됩니다.
+              </div>
+            )}
+
+            {isConsultation && selectedSlot && (
+
               <div className="grid gap-3 rounded-lg border border-border bg-muted/20 p-3">
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold">상담 유형</Label>
@@ -453,6 +486,7 @@ const PublicBookingPage = () => {
               </div>
             )}
 
+            {selectedSlot && (<>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="requesterName" className="text-sm font-semibold">예약자 이름</Label>
@@ -533,6 +567,8 @@ const PublicBookingPage = () => {
                 className="min-h-20 rounded-lg"
               />
             </div>
+            </>)}
+
 
             {error && (
               <Alert variant="destructive">
@@ -560,6 +596,7 @@ const PublicBookingPage = () => {
           date={date}
           accessCode={accessCode}
           refreshToken={result?.status ? `${result.status}:${selectedSlotKey}` : ''}
+          onSelectSlot={handleCalendarSlotSelect}
           className="mx-auto mt-4 max-w-5xl"
         />
       )}
