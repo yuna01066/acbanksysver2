@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { addDays, format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { CalendarCheck2, CheckCircle2, Clock3, Loader2, LockKeyhole, MapPin, Phone, Send, UserRound, Video } from 'lucide-react';
-import { useParams } from 'react-router-dom';
+import { CalendarCheck2, CheckCircle2, Clock3, Loader2, LockKeyhole, MapPin, Phone, Send, ShieldCheck, UserRound, Video } from 'lucide-react';
+import { Link as RouterLink, useParams } from 'react-router-dom';
+
 import { supabase } from '@/integrations/supabase/client';
 import PublicRoomScheduleViewer from '@/components/meeting/PublicRoomScheduleViewer';
 import { cn } from '@/lib/utils';
