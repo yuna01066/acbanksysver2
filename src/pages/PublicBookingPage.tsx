@@ -540,6 +540,8 @@ const PublicBookingPage = () => {
                 className="min-h-20 rounded-lg"
               />
             </div>
+            </>)}
+
 
             {error && (
               <Alert variant="destructive">
