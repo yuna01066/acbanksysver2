@@ -841,6 +841,8 @@ async function handleGetSchedule(
         blocks.push({
           id: `event:${row.event_id}:${row.resource_id}`,
           kind: "confirmed",
+          status: "confirmed",
+          source: "calendar_event",
           resourceId: row.resource_id,
           resourceName: resourceNames.get(row.resource_id) || "회의실",
           date: seoulDateKey(startsAt),
