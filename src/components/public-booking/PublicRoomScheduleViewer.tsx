@@ -28,7 +28,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import type {
   PublicBookingLinkPublic,
   PublicBookingScheduleBlock,
@@ -105,11 +106,15 @@ function formatBlockTime(block: PublicBookingScheduleBlock) {
 }
 
 function getBlockCompanyLabel(block: PublicBookingScheduleBlock) {
-  return block.publicCompanyName?.trim() || '회사명 미입력';
+  return block.publicCompanyName?.trim() || '공개 회사명 미입력';
 }
 
 function getBlockPurposeLabel(block: PublicBookingScheduleBlock) {
-  return block.publicPurpose?.trim() || '용무 미입력';
+  return block.publicPurpose?.trim() || '공개 용무 미입력';
+}
+
+function hasPublicBlockDetails(block: PublicBookingScheduleBlock) {
+  return Boolean(block.publicCompanyName?.trim() || block.publicPurpose?.trim());
 }
 
 function getSlotKey(slot: PublicBookingSlot) {
@@ -133,6 +138,10 @@ function getResourceColor(resourceId: string, resourceIds: string[]) {
 
 function getStatusLabel(status: PublicBookingScheduleBlock['status']) {
   return status === 'pending_review' ? '승인 대기' : '사용 중';
+}
+
+function getStatusBadgeLabel(status: PublicBookingScheduleBlock['status']) {
+  return status === 'pending_review' ? '승인 대기' : '확정';
 }
 
 function getBlockDateKey(block: PublicBookingScheduleBlock) {
@@ -177,8 +186,16 @@ function normalizeScheduleBlock(value: unknown): PublicBookingScheduleBlock | nu
     allDay: Boolean(block.allDay),
     time: typeof block.time === 'string' ? block.time : format(new Date(startsAt), 'HH:mm'),
     label: typeof block.label === 'string' ? block.label : `${format(new Date(startsAt), 'HH:mm')} - ${format(new Date(endsAt), 'HH:mm')}`,
-    publicCompanyName: typeof block.publicCompanyName === 'string' ? block.publicCompanyName : null,
-    publicPurpose: typeof block.publicPurpose === 'string' ? block.publicPurpose : null,
+    publicCompanyName: typeof block.publicCompanyName === 'string'
+      ? block.publicCompanyName
+      : typeof block.public_company_name === 'string'
+        ? block.public_company_name
+        : null,
+    publicPurpose: typeof block.publicPurpose === 'string'
+      ? block.publicPurpose
+      : typeof block.public_purpose === 'string'
+        ? block.public_purpose
+        : null,
   };
 }
 
@@ -348,46 +365,61 @@ export function PublicRoomScheduleViewer({
 
   const renderCalendarDot = (block: PublicBookingScheduleBlock, index: number) => {
     const color = getResourceColor(block.resourceId, resourceIds);
+    const publicTitle = canShowPublicDetails && hasPublicBlockDetails(block)
+      ? ` · ${[block.publicCompanyName, block.publicPurpose].filter(Boolean).join(' / ')}`
+      : '';
     return (
-      <HoverCard key={`${block.resourceId}-${block.startsAt}-${index}`} openDelay={120} closeDelay={80}>
-        <HoverCardTrigger asChild>
-          <span
-            data-testid="public-room-schedule-dot"
-            title={`${block.resourceName} ${getStatusLabel(block.status)} ${formatBlockTime(block)}`}
-            className={cn(
-              'h-2.5 w-2.5 shrink-0 rounded-full outline-none ring-offset-background transition-transform hover:scale-125 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-              block.status === 'pending_review' && 'border border-dashed bg-transparent',
-            )}
-            style={{
-              backgroundColor: block.status === 'confirmed' ? color : 'transparent',
-              borderColor: color,
-            }}
-          />
-        </HoverCardTrigger>
-        <HoverCardContent align="start" side="top" className="w-72 rounded-lg border-border bg-card p-3 text-sm shadow-sm">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="truncate font-bold text-foreground">
-                {canShowPublicDetails ? getBlockCompanyLabel(block) : block.resourceName}
+      <span
+        key={`${block.resourceId}-${block.startsAt}-${index}`}
+        data-testid="public-room-schedule-dot"
+        title={`${block.resourceName} ${getStatusLabel(block.status)} ${formatBlockTime(block)}${publicTitle}`}
+        className={cn(
+          'h-2.5 w-2.5 shrink-0 rounded-full',
+          block.status === 'pending_review' && 'border border-dashed bg-transparent',
+        )}
+        style={{
+          backgroundColor: block.status === 'confirmed' ? color : 'transparent',
+          borderColor: color,
+        }}
+      />
+    );
+  };
+
+  const renderScheduleCard = (block: PublicBookingScheduleBlock) => {
+    const color = getResourceColor(block.resourceId, resourceIds);
+    const showPublicDetails = canShowPublicDetails && hasPublicBlockDetails(block);
+    return (
+      <div
+        key={`${block.id || block.source}-${block.resourceId}-${block.startsAt}-${block.status}`}
+        className="rounded-lg border border-border bg-background p-3 text-left"
+      >
+        <div className="flex items-start gap-2">
+          <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <p className="min-w-0 truncate text-sm font-bold text-foreground">
+                {showPublicDetails ? getBlockCompanyLabel(block) : block.resourceName}
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">{block.resourceName} · {formatBlockTime(block)}</p>
+              <Badge
+                variant="outline"
+                className={cn('shrink-0 rounded-full px-2 py-0 text-[10px]', block.status === 'pending_review' && 'border-dashed')}
+              >
+                {getStatusBadgeLabel(block.status)}
+              </Badge>
             </div>
-            <Badge variant="outline" className={cn('shrink-0 rounded-full text-[11px]', block.status === 'pending_review' && 'border-dashed')}>
-              {getStatusLabel(block.status)}
-            </Badge>
-          </div>
-          {canShowPublicDetails ? (
-            <div className="mt-3 rounded-md border border-border bg-muted/20 px-3 py-2">
-              <p className="text-[11px] font-semibold text-muted-foreground">용무</p>
-              <p className="mt-1 line-clamp-3 text-sm leading-5 text-foreground">{getBlockPurposeLabel(block)}</p>
-            </div>
-          ) : (
-            <p className="mt-3 rounded-md border border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-              세부 정보는 공개되지 않습니다.
+            <p className="mt-1 text-xs font-medium text-muted-foreground">
+              {block.resourceName} · {formatBlockTime(block)}
             </p>
-          )}
-        </HoverCardContent>
-      </HoverCard>
+            {canShowPublicDetails ? (
+              <p className={cn('mt-2 line-clamp-2 text-xs leading-5', showPublicDetails ? 'text-foreground' : 'text-muted-foreground')}>
+                {showPublicDetails ? getBlockPurposeLabel(block) : '공개 회사명/용무가 입력되지 않았습니다.'}
+              </p>
+            ) : (
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">세부 정보는 공개되지 않습니다.</p>
+            )}
+          </div>
+        </div>
+      </div>
     );
   };
 
@@ -525,82 +557,131 @@ export function PublicRoomScheduleViewer({
                   const visibleBlocks = dayBlocks.slice(0, view === 'day' ? 12 : 4);
                   const isDateDisabled = !isAllowedBookingDate(day, link);
                   return (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => selectDate(day)}
-                      disabled={isDateDisabled}
-                      className={cn(
-                        'min-h-28 border-b border-r border-border bg-card p-3 text-left transition-colors last:border-r-0 hover:bg-muted/20 disabled:cursor-not-allowed',
-                        view === 'day' && 'min-h-0 border-r-0',
-                        view === 'week' && 'min-h-44',
-                        !isSameMonth(day, anchorDate) && view === 'month' && 'bg-muted/10 text-muted-foreground',
-                        isDateDisabled && 'text-muted-foreground',
-                        selected && 'bg-foreground/[0.04] ring-1 ring-inset ring-foreground',
-                      )}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span
+                    <Popover key={key}>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={() => selectDate(day)}
+                          aria-disabled={isDateDisabled}
                           className={cn(
-                            'flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold',
-                            isToday(day) && 'bg-foreground text-background',
+                            'min-h-28 border-b border-r border-border bg-card p-3 text-left transition-colors last:border-r-0 hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20 focus-visible:ring-offset-1',
+                            view === 'day' && 'min-h-0 border-r-0',
+                            view === 'week' && 'min-h-44',
+                            !isSameMonth(day, anchorDate) && view === 'month' && 'bg-muted/10 text-muted-foreground',
+                            isDateDisabled && 'text-muted-foreground/70',
+                            selected && 'bg-foreground/[0.04] ring-1 ring-inset ring-foreground',
                           )}
                         >
-                          {format(day, 'd')}
-                        </span>
-                      </div>
-                      <div className="mt-3 flex flex-wrap gap-1.5">
-                        {visibleBlocks.map((block, index) => renderCalendarDot(block, index))}
-                        {dayBlocks.length > visibleBlocks.length && (
-                          <span className="text-[11px] font-semibold text-muted-foreground">
-                            +{dayBlocks.length - visibleBlocks.length}
-                          </span>
-                        )}
-                      </div>
-                      {view === 'day' && (
-                        <div className="mt-4 overflow-auto rounded-lg border border-border">
-                          <div
-                            className="grid min-w-[620px] border-b border-border bg-muted/20"
-                            style={{ gridTemplateColumns: `78px repeat(${Math.max(link.resources.length, 1)}, minmax(140px, 1fr))` }}
-                          >
-                            <div className="px-3 py-2 text-xs font-semibold text-muted-foreground">시간</div>
-                            {link.resources.map((resource) => (
-                              <div key={resource.id} className="border-l border-border px-3 py-2 text-xs font-bold">
-                                {resource.name}
-                              </div>
-                            ))}
+                          <div className="flex items-center justify-between gap-2">
+                            <span
+                              className={cn(
+                                'flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold',
+                                isToday(day) && 'bg-foreground text-background',
+                              )}
+                            >
+                              {format(day, 'd')}
+                            </span>
+                            {dayBlocks.length > 0 && (
+                              <Badge variant="outline" className="rounded-full bg-background px-2 py-0 text-[10px]">
+                                {dayBlocks.length}건
+                              </Badge>
+                            )}
                           </div>
-                          {timeRows.map((startMinutes) => {
-                            const { startsAt, endsAt } = slotRange(key, startMinutes, link.rules.durationMinutes);
-                            return (
+                          <div className="mt-3 flex flex-wrap gap-1.5">
+                            {visibleBlocks.map((block, index) => renderCalendarDot(block, index))}
+                            {dayBlocks.length > visibleBlocks.length && (
+                              <span className="text-[11px] font-semibold text-muted-foreground">
+                                +{dayBlocks.length - visibleBlocks.length}
+                              </span>
+                            )}
+                          </div>
+                          {view === 'day' && (
+                            <div className="mt-4 overflow-auto rounded-lg border border-border">
                               <div
-                                key={startMinutes}
-                                className="grid min-w-[620px] border-b border-border last:border-b-0"
+                                className="grid min-w-[620px] border-b border-border bg-muted/20"
                                 style={{ gridTemplateColumns: `78px repeat(${Math.max(link.resources.length, 1)}, minmax(140px, 1fr))` }}
                               >
-                                <div className="px-3 py-2 text-xs font-semibold text-muted-foreground">{minutesToClock(startMinutes)}</div>
-                                {link.resources.map((resource) => {
-                                  const busyBlock = dayBlocks.find((block) => block.resourceId === resource.id && overlaps(block, startsAt, endsAt));
-                                  return (
-                                    <span
-                                      key={`${resource.id}-${startMinutes}`}
-                                      className={cn(
-                                        'border-l border-border px-3 py-2 text-xs',
-                                        busyBlock
-                                          ? 'bg-muted/50 text-muted-foreground'
-                                          : 'bg-card text-foreground',
-                                      )}
-                                    >
-                                      {busyBlock ? getStatusLabel(busyBlock.status) : '예약 가능'}
-                                    </span>
-                                  );
-                                })}
+                                <div className="px-3 py-2 text-xs font-semibold text-muted-foreground">시간</div>
+                                {link.resources.map((resource) => (
+                                  <div key={resource.id} className="border-l border-border px-3 py-2 text-xs font-bold">
+                                    {resource.name}
+                                  </div>
+                                ))}
                               </div>
-                            );
-                          })}
+                              {timeRows.map((startMinutes) => {
+                                const { startsAt, endsAt } = slotRange(key, startMinutes, link.rules.durationMinutes);
+                                return (
+                                  <div
+                                    key={startMinutes}
+                                    className="grid min-w-[620px] border-b border-border last:border-b-0"
+                                    style={{ gridTemplateColumns: `78px repeat(${Math.max(link.resources.length, 1)}, minmax(140px, 1fr))` }}
+                                  >
+                                    <div className="px-3 py-2 text-xs font-semibold text-muted-foreground">{minutesToClock(startMinutes)}</div>
+                                    {link.resources.map((resource) => {
+                                      const busyBlock = dayBlocks.find((block) => block.resourceId === resource.id && overlaps(block, startsAt, endsAt));
+                                      return (
+                                        <span
+                                          key={`${resource.id}-${startMinutes}`}
+                                          className={cn(
+                                            'border-l border-border px-3 py-2 text-xs',
+                                            busyBlock
+                                              ? 'bg-muted/50 text-muted-foreground'
+                                              : 'bg-card text-foreground',
+                                          )}
+                                        >
+                                          {busyBlock ? getStatusLabel(busyBlock.status) : '예약 가능'}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        align="start"
+                        sideOffset={6}
+                        className="w-[min(calc(100vw-2rem),380px)] rounded-lg border-border bg-card p-0 shadow-lg"
+                      >
+                        <div className="border-b border-border px-3 py-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm font-bold text-foreground">{format(day, 'M월 d일 EEEE', { locale: ko })}</p>
+                            <Badge variant="outline" className="shrink-0 rounded-full px-2 py-0 text-[10px]">
+                              {dayBlocks.length}건
+                            </Badge>
+                          </div>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {isDateDisabled ? '예약 가능 기간은 아니지만 사용 현황은 확인할 수 있습니다.' : '날짜를 선택하고 예약 가능한 시간을 확인하세요.'}
+                          </p>
                         </div>
-                      )}
-                    </button>
+                        {dayBlocks.length > 0 ? (
+                          <ScrollArea className="max-h-[min(46vh,360px)]">
+                            <div className="space-y-2 p-3">
+                              {dayBlocks.map((block) => renderScheduleCard(block))}
+                            </div>
+                          </ScrollArea>
+                        ) : (
+                          <div className="p-3">
+                            <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-center">
+                              <p className="text-sm font-semibold text-foreground">사용 중인 회의실 없음</p>
+                              <p className="mt-1 text-xs text-muted-foreground">이 날짜에는 공개된 회의실 사용 구간이 없습니다.</p>
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex gap-2 border-t border-border p-3">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-9 flex-1 rounded-full border-border text-xs"
+                            onClick={() => selectDate(day)}
+                          >
+                            우측 시간표 보기
+                          </Button>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   );
                 })}
               </div>
@@ -632,29 +713,7 @@ export function PublicRoomScheduleViewer({
                       </Badge>
                     </div>
                     <div className="mt-3 space-y-2">
-                      {resourceBlocks.length > 0 ? resourceBlocks.map((block) => (
-                        <div key={`${block.resourceId}-${block.startsAt}`} className="rounded-md border border-border bg-muted/20 px-3 py-2">
-                          <div className="flex items-start justify-between gap-2">
-                            <span className="min-w-0">
-                              <span className="block text-sm font-semibold">{formatBlockTime(block)}</span>
-                              {canShowPublicDetails && (
-                                <span className="mt-1 block truncate text-xs font-medium text-foreground">
-                                  {getBlockCompanyLabel(block)}
-                                </span>
-                              )}
-                            </span>
-                            <Badge
-                              variant="outline"
-                              className={cn('rounded-full text-[11px]', block.status === 'pending_review' && 'border-dashed')}
-                            >
-                              {getStatusLabel(block.status)}
-                            </Badge>
-                          </div>
-                          <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">
-                            {canShowPublicDetails ? getBlockPurposeLabel(block) : '점유 상태만 공개됩니다.'}
-                          </p>
-                        </div>
-                      )) : (
+                      {resourceBlocks.length > 0 ? resourceBlocks.map((block) => renderScheduleCard(block)) : (
                         <p className="rounded-md border border-dashed border-border bg-card px-3 py-3 text-sm text-muted-foreground">
                           선택한 날짜에 공개된 사용 구간이 없습니다.
                         </p>
