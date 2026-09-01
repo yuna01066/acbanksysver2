@@ -21,6 +21,7 @@ export const EXPLICIT_PROTECTED_PAGE_DEFAULTS: Readonly<Record<string, AccessRol
   '/material-orders': 'employee',
   '/meeting-reservations': 'manager',
   '/my-page': 'employee',
+  '/notification-center': 'employee',
   '/panel-size-comparison': 'employee',
   '/performance-review': 'employee',
   '/portfolio': 'employee',
