@@ -356,54 +356,83 @@ const PublicRoomScheduleViewer = ({ slug, date, accessCode, className, refreshTo
               const dayBlocks = blocksByDate.get(cell.key) || [];
               const isActive = cell.key === activeDate;
               return (
-                <button
+                <Popover
                   key={cell.key}
-                  type="button"
-                  onClick={() => setSelectedDate(cell.key)}
-                  className={cn(
-                    'flex min-h-[64px] flex-col items-start gap-1 rounded-md border p-1.5 text-left transition-colors',
-                    cell.inRange ? 'border-border bg-card hover:bg-muted/40' : 'border-transparent bg-muted/10 text-muted-foreground/50',
-                    isActive && 'border-primary ring-1 ring-primary',
-                  )}
+                  open={openDetailDate === cell.key}
+                  onOpenChange={(open) => setOpenDetailDate(open ? cell.key : null)}
                 >
-                  <span className="text-xs font-semibold">{Number(cell.key.slice(8, 10))}</span>
-                  <span className="flex flex-wrap gap-1">
-                    {resources.map((resource) => {
-                      const resourceBlocks = dayBlocks.filter((block) => block.resourceId === resource.id);
-                      if (resourceBlocks.length === 0) return null;
-                      const status = resolveStatus(resourceBlocks[0]);
-                      return (
-                        <span key={resource.id} className="group/dot relative flex">
-                          <span className={cn('h-2 w-2 rounded-full', STATUS_META[status].dot)} />
-                          <span className="pointer-events-none absolute bottom-3 left-0 z-20 hidden w-44 rounded-md border border-border bg-popover p-2 text-left text-[11px] leading-4 text-popover-foreground shadow-md group-hover/dot:block">
-                            <span className="block font-semibold">{resourceLabel(resource)}</span>
-                            {resourceBlocks.slice(0, 3).map((block) => (
-                              <span key={block.id} className="mt-1 block border-t border-border/60 pt-1">
-                                <span className="block">
-                                  {block.allDay ? '종일' : `${seoulClock(block.startsAt)}~${seoulClock(block.endsAt)}`}
-                                  {' · '}
-                                  {STATUS_META[resolveStatus(block)].label}
-                                </span>
-                                {block.publicCompanyName ? (
-                                  <span className="block text-muted-foreground">{block.publicCompanyName}</span>
-                                ) : null}
-                                {block.publicPurpose ? (
-                                  <span className="block text-muted-foreground">용무: {block.publicPurpose}</span>
-                                ) : null}
-                              </span>
-                            ))}
-                            {resourceBlocks.length > 3 ? (
-                              <span className="mt-1 block text-muted-foreground">외 {resourceBlocks.length - 3}건</span>
-                            ) : null}
-                          </span>
-                        </span>
-                      );
-                    })}
-                  </span>
-
-                </button>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedDate(cell.key);
+                        setOpenDetailDate(cell.key);
+                      }}
+                      className={cn(
+                        'flex min-h-[64px] flex-col items-start gap-1 rounded-md border p-1.5 text-left transition-colors',
+                        cell.inRange ? 'border-border bg-card hover:bg-muted/40' : 'border-transparent bg-muted/10 text-muted-foreground/50',
+                        isActive && 'border-primary ring-1 ring-primary',
+                      )}
+                    >
+                      <span className="text-xs font-semibold">{Number(cell.key.slice(8, 10))}</span>
+                      <span className="flex flex-wrap gap-1">
+                        {resources.map((resource) => {
+                          const resourceBlocks = dayBlocks.filter((block) => block.resourceId === resource.id);
+                          if (resourceBlocks.length === 0) return null;
+                          const status = resolveStatus(resourceBlocks[0]);
+                          return (
+                            <span key={resource.id} className="flex">
+                              <span className={cn('h-2 w-2 rounded-full', STATUS_META[status].dot)} />
+                            </span>
+                          );
+                        })}
+                      </span>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-72 p-3">
+                    <p className="text-sm font-semibold">{formatDayLabel(cell.key)}</p>
+                    {dayBlocks.length === 0 ? (
+                      <p className="mt-2 text-xs text-muted-foreground">등록된 일정이 없습니다.</p>
+                    ) : (
+                      <ul className="mt-2 space-y-2">
+                        {dayBlocks.map((block) => (
+                          <li key={block.id} className="border-t border-border/60 pt-2 first:border-t-0 first:pt-0">
+                            <div className="flex items-center justify-between gap-2 text-xs">
+                              <span className="font-medium">{block.resourceName}</span>
+                              <Badge variant={STATUS_META[resolveStatus(block)].variant} className="rounded-full">
+                                {STATUS_META[resolveStatus(block)].label}
+                              </Badge>
+                            </div>
+                            <p className="mt-0.5 text-[11px] text-muted-foreground">
+                              {block.allDay ? '종일' : `${seoulClock(block.startsAt)}~${seoulClock(block.endsAt)}`}
+                            </p>
+                            {block.publicCompanyName || block.publicPurpose ? (
+                              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                                {[block.publicCompanyName, block.publicPurpose ? `용무: ${block.publicPurpose}` : null]
+                                  .filter(Boolean)
+                                  .join(' · ')}
+                              </p>
+                            ) : (
+                              <p className="mt-0.5 text-[11px] text-muted-foreground/70">
+                                공개 회사명/용무가 입력되지 않았습니다.
+                              </p>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setOpenDetailDate(null)}
+                      className="mt-3 text-[11px] font-medium text-primary underline-offset-2 hover:underline"
+                    >
+                      우측 시간표 보기
+                    </button>
+                  </PopoverContent>
+                </Popover>
               );
             })}
+
           </div>
           {resources.length > 0 ? (
             <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
