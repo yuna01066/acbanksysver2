@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.sync_public_booking_from_calendar_event() FROM anon, authenticated;
