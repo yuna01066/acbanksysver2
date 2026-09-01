@@ -166,6 +166,8 @@ const PublicRoomScheduleViewer = ({ slug, date, accessCode, className, refreshTo
   const [error, setError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
   const [selectedDate, setSelectedDate] = useState(date);
+  const [openDetailDate, setOpenDetailDate] = useState<string | null>(null);
+
 
   useEffect(() => {
     setSelectedDate(date);
