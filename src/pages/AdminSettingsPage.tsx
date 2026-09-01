@@ -110,6 +110,17 @@ const ADMIN_FEATURES: AdminFeatureItem[] = [
     path: '/public-booking-approvals',
   },
   {
+    id: 'public-booking-share',
+    title: '공개 링크 공유 안내',
+    description: '공개 예약 링크 주소와 사내 공유용 안내 문구를 복사합니다.',
+    category: 'approval',
+    icon: Link2,
+    keywords: '공개 링크 공유 복사 안내 booking share link copy',
+    access: 'admin-or-moderator',
+    priority: 31,
+    path: '/public-booking-share',
+  },
+  {
     id: 'employee-profiles',
     title: '직원 관리',
     description: '구성원 프로필, 권한, 인사 문서와 직원 상태를 관리합니다.',
