@@ -79,6 +79,7 @@ const EdgeFunctionStatusPage = lazy(() => import("./pages/EdgeFunctionStatusPage
 const OAuthConsentPage = lazy(() => import("./pages/OAuthConsentPage"));
 const PublicBookingApprovalsPage = lazy(() => import("./pages/PublicBookingApprovalsPage"));
 const PublicBookingShareGuidePage = lazy(() => import("./pages/PublicBookingShareGuidePage"));
+const NotificationCenterPage = lazy(() => import("./pages/NotificationCenterPage"));
 const queryClient = new QueryClient();
 
 const G: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -169,6 +170,7 @@ const App = () => (
               <Route path="/meeting-reservations" element={<G><MeetingReservationsPage /></G>} />
               <Route path="/public-booking-approvals" element={<G><PublicBookingApprovalsPage /></G>} />
               <Route path="/public-booking-share" element={<G><PublicBookingShareGuidePage /></G>} />
+              <Route path="/notification-center" element={<G><NotificationCenterPage /></G>} />
               <Route path="/calendar" element={<G><CalendarPage /></G>} />
               <Route path="/year-end-tax" element={<G><YearEndTaxPage /></G>} />
               <Route path="/year-end-tax-admin" element={<S><YearEndTaxAdminPage /></S>} />

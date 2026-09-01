@@ -5,6 +5,7 @@ import {
   Activity,
   AlertTriangle,
 
+  BellRing,
   Briefcase,
   Building2,
   CalendarCheck2,
@@ -121,6 +122,17 @@ const ADMIN_FEATURES: AdminFeatureItem[] = [
     access: 'admin-or-moderator',
     priority: 31,
     path: '/public-booking-share',
+  },
+  {
+    id: 'notification-center',
+    title: '승인·거절 알림 관리',
+    description: '승인/거절 알림을 읽음 처리하거나 삭제해 알림이 쌓이지 않게 관리합니다.',
+    category: 'approval',
+    icon: BellRing,
+    keywords: '알림 승인 거절 읽음 삭제 notification center approval reject',
+    access: 'admin-or-moderator',
+    priority: 32,
+    path: '/notification-center',
   },
   {
     id: 'employee-profiles',
