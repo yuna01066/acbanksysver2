@@ -40,6 +40,8 @@ type ScheduleRules = {
   endTime?: string;
   slotMinutes?: number;
   durationMinutes?: number;
+  minNoticeMinutes?: number;
+
 };
 
 type ScheduleResponse = {
