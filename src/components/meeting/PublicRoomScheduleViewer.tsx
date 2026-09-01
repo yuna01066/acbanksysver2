@@ -457,8 +457,11 @@ const PublicRoomScheduleViewer = ({ slug, date, accessCode, className, refreshTo
                   <p className="text-xs font-semibold text-muted-foreground">예약 가능 시간</p>
                   {!weekdayAllowed ? (
                     <p className="text-xs text-muted-foreground">예약 불가한 요일입니다.</p>
+                  ) : isPastDate ? (
+                    <p className="text-xs text-muted-foreground">지난 날짜는 예약할 수 없습니다.</p>
                   ) : available.length === 0 ? (
                     <p className="text-xs text-muted-foreground">남은 시간이 없습니다.</p>
+
                   ) : (
                     <div className="flex flex-wrap gap-1">
                       {available.map((slot) => (
