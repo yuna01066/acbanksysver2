@@ -16,6 +16,8 @@ import {
   HardDrive,
   Images,
   Landmark,
+  Link2,
+
   Lock,
   LockKeyhole,
   MessageSquareText,
