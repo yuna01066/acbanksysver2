@@ -421,7 +421,7 @@ const PublicRoomScheduleViewer = ({ slug, date, accessCode, className, refreshTo
             {dayDetail.length === 0 ? (
               <p className="text-sm text-muted-foreground">표시할 회의실 정보가 없습니다.</p>
             ) : null}
-            {dayDetail.map(({ resource, used, available, weekdayAllowed }) => (
+            {dayDetail.map(({ resource, used, available, weekdayAllowed, isPastDate }) => (
               <div key={resource.id} className="rounded-lg border border-border bg-background p-3">
                 <p className="text-sm font-medium">
                   {resourceLabel(resource)}
