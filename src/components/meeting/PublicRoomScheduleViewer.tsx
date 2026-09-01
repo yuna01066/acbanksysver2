@@ -40,6 +40,8 @@ type ScheduleRules = {
   endTime?: string;
   slotMinutes?: number;
   durationMinutes?: number;
+  minNoticeMinutes?: number;
+
 };
 
 type ScheduleResponse = {
@@ -254,6 +256,18 @@ const PublicRoomScheduleViewer = ({ slug, date, accessCode, className, refreshTo
       ? true
       : rules.allowedWeekdays.includes(weekdayIndex(activeDate));
 
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Seoul',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).formatToParts(new Date());
+    const pick = (type: string) => parts.find((part) => part.type === type)?.value || '00';
+    const todayKey = `${pick('year')}-${pick('month')}-${pick('day')}`;
+    const nowMinutes = Number(pick('hour')) * 60 + Number(pick('minute'));
+    const minNotice = rules?.minNoticeMinutes && rules.minNoticeMinutes > 0 ? rules.minNoticeMinutes : 0;
+    const earliestToday = activeDate === todayKey ? nowMinutes + minNotice : -1;
+    const isPastDate = activeDate < todayKey;
+
     return resources.map((resource) => {
       const used = dayBlocks.filter((block) => block.resourceId === resource.id);
       const busy = used.map((block) => ({
@@ -261,17 +275,19 @@ const PublicRoomScheduleViewer = ({ slug, date, accessCode, className, refreshTo
         end: block.allDay ? close : minutesFromClock(seoulClock(block.endsAt)),
       }));
       const available: { start: string; label: string }[] = [];
-      if (weekdayAllowed) {
+      if (weekdayAllowed && !isPastDate) {
         for (let start = open; start + duration <= close; start += slotMinutes) {
           const end = start + duration;
+          if (start < earliestToday) continue;
           const overlaps = busy.some((item) => start < item.end && end > item.start);
           if (!overlaps) available.push({ start: clockFromMinutes(start), label: `${clockFromMinutes(start)}~${clockFromMinutes(end)}` });
 
         }
       }
-      return { resource, used, available, weekdayAllowed };
+      return { resource, used, available, weekdayAllowed, isPastDate };
     });
   }, [blocksByDate, activeDate, resources, rules]);
+
 
   return (
     <section className={cn('rounded-lg border border-border bg-card p-5', className)}>
@@ -407,7 +423,7 @@ const PublicRoomScheduleViewer = ({ slug, date, accessCode, className, refreshTo
             {dayDetail.length === 0 ? (
               <p className="text-sm text-muted-foreground">표시할 회의실 정보가 없습니다.</p>
             ) : null}
-            {dayDetail.map(({ resource, used, available, weekdayAllowed }) => (
+            {dayDetail.map(({ resource, used, available, weekdayAllowed, isPastDate }) => (
               <div key={resource.id} className="rounded-lg border border-border bg-background p-3">
                 <p className="text-sm font-medium">
                   {resourceLabel(resource)}
@@ -443,8 +459,11 @@ const PublicRoomScheduleViewer = ({ slug, date, accessCode, className, refreshTo
                   <p className="text-xs font-semibold text-muted-foreground">예약 가능 시간</p>
                   {!weekdayAllowed ? (
                     <p className="text-xs text-muted-foreground">예약 불가한 요일입니다.</p>
+                  ) : isPastDate ? (
+                    <p className="text-xs text-muted-foreground">지난 날짜는 예약할 수 없습니다.</p>
                   ) : available.length === 0 ? (
                     <p className="text-xs text-muted-foreground">남은 시간이 없습니다.</p>
+
                   ) : (
                     <div className="flex flex-wrap gap-1">
                       {available.map((slot) => (

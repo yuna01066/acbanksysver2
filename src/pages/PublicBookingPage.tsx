@@ -177,10 +177,15 @@ const PublicBookingPage = () => {
       if (match) {
         setSelectedSlotKey(`${match.meetingMode}:${match.resourceId || 'none'}:${match.time}`);
         setPendingSlot(null);
+        setError(null);
+      } else {
+        setPendingSlot(null);
+        setError('선택한 시간은 현재 예약할 수 없습니다. 예약 가능 시간 목록에서 다른 시간을 선택해주세요.');
       }
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
 
   const updateForm = (key: keyof typeof form, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [key]: value }));
