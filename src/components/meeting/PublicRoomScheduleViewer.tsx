@@ -254,6 +254,18 @@ const PublicRoomScheduleViewer = ({ slug, date, accessCode, className, refreshTo
       ? true
       : rules.allowedWeekdays.includes(weekdayIndex(activeDate));
 
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Seoul',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).formatToParts(new Date());
+    const pick = (type: string) => parts.find((part) => part.type === type)?.value || '00';
+    const todayKey = `${pick('year')}-${pick('month')}-${pick('day')}`;
+    const nowMinutes = Number(pick('hour')) * 60 + Number(pick('minute'));
+    const minNotice = rules?.minNoticeMinutes && rules.minNoticeMinutes > 0 ? rules.minNoticeMinutes : 0;
+    const earliestToday = activeDate === todayKey ? nowMinutes + minNotice : -1;
+    const isPastDate = activeDate < todayKey;
+
     return resources.map((resource) => {
       const used = dayBlocks.filter((block) => block.resourceId === resource.id);
       const busy = used.map((block) => ({
@@ -261,17 +273,19 @@ const PublicRoomScheduleViewer = ({ slug, date, accessCode, className, refreshTo
         end: block.allDay ? close : minutesFromClock(seoulClock(block.endsAt)),
       }));
       const available: { start: string; label: string }[] = [];
-      if (weekdayAllowed) {
+      if (weekdayAllowed && !isPastDate) {
         for (let start = open; start + duration <= close; start += slotMinutes) {
           const end = start + duration;
+          if (start < earliestToday) continue;
           const overlaps = busy.some((item) => start < item.end && end > item.start);
           if (!overlaps) available.push({ start: clockFromMinutes(start), label: `${clockFromMinutes(start)}~${clockFromMinutes(end)}` });
 
         }
       }
-      return { resource, used, available, weekdayAllowed };
+      return { resource, used, available, weekdayAllowed, isPastDate };
     });
   }, [blocksByDate, activeDate, resources, rules]);
+
 
   return (
     <section className={cn('rounded-lg border border-border bg-card p-5', className)}>
