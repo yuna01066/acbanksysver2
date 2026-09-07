@@ -4061,6 +4061,59 @@ export type Database = {
         }
         Relationships: []
       }
+      leave_cancellation_requests: {
+        Row: {
+          created_at: string
+          id: string
+          leave_request_id: string
+          reason: string
+          requested_by: string
+          requested_by_name: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewed_by_name: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          leave_request_id: string
+          reason: string
+          requested_by: string
+          requested_by_name: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewed_by_name?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          leave_request_id?: string
+          reason?: string
+          requested_by?: string
+          requested_by_name?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewed_by_name?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leave_cancellation_requests_leave_request_id_fkey"
+            columns: ["leave_request_id"]
+            isOneToOne: false
+            referencedRelation: "leave_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leave_general_settings: {
         Row: {
           created_at: string | null
@@ -8615,6 +8668,20 @@ export type Database = {
       }
     }
     Functions: {
+      admin_cancel_leave: {
+        Args: { _leave_request_id: string; _reason: string }
+        Returns: string
+      }
+      admin_create_leave_request: {
+        Args: {
+          _end_date: string
+          _leave_type: string
+          _reason?: string
+          _start_date: string
+          _user_id: string
+        }
+        Returns: string
+      }
       apply_supported_settings_change: {
         Args: {
           _request: Database["public"]["Tables"]["settings_change_requests"]["Row"]
@@ -8628,6 +8695,10 @@ export type Database = {
       assistant_shortcut_ids_allowed: {
         Args: { _ids: string[] }
         Returns: boolean
+      }
+      calculate_leave_business_days: {
+        Args: { _end_date: string; _leave_type: string; _start_date: string }
+        Returns: number
       }
       calendar_day_end_at: { Args: { _date: string }; Returns: string }
       calendar_day_start_at: { Args: { _date: string }; Returns: string }
@@ -8710,6 +8781,10 @@ export type Database = {
       }
       cancel_approval_request: {
         Args: { _note?: string; _request_id: string }
+        Returns: string
+      }
+      cancel_pending_leave_request: {
+        Args: { _request_id: string }
         Returns: string
       }
       check_workplace_distance: {
@@ -8873,6 +8948,16 @@ export type Database = {
         Args: { _request_id: string }
         Returns: undefined
       }
+      notify_leave_reviewers: {
+        Args: {
+          _data: Json
+          _dedupe_key: string
+          _description: string
+          _title: string
+          _type: string
+        }
+        Returns: undefined
+      }
       record_pay_statement_event: {
         Args: { p_event_type: string; p_statement_id: string }
         Returns: undefined
@@ -8881,8 +8966,24 @@ export type Database = {
         Args: { _request_id: string; _review_note?: string }
         Returns: string
       }
+      request_leave_cancellation: {
+        Args: { _leave_request_id: string; _reason: string }
+        Returns: string
+      }
       review_approval_request: {
         Args: { _decision: string; _request_id: string; _review_note?: string }
+        Returns: string
+      }
+      review_leave_cancellation: {
+        Args: {
+          _cancellation_id: string
+          _decision: string
+          _review_note?: string
+        }
+        Returns: string
+      }
+      review_leave_request: {
+        Args: { _decision: string; _reason?: string; _request_id: string }
         Returns: string
       }
       save_assistant_shortcuts: {
@@ -8919,6 +9020,15 @@ export type Database = {
           updated_at: string
           visibility: string
         }[]
+      }
+      submit_leave_request: {
+        Args: {
+          _end_date: string
+          _leave_type: string
+          _reason?: string
+          _start_date: string
+        }
+        Returns: string
       }
       update_calendar_event: { Args: { payload: Json }; Returns: string }
       upsert_employee_online_heartbeat: {
@@ -8976,12 +9086,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -9005,11 +9115,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -9030,11 +9140,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -9055,11 +9165,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -9072,11 +9182,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
