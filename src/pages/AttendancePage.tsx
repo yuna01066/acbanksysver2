@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -29,6 +29,7 @@ import OvertimeDetectionPanel from '@/components/attendance/OvertimeDetectionPan
 import MonthlyAttendanceReport from '@/components/attendance/MonthlyAttendanceReport';
 import DepartmentWorkPatternAnalysis from '@/components/attendance/DepartmentWorkPatternAnalysis';
 import { BrandedCardHeader } from '@/components/ui/branded-card-header';
+import LeaveManagementPage from '@/pages/LeaveManagementPage';
 
 type AttendanceAction = 'check_in' | 'check_out';
 type AttendanceLocation = { lat: number; lng: number } | null;
@@ -90,11 +91,12 @@ const isDuplicateAttendanceError = (error: any) => {
 
 const AttendancePage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, profile, isAdmin, isModerator, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const [gettingLocation, setGettingLocation] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
-  const [adminTab, setAdminTab] = useState('my');
+  const [adminTab, setAdminTab] = useState(searchParams.get('scope') === 'all' ? 'all' : 'my');
   const [editRecord, setEditRecord] = useState<any>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [filterDate, setFilterDate] = useState('');
@@ -472,6 +474,21 @@ const AttendancePage = () => {
       icon: Palmtree,
     },
   ];
+  const requestedSection = searchParams.get('tab');
+  const activeSection = ['attendance', 'leave', 'overtime', 'monthly-report', 'dept-analysis'].includes(requestedSection || '')
+    ? requestedSection!
+    : 'attendance';
+  const changeScope = (scope: 'my' | 'all') => {
+    setAdminTab(scope);
+    const next = new URLSearchParams(searchParams);
+    next.set('scope', scope);
+    setSearchParams(next, { replace: true });
+  };
+  const changeSection = (section: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', section);
+    setSearchParams(next, { replace: true });
+  };
 
   if (authLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
 
@@ -484,7 +501,7 @@ const AttendancePage = () => {
               <div className="min-w-0">
                 <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-foreground">
                   <Clock className="h-6 w-6 text-muted-foreground" />
-                  근태 관리
+                  근태·휴가 관리
                 </h1>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {monthLabel} · {adminTab === 'all' ? '전체 직원 기준' : profile?.full_name || user?.email || '내 기록'}
@@ -504,7 +521,7 @@ const AttendancePage = () => {
                           ? 'bg-foreground text-background hover:bg-foreground/90 hover:text-background'
                           : 'text-muted-foreground hover:text-foreground'
                       )}
-                      onClick={() => setAdminTab('my')}
+                      onClick={() => changeScope('my')}
                     >
                       내 근태
                     </Button>
@@ -518,16 +535,12 @@ const AttendancePage = () => {
                           ? 'bg-foreground text-background hover:bg-foreground/90 hover:text-background'
                           : 'text-muted-foreground hover:text-foreground'
                       )}
-                      onClick={() => setAdminTab('all')}
+                      onClick={() => changeScope('all')}
                     >
                       전체 직원
                     </Button>
                   </div>
                 )}
-                <Button variant="outline" size="sm" className="h-9 rounded-full gap-1.5" onClick={() => navigate('/leave-management')}>
-                  <CalendarDays className="h-4 w-4" />
-                  휴가 신청·관리
-                </Button>
                 {canManageAttendance && adminTab === 'all' && (
                   <Button variant="outline" size="sm" className="h-9 rounded-full gap-1.5" onClick={() => setManualDialogOpen(true)}>
                     <Plus className="h-4 w-4" />
@@ -706,7 +719,7 @@ const AttendancePage = () => {
             </section>
           )}
 
-          <Tabs key={adminTab} defaultValue="attendance" className="space-y-4">
+          <Tabs value={activeSection} onValueChange={changeSection} className="space-y-4">
             <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-full border border-border bg-muted/30 p-1">
               <TabsTrigger value="attendance" className="rounded-full px-4">
                 <Clock className="mr-1 h-4 w-4" />
@@ -752,10 +765,13 @@ const AttendancePage = () => {
               </TabsContent>
             )}
 
-            <TabsContent value="attendance" className="mt-0 space-y-4">
+          <TabsContent value="attendance" className="mt-0 space-y-4">
             {canManageAttendance && adminTab === 'all' && filterDate && (() => {
               const recordedUserIds = new Set(monthlyRecords.filter((r: any) => r.date === filterDate).map((r: any) => r.user_id));
-              const missingEmployees = employees.filter((e: any) => !recordedUserIds.has(e.id));
+              const onLeaveUserIds = new Set(leaveRequests
+                .filter((leave: any) => leave.status === 'approved' && leave.start_date <= filterDate && leave.end_date >= filterDate)
+                .map((leave: any) => leave.user_id));
+              const missingEmployees = employees.filter((e: any) => !recordedUserIds.has(e.id) && !onLeaveUserIds.has(e.id));
               if (missingEmployees.length === 0) return null;
               return (
                 <Card className="border-border bg-muted/20 shadow-none">
@@ -1010,20 +1026,12 @@ const AttendancePage = () => {
           </TabsContent>
 
           <TabsContent value="leave" className="mt-0">
-            <Card className="border-border shadow-none">
-              <CardHeader className="pb-3">
-                <BrandedCardHeader icon={CalendarDays} title="휴가 신청과 승인" />
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm leading-6 text-muted-foreground">
-                  휴가 종류, 영업일 계산, 잔여 연차 검증과 반려 사유를 하나의 기준으로 처리하기 위해 연차 관리 화면을 사용합니다.
-                </p>
-                <Button className="rounded-full" onClick={() => navigate('/leave-management')}>
-                  <CalendarDays className="mr-2 h-4 w-4" />
-                  연차 관리에서 신청·승인하기
-                </Button>
-              </CardContent>
-            </Card>
+            <LeaveManagementPage
+              embedded
+              key={adminTab}
+              defaultTab={canManageAttendance && adminTab === 'all' ? 'admin' : 'overview'}
+              focusedRequestId={searchParams.get('request') || undefined}
+            />
           </TabsContent>
         </Tabs>
       </div>

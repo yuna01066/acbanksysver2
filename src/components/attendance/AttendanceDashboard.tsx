@@ -60,8 +60,8 @@ const AttendanceDashboard: React.FC = () => {
       const { data, error } = await supabase
         .from('leave_requests')
         .select('*')
-        .gte('start_date', startDate)
-        .lte('end_date', endDate);
+        .lte('start_date', endDate)
+        .gte('end_date', startDate);
       if (error) throw error;
       return data || [];
     },
@@ -124,7 +124,11 @@ const AttendanceDashboard: React.FC = () => {
 
     // Employees with no records in period
     const employeesWithRecords = new Set(filteredRecords.map(r => r.user_id));
-    const missingRecordCount = [...filteredEmployeeIds].filter(id => !employeesWithRecords.has(id)).length;
+    const employeesOnLeave = new Set(leaveRequests
+      .filter(l => l.status === 'approved' && filteredEmployeeIds.has(l.user_id))
+      .map(l => l.user_id));
+    const missingRecordCount = [...filteredEmployeeIds]
+      .filter(id => !employeesWithRecords.has(id) && !employeesOnLeave.has(id)).length;
 
     // Overtime (>9 hours per day)
     const overtimeCount = new Set(filteredRecords.filter(r => Number(r.work_hours || 0) > 9).map(r => r.user_id)).size;
@@ -134,14 +138,7 @@ const AttendanceDashboard: React.FC = () => {
       checkedOut.filter(r => Number(r.work_hours || 0) < 8).map(r => r.user_id)
     ).size;
 
-    // Late (check-in after 09:30)
-    const lateCount = new Set(
-      filteredRecords.filter(r => {
-        if (!r.check_in) return false;
-        const d = new Date(r.check_in);
-        return d.getHours() > 9 || (d.getHours() === 9 && d.getMinutes() > 30);
-      }).map(r => r.user_id)
-    ).size;
+    const lateCount = new Set(filteredRecords.filter(r => r.status === 'late').map(r => r.user_id)).size;
 
     // Leave usage
     const leaveUsers = new Set(
@@ -185,9 +182,9 @@ const AttendanceDashboard: React.FC = () => {
 
   const statusCards = [
     { icon: UserX, label: '근무 기록 누락', desc: '근무 또는 휴가 기록이 없는 구성원 수', count: stats.missingRecordCount },
-    { icon: Timer, label: '근무 시간 초과', desc: '소정 근무 시간을 초과한 구성원 수', count: stats.overtimeCount },
-    { icon: AlertTriangle, label: '근무 시간 미달', desc: '소정 근무시간을 미달한 구성원 수', count: stats.underHoursCount },
-    { icon: AlarmClock, label: '지각', desc: '출근 시간을 넘겨 근무를 시작한 구성원 수', count: stats.lateCount },
+    { icon: Timer, label: '9시간 초과', desc: '하루 기록이 9시간을 초과한 구성원 수', count: stats.overtimeCount },
+    { icon: AlertTriangle, label: '8시간 미만', desc: '퇴근 완료 기록이 8시간 미만인 구성원 수', count: stats.underHoursCount },
+    { icon: AlarmClock, label: '지각', desc: '근태 기록에서 지각으로 확정된 구성원 수', count: stats.lateCount },
     { icon: Palmtree, label: '휴가 사용', desc: '휴가 사용 기록이 있는 구성원 수', count: stats.leaveUsers },
   ];
 

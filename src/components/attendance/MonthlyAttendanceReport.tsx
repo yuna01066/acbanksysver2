@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, FileText, Download, TrendingUp, TrendingDown, Minus, AlertTriangle } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, getDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -19,12 +19,6 @@ const MonthlyAttendanceReport: React.FC = () => {
   const targetDate = new Date(year, month - 1, 1);
   const startDate = format(startOfMonth(targetDate), 'yyyy-MM-dd');
   const endDate = format(endOfMonth(targetDate), 'yyyy-MM-dd');
-
-  // Business days in month (Mon-Fri)
-  const businessDays = useMemo(() => {
-    const days = eachDayOfInterval({ start: startOfMonth(targetDate), end: endOfMonth(targetDate) });
-    return days.filter(d => !isWeekend(d)).length;
-  }, [year, month]);
 
   const { data: records = [], isLoading, error: recordsError } = useQuery({
     queryKey: ['monthly-report-records', startDate, endDate],
@@ -57,30 +51,60 @@ const MonthlyAttendanceReport: React.FC = () => {
         .from('leave_requests')
         .select('*')
         .eq('status', 'approved')
-        .gte('start_date', startDate)
-        .lte('end_date', endDate);
+        .lte('start_date', endDate)
+        .gte('end_date', startDate);
       if (error) throw error;
       return data || [];
     },
   });
+
+  const { data: holidays = [], isLoading: holidaysLoading, error: holidaysError } = useQuery({
+    queryKey: ['monthly-report-holidays', startDate, endDate],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('company_holidays')
+        .select('start_date, end_date')
+        .lte('start_date', endDate)
+        .gte('end_date', startDate);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const businessDateSet = useMemo(() => {
+    const holidayDates = new Set(holidays.flatMap(holiday =>
+      eachDayOfInterval({ start: parseISO(holiday.start_date), end: parseISO(holiday.end_date) })
+        .map(day => format(day, 'yyyy-MM-dd')),
+    ));
+    return new Set(eachDayOfInterval({ start: startOfMonth(targetDate), end: endOfMonth(targetDate) })
+      .filter(day => !isWeekend(day) && !holidayDates.has(format(day, 'yyyy-MM-dd')))
+      .map(day => format(day, 'yyyy-MM-dd')));
+  }, [holidays, year, month]);
+  const businessDays = businessDateSet.size;
 
   // Per-employee stats
   const employeeStats = useMemo(() => {
     return employees.map(emp => {
       const empRecords = records.filter(r => r.user_id === emp.id);
       const completedRecords = empRecords.filter(r => r.check_in && r.check_out);
+      const attendedDates = new Set(completedRecords.map(record => record.date));
       const totalHours = completedRecords.reduce((sum, r) => sum + Number(r.work_hours || 0), 0);
-      const workDays = completedRecords.length;
+      const workDays = attendedDates.size;
       const avgHours = workDays > 0 ? totalHours / workDays : 0;
       const overtimeDays = completedRecords.filter(r => Number(r.work_hours || 0) > 9).length;
-      const lateDays = empRecords.filter(r => {
-        if (!r.check_in) return false;
-        const d = new Date(r.check_in);
-        return d.getHours() > 9 || (d.getHours() === 9 && d.getMinutes() > 30);
-      }).length;
-      const leaveDays = leaveRequests
-        .filter(l => l.user_id === emp.id)
-        .reduce((sum, l) => sum + (l.days || 0), 0);
+      const lateDays = empRecords.filter(r => r.status === 'late').length;
+      const leaveByDate = new Map<string, number>();
+      leaveRequests.filter(l => l.user_id === emp.id).forEach(leave => {
+        const clippedStart = leave.start_date < startDate ? startDate : leave.start_date;
+        const clippedEnd = leave.end_date > endDate ? endDate : leave.end_date;
+        eachDayOfInterval({ start: parseISO(clippedStart), end: parseISO(clippedEnd) }).forEach(day => {
+          const date = format(day, 'yyyy-MM-dd');
+          if (!businessDateSet.has(date) || attendedDates.has(date)) return;
+          const amount = ['half_am', 'half_pm'].includes(leave.leave_type) ? 0.5 : 1;
+          leaveByDate.set(date, Math.max(leaveByDate.get(date) || 0, amount));
+        });
+      });
+      const leaveDays = [...leaveByDate.values()].reduce((sum, days) => sum + days, 0);
       const attendanceRate = businessDays > 0 ? ((workDays + leaveDays) / businessDays * 100) : 0;
 
       return {
@@ -96,7 +120,7 @@ const MonthlyAttendanceReport: React.FC = () => {
         attendanceRate: Math.min(Math.round(attendanceRate), 100),
       };
     }).sort((a, b) => b.totalHours - a.totalHours);
-  }, [employees, records, leaveRequests, businessDays]);
+  }, [employees, records, leaveRequests, businessDateSet, businessDays, startDate, endDate]);
 
   // Summary
   const summary = useMemo(() => {
@@ -127,11 +151,11 @@ const MonthlyAttendanceReport: React.FC = () => {
     });
   }, [records, year, month]);
 
-  if (isLoading) {
+  if (isLoading || holidaysLoading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
   }
 
-  const loadError = recordsError || employeesError || leaveRequestsError;
+  const loadError = recordsError || employeesError || leaveRequestsError || holidaysError;
   if (loadError) {
     const message = loadError instanceof Error ? loadError.message : String((loadError as any)?.message || loadError);
     return (

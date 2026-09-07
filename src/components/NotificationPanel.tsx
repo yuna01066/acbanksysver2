@@ -150,11 +150,14 @@ const NotificationPanel = ({
       case 'quote_modified':
         return <Edit className="h-4 w-4 text-accent" />;
       case 'leave_request':
+      case 'leave_cancellation_request':
       case 'attendance_correction_request':
         return <CalendarDays className="h-4 w-4 text-yellow-500" />;
       case 'leave_approved':
+      case 'leave_cancellation_approved':
         return <CalendarCheck className="h-4 w-4 text-green-500" />;
       case 'leave_rejected':
+      case 'leave_cancellation_rejected':
         return <CalendarX className="h-4 w-4 text-red-500" />;
       case 'peer_feedback':
         return <Heart className="h-4 w-4 text-pink-500" />;
@@ -198,6 +201,9 @@ const NotificationPanel = ({
       notification.type === 'leave_request'
       || notification.type === 'leave_approved'
       || notification.type === 'leave_rejected'
+      || notification.type === 'leave_cancellation_request'
+      || notification.type === 'leave_cancellation_approved'
+      || notification.type === 'leave_cancellation_rejected'
       || notification.type === 'attendance_correction_request'
       || notification.type === 'leave_expiry_warning'
       || notification.type === 'leave_promotion_summary'
@@ -228,6 +234,9 @@ const NotificationPanel = ({
       case 'leave_request':
       case 'leave_approved':
       case 'leave_rejected':
+      case 'leave_cancellation_request':
+      case 'leave_cancellation_approved':
+      case 'leave_cancellation_rejected':
       case 'attendance_correction_request':
       case 'leave_expiry_warning':
       case 'leave_promotion_summary': return '근태';
@@ -620,14 +629,18 @@ const NotificationPanel = ({
                       </Button>
                     )}
 
-                    {(notification.type === 'leave_request' || notification.type === 'leave_approved' || notification.type === 'leave_rejected' || notification.type === 'attendance_correction_request') && (
+                    {(['leave_request', 'leave_approved', 'leave_rejected', 'leave_cancellation_request', 'leave_cancellation_approved', 'leave_cancellation_rejected', 'attendance_correction_request'] as string[]).includes(notification.type) && (
                       <Button
                         size="sm"
                         variant="outline"
                         className="h-7 text-xs"
                         onClick={() => {
                           onRemove(notification.id);
-                          navigate(notification.type === 'attendance_correction_request' ? '/attendance' : '/leave-management');
+                          const isReview = notification.type === 'leave_request' || notification.type === 'leave_cancellation_request';
+                          const requestId = notification.data?.leaveRequestId || notification.data?.leave_request_id;
+                          navigate(notification.type === 'attendance_correction_request'
+                            ? '/attendance'
+                            : `/attendance?${isReview ? 'scope=all&' : ''}tab=leave${requestId ? `&request=${requestId}` : ''}`);
                           setOpen(false);
                         }}
                       >

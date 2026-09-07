@@ -9,8 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertTriangle, ArrowLeft, CalendarDays, Clock, Loader2, Plus, RefreshCw, Settings2 } from 'lucide-react';
-import { useLeaveRequests, calculatePolicyBasedLeaveDays, LEAVE_TYPES, calculateBusinessDays } from '@/hooks/useLeaveRequests';
+import { AlertTriangle, ArrowLeft, Loader2, Plus, RefreshCw, Settings2 } from 'lucide-react';
+import { useLeaveRequests, calculatePolicyBasedLeaveDays, LEAVE_TYPES } from '@/hooks/useLeaveRequests';
 import { useLeaveAdjustments } from '@/hooks/useLeaveAdjustments';
 import AdminLeaveOverview from '@/components/leave/AdminLeaveOverview';
 import { useLeavePolicy } from '@/hooks/useLeavePolicy';
@@ -25,11 +25,22 @@ import LeaveUsageHistory from '@/components/leave/LeaveUsageHistory';
 import LeaveRequestList from '@/components/leave/LeaveRequestList';
 import LeaveCalendarView from '@/components/leave/LeaveCalendarView';
 
-const LeaveManagementPage = () => {
+interface LeaveManagementPageProps {
+  embedded?: boolean;
+  defaultTab?: 'overview' | 'detail' | 'admin' | 'settings';
+  focusedRequestId?: string;
+}
+
+const LeaveManagementPage: React.FC<LeaveManagementPageProps> = ({
+  embedded = false, defaultTab = 'overview', focusedRequestId,
+}) => {
   const navigate = useNavigate();
-  const { user, profile, isAdmin, isModerator, loading: authLoading } = useAuth();
-  const { requests, loading, loadError, createRequest, approveRequest, rejectRequest, cancelRequest, refresh } = useLeaveRequests();
-  const { policy, loading: policyLoading, unitLabel, canRequest } = useLeavePolicy();
+  const { user, isAdmin, isModerator, loading: authLoading } = useAuth();
+  const {
+    requests, cancellations, loading, loadError, createRequest, approveRequest, rejectRequest,
+    cancelRequest, requestCancellation, reviewCancellation, adminCancelRequest, adminCreateRequest, refresh,
+  } = useLeaveRequests();
+  const { policy, loading: policyLoading, canRequest } = useLeavePolicy();
   const { getNetAdjustment } = useLeaveAdjustments(user?.id);
   const [joinDate, setJoinDate] = useState<string>('');
 
@@ -68,6 +79,7 @@ const LeaveManagementPage = () => {
 
   const myRequests = useMemo(() => requests.filter(r => r.user_id === user?.id), [requests, user]);
   const pendingRequests = useMemo(() => requests.filter(r => r.status === 'pending'), [requests]);
+  const pendingCancellations = useMemo(() => cancellations.filter(r => r.status === 'pending'), [cancellations]);
 
   const usedDays = useMemo(() =>
     myRequests.filter(r => r.status === 'approved' && (r.leave_type === 'annual' || r.leave_type === 'monthly' || r.leave_type === 'half_am' || r.leave_type === 'half_pm'))
@@ -104,28 +116,16 @@ const LeaveManagementPage = () => {
     setManualSubmitting(true);
     try {
       const isHalf = manualForm.leaveType === 'half_am' || manualForm.leaveType === 'half_pm';
-      const days = isHalf ? 0.5 : calculateBusinessDays(manualForm.startDate, manualForm.endDate);
-
-      const { error } = await supabase.from('leave_requests').insert({
+      const ok = await adminCreateRequest({
         user_id: manualForm.userId,
-        user_name: manualForm.userName,
         leave_type: manualForm.leaveType,
         start_date: manualForm.startDate,
         end_date: isHalf ? manualForm.startDate : manualForm.endDate,
-        days,
-        reason: manualForm.reason || null,
-        status: 'approved',
-        approved_by: user?.id,
-        approved_by_name: profile?.full_name,
-        approved_at: new Date().toISOString(),
+        reason: manualForm.reason,
       });
-      if (error) throw error;
-      toast.success(`${manualForm.userName}님의 휴가가 등록되었습니다.`);
+      if (!ok) return;
       setManualOpen(false);
       setManualForm({ userId: '', userName: '', leaveType: 'annual', startDate: '', endDate: '', reason: '' });
-      refresh();
-    } catch (e: any) {
-      toast.error('등록 실패: ' + (e.message || ''));
     } finally {
       setManualSubmitting(false);
     }
@@ -136,21 +136,17 @@ const LeaveManagementPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="border-b px-4 py-3 flex items-center justify-between bg-card">
+    <div className={embedded ? 'bg-background' : 'min-h-screen bg-background'}>
+      {!embedded && <div className="border-b px-4 py-3 flex items-center justify-between bg-card">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)} aria-label="이전 화면">
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-lg font-semibold">내 휴가</h1>
+          <h1 className="text-lg font-semibold">{isAdmin || isModerator ? '직원 휴가 관리' : '내 휴가'}</h1>
         </div>
-        <Button variant="outline" size="sm" onClick={() => navigate('/attendance')} className="gap-1">
-          <Clock className="h-4 w-4" />
-          근태 관리
-        </Button>
-      </div>
+      </div>}
 
-      <div className="container max-w-5xl mx-auto px-4 py-6">
+      <div className={embedded ? 'py-2' : 'container max-w-5xl mx-auto px-4 py-6'}>
         {loadError && (
           <div className="mb-4 flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 sm:flex-row sm:items-center">
             <AlertTriangle className="h-5 w-5 shrink-0 text-destructive" />
@@ -164,23 +160,20 @@ const LeaveManagementPage = () => {
             </Button>
           </div>
         )}
-        <Tabs defaultValue="overview">
-          <TabsList className="bg-transparent border-b rounded-none w-full justify-start px-0 h-auto pb-0">
+        <Tabs defaultValue={defaultTab}>
+          <TabsList className="bg-transparent border-b rounded-none w-full justify-start overflow-x-auto px-0 h-auto pb-0">
             <TabsTrigger value="overview" className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-3">
               휴가 개요
             </TabsTrigger>
             <TabsTrigger value="detail" className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-3">
               연차 상세
             </TabsTrigger>
-            <TabsTrigger value="plan" className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-3">
-              연차 사용 계획
-            </TabsTrigger>
             {(isAdmin || isModerator) && (
               <TabsTrigger value="admin" className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-3 relative">
                 전체 관리
-                {pendingRequests.length > 0 && (
+                {pendingRequests.length + pendingCancellations.length > 0 && (
                   <span className="ml-1.5 inline-flex items-center justify-center w-5 h-5 text-xs bg-destructive text-destructive-foreground rounded-full">
-                    {pendingRequests.length}
+                    {pendingRequests.length + pendingCancellations.length}
                   </span>
                 )}
               </TabsTrigger>
@@ -210,8 +203,10 @@ const LeaveManagementPage = () => {
 
             <LeaveUsageHistory
               requests={myRequests}
+              cancellations={cancellations}
               currentUserId={user?.id || ''}
               onCancel={cancelRequest}
+              onRequestCancellation={requestCancellation}
             />
           </TabsContent>
 
@@ -223,15 +218,6 @@ const LeaveManagementPage = () => {
               grantMethod={policy.grant_method}
               grantBasis={policy.grant_basis}
             />
-          </TabsContent>
-
-          {/* 연차 사용 계획 Tab */}
-          <TabsContent value="plan" className="mt-6">
-            <div className="rounded-lg border bg-muted/30 py-12 flex flex-col items-center justify-center text-muted-foreground">
-              <CalendarDays className="h-8 w-8 mb-3" />
-              <p className="text-sm font-medium">연차 사용 계획 기능</p>
-              <p className="text-xs mt-1">준비 중입니다.</p>
-            </div>
           </TabsContent>
 
           {/* 전체 관리 Tab (Admin) */}
@@ -311,6 +297,23 @@ const LeaveManagementPage = () => {
                 </Dialog>
               </div>
 
+              {loading ? (
+                <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
+              ) : (
+                <LeaveRequestList
+                  requests={requests}
+                  cancellations={cancellations}
+                  isAdmin={true}
+                  currentUserId={user?.id || ''}
+                  onApprove={approveRequest}
+                  onReject={rejectRequest}
+                  onCancel={cancelRequest}
+                  onReviewCancellation={reviewCancellation}
+                  onAdminCancel={adminCancelRequest}
+                  focusedRequestId={focusedRequestId}
+                />
+              )}
+
               <LeaveCalendarView allRequests={requests} />
 
               <AdminLeaveOverview
@@ -319,19 +322,6 @@ const LeaveManagementPage = () => {
                 grantMethod={policy.grant_method}
                 grantBasis={policy.grant_basis}
               />
-
-              {loading ? (
-                <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
-              ) : (
-                <LeaveRequestList
-                  requests={requests}
-                  isAdmin={true}
-                  currentUserId={user?.id || ''}
-                  onApprove={approveRequest}
-                  onReject={rejectRequest}
-                  onCancel={cancelRequest}
-                />
-              )}
             </TabsContent>
           )}
 

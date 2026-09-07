@@ -31,6 +31,8 @@ interface AttendanceSummary {
 const leaveTypeLabels: Record<string, string> = {
   annual: '연차',
   half_day: '반차',
+  half_am: '오전반차',
+  half_pm: '오후반차',
   half_day_am: '오전반차',
   half_day_pm: '오후반차',
   sick: '병가',
@@ -78,7 +80,8 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({ onDateS
         supabase
           .from('leave_requests')
           .select('id, user_name, leave_type, start_date, end_date, days, status, reason')
-          .or(`start_date.lte.${endStr},end_date.gte.${startStr}`)
+          .lte('start_date', endStr)
+          .gte('end_date', startStr)
           .in('status', ['pending', 'approved'])
           .order('start_date'),
         supabase

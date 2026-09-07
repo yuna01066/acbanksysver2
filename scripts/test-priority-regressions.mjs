@@ -66,6 +66,7 @@ assert.match(
 );
 assert.doesNotMatch(attendancePage, /const submitLeaveMutation/);
 assert.doesNotMatch(attendancePage, /const handleLeaveAction/);
-assert.match(attendancePage, /navigate\('\/leave-management'\)/);
+assert.match(attendancePage, /<LeaveManagementPage[\s\S]*?embedded/);
+assert.doesNotMatch(attendancePage, /navigate\('\/leave-management'\)/);
 
 console.log('Priority security and attendance regression checks passed.');

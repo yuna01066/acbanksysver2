@@ -88,7 +88,7 @@ const MyAttendanceLeaveSection: React.FC = () => {
   const { user, profile: authProfile } = useAuth();
   const queryClient = useQueryClient();
   const { data: profile, isLoading: profileLoading } = useMyHrProfile();
-  const { requests, loading, createRequest, cancelRequest } = useLeaveRequests();
+  const { requests, cancellations, loading, createRequest, cancelRequest, requestCancellation } = useLeaveRequests();
   const { policy, loading: policyLoading, unitLabel, canRequest } = useLeavePolicy();
   const { getNetAdjustment } = useLeaveAdjustments(user?.id);
   const [correctionOpen, setCorrectionOpen] = useState(false);
@@ -437,8 +437,10 @@ const MyAttendanceLeaveSection: React.FC = () => {
               <TabsContent value="leave" className="mt-4 max-h-[420px] overflow-y-auto pr-1">
                 <LeaveUsageHistory
                   requests={myRequests}
+                  cancellations={cancellations}
                   currentUserId={user?.id || ''}
                   onCancel={cancelRequest}
+                  onRequestCancellation={requestCancellation}
                   compact
                 />
               </TabsContent>

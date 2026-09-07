@@ -128,8 +128,16 @@ export function getNotificationPath(notification: AppNotification): string {
   if (notification.type === 'approval_request' || notification.type === 'approval_approved' || notification.type === 'approval_rejected') {
     return notification.data?.projectId ? `/project-management?id=${notification.data.projectId}` : '/review-hub';
   }
-  if (notification.type === 'leave_request' || notification.type === 'leave_approved' || notification.type === 'leave_rejected') {
-    return '/my-page?tab=attendance';
+  if (
+    notification.type === 'leave_request'
+    || notification.type === 'leave_approved'
+    || notification.type === 'leave_rejected'
+    || notification.type === 'leave_cancellation_request'
+    || notification.type === 'leave_cancellation_approved'
+    || notification.type === 'leave_cancellation_rejected'
+  ) {
+    const isReview = notification.type === 'leave_request' || notification.type === 'leave_cancellation_request';
+    return `/attendance?${isReview ? 'scope=all&' : ''}tab=leave`;
   }
   if (notification.type === 'peer_feedback') return '/my-page';
   if (notification.type === 'performance_review_summary') return '/my-page?tab=business';
@@ -146,7 +154,7 @@ function getNotificationSourceKey(notification: AppNotification): DashboardSourc
   if (notification.type === 'meeting_reservation' || notification.type === 'meeting_reservation_status') return 'meeting-reservation';
   if (notification.type === 'public_booking_request') return 'meeting-reservation';
   if (notification.type === 'approval_request' || notification.type === 'approval_approved' || notification.type === 'approval_rejected' || notification.type === 'pending_approval') return 'approval';
-  if (notification.type === 'leave_request' || notification.type === 'leave_approved' || notification.type === 'leave_rejected') return 'leave';
+  if (notification.type.startsWith('leave_')) return 'leave';
   if (notification.type === 'attendance_correction_request' || notification.type === 'peer_feedback' || notification.type === 'performance_review_summary') return 'hr';
   if (notification.type === 'contract_request' || notification.type === 'contract_signed' || notification.type === 'contract_rejected' || notification.type === 'contract_withdrawn') return 'hr';
   if (notification.type === 'system' && notification.data?.eventId) return 'meeting';

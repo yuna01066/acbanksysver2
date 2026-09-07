@@ -14,6 +14,7 @@ export const EXPLICIT_PROTECTED_PAGE_DEFAULTS: Readonly<Record<string, AccessRol
   '/business-dashboard': 'admin',
   '/embed-code': 'moderator',
   '/employee-profiles': 'admin',
+  '/edge-function-status': 'admin',
   '/error-logs': 'admin',
   '/exhibition-management': 'employee',
   '/jjikjjiki-event-settings': 'moderator',
@@ -46,6 +47,7 @@ export const EXPLICIT_PROTECTED_PAGE_DEFAULTS: Readonly<Record<string, AccessRol
   '/team-chat': 'employee',
   '/storage-status': 'admin',
   '/tax-invoices': 'admin',
+  '/tax-invoice-reliability': 'admin',
   '/user-statistics': 'admin',
   '/year-end-tax': 'employee',
   '/year-end-tax-admin': 'admin',
@@ -72,9 +74,11 @@ export function getPagePolicyCandidates(rawPath: string): string[] {
 
 const MASTER_PROTECTED_PAGE_PATHS = new Set([
   '/business-dashboard',
+  '/edge-function-status',
   '/employee-profiles',
   '/error-logs',
   '/tax-invoices',
+  '/tax-invoice-reliability',
   '/user-statistics',
   '/year-end-tax-admin',
 ]);

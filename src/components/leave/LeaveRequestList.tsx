@@ -1,33 +1,44 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { Check, X, Trash2, MessageSquare } from 'lucide-react';
-import { type LeaveRequest, LEAVE_TYPES, LEAVE_STATUS } from '@/hooks/useLeaveRequests';
+import { type LeaveRequest, type LeaveCancellationRequest, LEAVE_TYPES, LEAVE_STATUS } from '@/hooks/useLeaveRequests';
 
 interface LeaveRequestListProps {
   requests: LeaveRequest[];
+  cancellations: LeaveCancellationRequest[];
   isAdmin: boolean;
   currentUserId: string;
-  onApprove: (id: string) => Promise<void>;
-  onReject: (id: string, reason: string) => Promise<void>;
-  onCancel: (id: string) => Promise<void>;
+  onApprove: (id: string) => Promise<unknown>;
+  onReject: (id: string, reason: string) => Promise<unknown>;
+  onCancel: (id: string) => Promise<unknown>;
+  onReviewCancellation: (id: string, decision: 'approved' | 'rejected', note?: string) => Promise<unknown>;
+  onAdminCancel: (id: string, reason: string) => Promise<unknown>;
+  focusedRequestId?: string;
 }
 
 const LeaveRequestList: React.FC<LeaveRequestListProps> = ({
-  requests, isAdmin, currentUserId, onApprove, onReject, onCancel,
+  requests, cancellations, isAdmin, currentUserId, onApprove, onReject, onCancel,
+  onReviewCancellation, onAdminCancel, focusedRequestId,
 }) => {
-  const [rejectDialogId, setRejectDialogId] = useState<string | null>(null);
-  const [rejectReason, setRejectReason] = useState('');
+  const [action, setAction] = useState<{ kind: 'reject' | 'cancel-reject' | 'admin-cancel'; id: string } | null>(null);
+  const [reason, setReason] = useState('');
 
-  const handleReject = async () => {
-    if (!rejectDialogId) return;
-    await onReject(rejectDialogId, rejectReason);
-    setRejectDialogId(null);
-    setRejectReason('');
+  useEffect(() => {
+    if (!focusedRequestId) return;
+    document.getElementById(`leave-request-${focusedRequestId}`)?.scrollIntoView({ block: 'center' });
+  }, [focusedRequestId]);
+
+  const handleAction = async () => {
+    if (!action || !reason.trim()) return;
+    if (action.kind === 'reject') await onReject(action.id, reason.trim());
+    if (action.kind === 'cancel-reject') await onReviewCancellation(action.id, 'rejected', reason.trim());
+    if (action.kind === 'admin-cancel') await onAdminCancel(action.id, reason.trim());
+    setAction(null);
+    setReason('');
   };
 
   if (requests.length === 0) {
@@ -37,14 +48,24 @@ const LeaveRequestList: React.FC<LeaveRequestListProps> = ({
   return (
     <>
       <div className="space-y-3">
-        {requests.map(req => {
+        {[...requests].sort((a, b) => {
+          const aPending = cancellations.some(c => c.leave_request_id === a.id && c.status === 'pending');
+          const bPending = cancellations.some(c => c.leave_request_id === b.id && c.status === 'pending');
+          return Number(bPending) - Number(aPending);
+        }).map(req => {
           const status = LEAVE_STATUS[req.status] || LEAVE_STATUS.pending;
           const isOwn = req.user_id === currentUserId;
           const canCancel = isOwn && req.status === 'pending';
           const canApprove = isAdmin && req.status === 'pending';
+          const cancellation = cancellations.find(c => c.leave_request_id === req.id && c.status === 'pending');
+          const canAdminCancel = isAdmin && req.status === 'approved' && !cancellation;
 
           return (
-            <div key={req.id} className="border rounded-lg p-4">
+            <div
+              key={req.id}
+              id={`leave-request-${req.id}`}
+              className={`border rounded-lg p-4 ${focusedRequestId === req.id ? 'border-primary bg-primary/5' : ''}`}
+            >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -66,22 +87,31 @@ const LeaveRequestList: React.FC<LeaveRequestListProps> = ({
                   {req.status === 'rejected' && req.reject_reason && (
                     <p className="text-xs text-destructive mt-1">반려 사유: {req.reject_reason}</p>
                   )}
+                  {cancellation && (
+                    <div className="mt-3 rounded-md border border-amber-300/60 bg-amber-50 p-3 text-sm dark:bg-amber-950/20">
+                      <p className="font-medium text-amber-900 dark:text-amber-200">취소 승인 대기</p>
+                      <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">{cancellation.reason}</p>
+                    </div>
+                  )}
                 </div>
-                <div className="flex gap-1 shrink-0">
+                <div className="flex flex-wrap justify-end gap-2 shrink-0">
                   {canApprove && (
                     <>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700" onClick={() => onApprove(req.id)} title="승인">
-                        <Check className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700" onClick={() => setRejectDialogId(req.id)} title="반려">
-                        <X className="h-4 w-4" />
-                      </Button>
+                      <Button variant="outline" size="sm" className="text-green-700" onClick={() => onApprove(req.id)}>승인</Button>
+                      <Button variant="outline" size="sm" className="text-destructive" onClick={() => setAction({ kind: 'reject', id: req.id })}>반려</Button>
                     </>
                   )}
+                  {isAdmin && cancellation && (
+                    <>
+                      <Button size="sm" onClick={() => onReviewCancellation(cancellation.id, 'approved')}>취소 승인</Button>
+                      <Button variant="outline" size="sm" onClick={() => setAction({ kind: 'cancel-reject', id: cancellation.id })}>취소 반려</Button>
+                    </>
+                  )}
+                  {canAdminCancel && (
+                    <Button variant="outline" size="sm" onClick={() => setAction({ kind: 'admin-cancel', id: req.id })}>관리자 취소</Button>
+                  )}
                   {canCancel && (
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => onCancel(req.id)} title="취소">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => onCancel(req.id)}>신청 취소</Button>
                   )}
                 </div>
               </div>
@@ -90,12 +120,16 @@ const LeaveRequestList: React.FC<LeaveRequestListProps> = ({
         })}
       </div>
 
-      <Dialog open={!!rejectDialogId} onOpenChange={() => setRejectDialogId(null)}>
+      <Dialog open={!!action} onOpenChange={(open) => !open && setAction(null)}>
         <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>반려 사유</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{action?.kind === 'admin-cancel' ? '관리자 휴가 취소' : '반려 사유'}</DialogTitle>
+          </DialogHeader>
           <div className="space-y-3 mt-2">
-            <Input value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="반려 사유를 입력하세요" />
-            <Button onClick={handleReject} disabled={!rejectReason.trim()} className="w-full">반려</Button>
+            <Input value={reason} onChange={e => setReason(e.target.value)} placeholder="사유를 입력하세요" aria-label="처리 사유" />
+            <Button onClick={handleAction} disabled={!reason.trim()} className="w-full">
+              {action?.kind === 'admin-cancel' ? '휴가 취소' : '반려'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

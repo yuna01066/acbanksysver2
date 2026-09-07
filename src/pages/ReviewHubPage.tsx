@@ -34,6 +34,14 @@ type LeaveReview = {
   created_at: string;
 };
 
+type LeaveCancellationReview = {
+  id: string;
+  leave_request_id: string;
+  requested_by_name: string;
+  reason: string;
+  leave_requests: LeaveReview | null;
+};
+
 type DocumentReview = {
   id: string;
   file_name: string;
@@ -83,6 +91,7 @@ const ReviewHubPage = () => {
   const { isAdmin, isModerator, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [leaves, setLeaves] = useState<LeaveReview[]>([]);
+  const [leaveCancellations, setLeaveCancellations] = useState<LeaveCancellationReview[]>([]);
   const [documents, setDocuments] = useState<DocumentReview[]>([]);
   const [quotes, setQuotes] = useState<QuoteReview[]>([]);
   const [projects, setProjects] = useState<ProjectReview[]>([]);
@@ -102,6 +111,7 @@ const ReviewHubPage = () => {
     try {
       const [
         leaveResult,
+        leaveCancellationResult,
         documentResult,
         quoteResult,
         projectResult,
@@ -111,6 +121,11 @@ const ReviewHubPage = () => {
         supabase
           .from('leave_requests')
           .select('id, user_name, leave_type, start_date, end_date, days, created_at', { count: 'exact' })
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false })
+          .limit(5),
+        (supabase.from as any)('leave_cancellation_requests')
+          .select('id, leave_request_id, requested_by_name, reason, leave_requests(id, user_name, leave_type, start_date, end_date, days, created_at)', { count: 'exact' })
           .eq('status', 'pending')
           .order('created_at', { ascending: false })
           .limit(5),
@@ -145,19 +160,21 @@ const ReviewHubPage = () => {
       ]);
 
       if (leaveResult.error) throw leaveResult.error;
+      if (leaveCancellationResult.error) throw leaveCancellationResult.error;
       if (documentResult.error) throw documentResult.error;
       if (quoteResult.error) throw quoteResult.error;
       if (projectResult.error) throw projectResult.error;
       if (approvalResult.error) throw approvalResult.error;
 
       setLeaves((leaveResult.data || []) as LeaveReview[]);
+      setLeaveCancellations((leaveCancellationResult.data || []) as LeaveCancellationReview[]);
       setDocuments(((documentResult.data || []) as unknown) as DocumentReview[]);
       setQuotes((quoteResult.data || []) as QuoteReview[]);
       setProjects((projectResult.data || []) as ProjectReview[]);
       setApprovals((approvalResult.data || []) as ApprovalReview[]);
       setApprovalRequests(approvalRequestResult);
       setCounts({
-        leaves: leaveResult.count || 0,
+        leaves: (leaveResult.count || 0) + (leaveCancellationResult.count || 0),
         documents: documentResult.count || 0,
         quotes: quoteResult.count || 0,
         projects: projectResult.count || 0,
@@ -206,9 +223,9 @@ const ReviewHubPage = () => {
     {
       title: '휴가 승인',
       count: counts.leaves,
-      description: '대기 중인 연차/휴가 신청',
+      description: '대기 중인 휴가 신청·취소',
       icon: ClipboardCheck,
-      path: '/leave-management',
+      path: '/attendance?scope=all&tab=leave',
       tone: counts.leaves > 0 ? 'text-amber-600' : 'text-emerald-600',
     },
     {
@@ -354,21 +371,35 @@ const ReviewHubPage = () => {
           <Card>
             <CardHeader>
               <BrandedCardHeader icon={ClipboardCheck} title="휴가 승인 대기" />
-              <CardDescription>승인/반려 처리는 연차 관리 화면에서 진행합니다.</CardDescription>
+              <CardDescription>휴가 신청과 취소 요청을 한곳에서 처리합니다.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
-              {leaves.length === 0 ? (
-                <EmptyState text="대기 중인 휴가 신청이 없습니다." />
-              ) : leaves.map((leave) => (
-                <ReviewRow
-                  key={leave.id}
-                  icon={<ClipboardCheck className="h-4 w-4 text-amber-600" />}
-                  title={`${leave.user_name} · ${leave.leave_type}`}
-                  description={`${formatDate(leave.start_date)} - ${formatDate(leave.end_date)} · ${leave.days}일`}
-                  badge="승인 대기"
-                  onClick={() => navigate('/leave-management')}
-                />
-              ))}
+              {leaves.length === 0 && leaveCancellations.length === 0 ? (
+                <EmptyState text="대기 중인 휴가 신청 또는 취소 요청이 없습니다." />
+              ) : (
+                <>
+                  {leaveCancellations.map(cancellation => (
+                    <ReviewRow
+                      key={cancellation.id}
+                      icon={<ClipboardCheck className="h-4 w-4 text-red-600" />}
+                      title={`${cancellation.requested_by_name} · 휴가 취소`}
+                      description={cancellation.reason}
+                      badge="취소 승인 대기"
+                      onClick={() => navigate(`/attendance?scope=all&tab=leave&request=${cancellation.leave_request_id}`)}
+                    />
+                  ))}
+                  {leaves.map((leave) => (
+                    <ReviewRow
+                      key={leave.id}
+                      icon={<ClipboardCheck className="h-4 w-4 text-amber-600" />}
+                      title={`${leave.user_name} · ${leave.leave_type}`}
+                      description={`${formatDate(leave.start_date)} - ${formatDate(leave.end_date)} · ${leave.days}일`}
+                      badge="승인 대기"
+                      onClick={() => navigate(`/attendance?scope=all&tab=leave&request=${leave.id}`)}
+                    />
+                  ))}
+                </>
+              )}
             </CardContent>
           </Card>
 

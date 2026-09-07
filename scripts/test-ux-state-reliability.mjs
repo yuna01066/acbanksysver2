@@ -58,16 +58,11 @@ assert.match(pageAccessPolicy, /matchedOverride\?\.effect === 'allow'/);
 assert.match(pageAccessPolicy, /MASTER_PROTECTED_PAGE_PATHS/);
 assert.doesNotMatch(home, /userRole=\{userRole\}/);
 assert.match(home, /id: "tax-invoices"[\s\S]*?requiresMaster: true/);
-assert.match(leaveHook, /\.update\(\{ status: 'cancelled' \}\)/);
+assert.match(leaveHook, /cancel_pending_leave_request/);
+assert.match(leaveHook, /review_leave_request/);
+assert.match(leaveHook, /request_leave_cancellation/);
 assert.doesNotMatch(leaveHook, /from\('leave_requests'\)\.delete\(\)/);
-assert.ok(
-  (leaveHook.match(/\.eq\('status', 'pending'\)/g) || []).length >= 3,
-  'approve, reject, and cancel transitions must compare the pending state',
-);
-assert.ok(
-  (leaveHook.match(/\.select\('id'\)\s+\.maybeSingle\(\)/g) || []).length >= 3,
-  'leave transitions must confirm that exactly one pending row changed',
-);
+assert.doesNotMatch(leaveHook, /from\('leave_requests'\)[\s\S]{0,80}\.(insert|update|delete)/);
 assert.match(leaveHook, /loadError/);
 assert.match(leavePage, /휴가 데이터를 불러오지 못했습니다/);
 

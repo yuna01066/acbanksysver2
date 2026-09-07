@@ -57,7 +57,7 @@ const quickActions = [
   {
     label: '연차신청',
     description: '휴가 관리',
-    path: '/leave-management',
+    path: '/attendance?tab=leave',
     icon: CalendarPlus,
   },
   {

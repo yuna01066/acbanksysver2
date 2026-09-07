@@ -13,11 +13,25 @@ export interface LeaveRequest {
   end_date: string;
   days: number;
   reason: string | null;
-  status: string;
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
   approved_by: string | null;
   approved_by_name: string | null;
   approved_at: string | null;
   reject_reason: string | null;
+  created_at: string;
+}
+
+export interface LeaveCancellationRequest {
+  id: string;
+  leave_request_id: string;
+  requested_by: string;
+  requested_by_name: string;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reviewed_by: string | null;
+  reviewed_by_name: string | null;
+  review_note: string | null;
+  reviewed_at: string | null;
   created_at: string;
 }
 
@@ -180,14 +194,16 @@ export const calculateBusinessDays = (start: string, end: string): number => {
 };
 
 export const useLeaveRequests = () => {
-  const { user, profile, isAdmin, isModerator } = useAuth();
+  const { user, isAdmin, isModerator } = useAuth();
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
+  const [cancellations, setCancellations] = useState<LeaveCancellationRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const fetchRequests = useCallback(async () => {
     if (!user) {
       setRequests([]);
+      setCancellations([]);
       setLoadError(null);
       setLoading(false);
       return;
@@ -195,19 +211,25 @@ export const useLeaveRequests = () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const query = supabase
+      const requestQuery = supabase
         .from('leave_requests')
         .select('*')
         .order('created_at', { ascending: false });
 
       // Non-admin users only see their own (RLS handles this, but be explicit)
       if (!isAdmin && !isModerator) {
-        query.eq('user_id', user.id);
+        requestQuery.eq('user_id', user.id);
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
-      setRequests(data as LeaveRequest[]);
+      // Generated database types are refreshed after the migration is applied.
+      const cancellationQuery = (supabase.from as any)('leave_cancellation_requests')
+        .select('*')
+        .order('created_at', { ascending: false });
+      const [requestResult, cancellationResult] = await Promise.all([requestQuery, cancellationQuery]);
+      if (requestResult.error) throw requestResult.error;
+      if (cancellationResult.error) throw cancellationResult.error;
+      setRequests(requestResult.data as LeaveRequest[]);
+      setCancellations(cancellationResult.data as LeaveCancellationRequest[]);
     } catch (error) {
       console.error('연차 신청 내역 조회 에러:', error);
       setLoadError(error instanceof Error ? error.message : '휴가 데이터를 불러오지 못했습니다.');
@@ -220,34 +242,16 @@ export const useLeaveRequests = () => {
     fetchRequests();
   }, [fetchRequests]);
 
-  // Helper: send notifications to all admins
-  const notifyAdmins = async (title: string, description: string, type: string, data?: Record<string, any>) => {
-    const { data: adminRoles } = await supabase
-      .from('user_roles')
-      .select('user_id')
-      .in('role', ['admin', 'moderator']);
-    if (!adminRoles) return;
-    const uniqueIds = [...new Set(adminRoles.map(r => r.user_id))];
-    for (const adminId of uniqueIds) {
-      await supabase.from('notifications').insert({
-        user_id: adminId,
-        type,
-        title,
-        description,
-        data: data || {},
-      });
+  const callRpc = async (name: string, args: Record<string, unknown>, success: string, failure: string) => {
+    const { error } = await (supabase.rpc as any)(name, args);
+    if (error) {
+      toast.error(`${failure}: ${error.message}`);
+      await fetchRequests();
+      return false;
     }
-  };
-
-  // Helper: send notification to a specific user
-  const notifyUser = async (userId: string, title: string, description: string, type: string, data?: Record<string, any>) => {
-    await supabase.from('notifications').insert({
-      user_id: userId,
-      type,
-      title,
-      description,
-      data: data || {},
-    });
+    toast.success(success);
+    await fetchRequests();
+    return true;
   };
 
   const createRequest = async (params: {
@@ -257,135 +261,73 @@ export const useLeaveRequests = () => {
     days: number;
     reason?: string;
   }) => {
-    if (!user || !profile) return;
-    const { error } = await supabase.from('leave_requests').insert({
-      user_id: user.id,
-      user_name: profile.full_name,
-      ...params,
-    });
-    if (error) {
-      toast.error('연차 신청 실패: ' + error.message);
-      return false;
-    }
-    toast.success('연차가 신청되었습니다.');
-
-    // Notify admins
-    const leaveLabel = LEAVE_TYPES[params.leave_type] || params.leave_type;
-    await notifyAdmins(
-      '연차 신청',
-      `${profile.full_name}님이 ${leaveLabel} ${params.days}일을 신청했습니다. (${params.start_date} ~ ${params.end_date})`,
-      'leave_request',
-      { leave_type: params.leave_type, start_date: params.start_date, end_date: params.end_date, days: params.days, user_name: profile.full_name },
-    );
-
-    await fetchRequests();
-    return true;
+    if (!user) return false;
+    return callRpc('submit_leave_request', {
+      _leave_type: params.leave_type,
+      _start_date: params.start_date,
+      _end_date: params.end_date,
+      _reason: params.reason || null,
+    }, '휴가가 신청되었습니다.', '휴가 신청 실패');
   };
 
-  const approveRequest = async (id: string) => {
-    if (!user || !profile) return;
-    // Find the request to get requester info
-    const target = requests.find(r => r.id === id);
-    const { data, error } = await supabase
-      .from('leave_requests')
-      .update({
-        status: 'approved',
-        approved_by: user.id,
-        approved_by_name: profile.full_name,
-        approved_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .eq('status', 'pending')
-      .select('id')
-      .maybeSingle();
-    if (error) {
-      toast.error('승인 실패: ' + error.message);
-      return;
-    }
-    if (!data) {
-      toast.error('이미 취소되었거나 처리된 휴가 신청입니다.');
-      await fetchRequests();
-      return;
-    }
-    toast.success('승인되었습니다.');
+  const approveRequest = (id: string) => callRpc(
+    'review_leave_request', { _request_id: id, _decision: 'approved', _reason: null },
+    '승인되었습니다.', '승인 실패',
+  );
 
-    // Notify the requester
-    if (target) {
-      const leaveLabel = LEAVE_TYPES[target.leave_type] || target.leave_type;
-      await notifyUser(
-        target.user_id,
-        '연차 승인',
-        `${leaveLabel} ${target.days}일 (${target.start_date} ~ ${target.end_date}) 신청이 승인되었습니다.`,
-        'leave_approved',
-        { leave_request_id: id },
-      );
-    }
+  const rejectRequest = (id: string, rejectReason: string) => callRpc(
+    'review_leave_request', { _request_id: id, _decision: 'rejected', _reason: rejectReason },
+    '반려되었습니다.', '반려 실패',
+  );
 
-    await fetchRequests();
+  const cancelRequest = (id: string) => callRpc(
+    'cancel_pending_leave_request', { _request_id: id },
+    '신청을 취소했습니다.', '취소 실패',
+  );
+
+  const requestCancellation = (id: string, reason: string) => callRpc(
+    'request_leave_cancellation', { _leave_request_id: id, _reason: reason },
+    '취소 승인 요청을 보냈습니다.', '취소 요청 실패',
+  );
+
+  const reviewCancellation = (id: string, decision: 'approved' | 'rejected', note?: string) => callRpc(
+    'review_leave_cancellation', { _cancellation_id: id, _decision: decision, _review_note: note || null },
+    decision === 'approved' ? '휴가 취소를 승인했습니다.' : '휴가 취소 요청을 반려했습니다.',
+    '취소 요청 처리 실패',
+  );
+
+  const adminCancelRequest = (id: string, reason: string) => callRpc(
+    'admin_cancel_leave', { _leave_request_id: id, _reason: reason },
+    '휴가를 취소했습니다.', '관리자 취소 실패',
+  );
+
+  const adminCreateRequest = (params: {
+    user_id: string;
+    leave_type: string;
+    start_date: string;
+    end_date: string;
+    reason?: string;
+  }) => callRpc('admin_create_leave_request', {
+    _user_id: params.user_id,
+    _leave_type: params.leave_type,
+    _start_date: params.start_date,
+    _end_date: params.end_date,
+    _reason: params.reason || null,
+  }, '휴가를 등록했습니다.', '휴가 등록 실패');
+
+  return {
+    requests,
+    cancellations,
+    loading,
+    loadError,
+    createRequest,
+    approveRequest,
+    rejectRequest,
+    cancelRequest,
+    requestCancellation,
+    reviewCancellation,
+    adminCancelRequest,
+    adminCreateRequest,
+    refresh: fetchRequests,
   };
-
-  const rejectRequest = async (id: string, rejectReason: string) => {
-    if (!user || !profile) return;
-    const target = requests.find(r => r.id === id);
-    const { data, error } = await supabase
-      .from('leave_requests')
-      .update({
-        status: 'rejected',
-        approved_by: user.id,
-        approved_by_name: profile.full_name,
-        approved_at: new Date().toISOString(),
-        reject_reason: rejectReason,
-      })
-      .eq('id', id)
-      .eq('status', 'pending')
-      .select('id')
-      .maybeSingle();
-    if (error) {
-      toast.error('반려 실패: ' + error.message);
-      return;
-    }
-    if (!data) {
-      toast.error('이미 취소되었거나 처리된 휴가 신청입니다.');
-      await fetchRequests();
-      return;
-    }
-    toast.success('반려되었습니다.');
-
-    // Notify the requester
-    if (target) {
-      const leaveLabel = LEAVE_TYPES[target.leave_type] || target.leave_type;
-      await notifyUser(
-        target.user_id,
-        '연차 반려',
-        `${leaveLabel} ${target.days}일 (${target.start_date} ~ ${target.end_date}) 신청이 반려되었습니다. 사유: ${rejectReason}`,
-        'leave_rejected',
-        { leave_request_id: id, reject_reason: rejectReason },
-      );
-    }
-
-    await fetchRequests();
-  };
-
-  const cancelRequest = async (id: string) => {
-    const { data, error } = await supabase
-      .from('leave_requests')
-      .update({ status: 'cancelled' })
-      .eq('id', id)
-      .eq('status', 'pending')
-      .select('id')
-      .maybeSingle();
-    if (error) {
-      toast.error('취소 실패: ' + error.message);
-      return;
-    }
-    if (!data) {
-      toast.error('승인 대기 중인 휴가만 취소할 수 있습니다.');
-      await fetchRequests();
-      return;
-    }
-    toast.success('취소되었습니다.');
-    await fetchRequests();
-  };
-
-  return { requests, loading, loadError, createRequest, approveRequest, rejectRequest, cancelRequest, refresh: fetchRequests };
 };
