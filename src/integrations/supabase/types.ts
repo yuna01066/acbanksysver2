@@ -393,6 +393,8 @@ export type Database = {
       }
       attendance_correction_requests: {
         Row: {
+          attendance_after: Json | null
+          attendance_before: Json | null
           attendance_record_id: string | null
           created_at: string
           date: string
@@ -410,6 +412,8 @@ export type Database = {
           user_name: string
         }
         Insert: {
+          attendance_after?: Json | null
+          attendance_before?: Json | null
           attendance_record_id?: string | null
           created_at?: string
           date: string
@@ -427,6 +431,8 @@ export type Database = {
           user_name: string
         }
         Update: {
+          attendance_after?: Json | null
+          attendance_before?: Json | null
           attendance_record_id?: string | null
           created_at?: string
           date?: string
@@ -8783,6 +8789,10 @@ export type Database = {
         Args: { _note?: string; _request_id: string }
         Returns: string
       }
+      cancel_attendance_correction: {
+        Args: { _request_id: string }
+        Returns: undefined
+      }
       cancel_pending_leave_request: {
         Args: { _request_id: string }
         Returns: string
@@ -8974,6 +8984,17 @@ export type Database = {
         Args: { _decision: string; _request_id: string; _review_note?: string }
         Returns: string
       }
+      review_attendance_correction: {
+        Args: {
+          _decision: string
+          _expected_record_id: string
+          _expected_record_updated_at: string
+          _expected_request_updated_at: string
+          _note: string
+          _request_id: string
+        }
+        Returns: undefined
+      }
       review_leave_cancellation: {
         Args: {
           _cancellation_id: string
@@ -9020,6 +9041,16 @@ export type Database = {
           updated_at: string
           visibility: string
         }[]
+      }
+      submit_attendance_correction: {
+        Args: {
+          _check_in: string
+          _check_out: string
+          _date: string
+          _reason: string
+          _request_type: string
+        }
+        Returns: string
       }
       submit_leave_request: {
         Args: {
