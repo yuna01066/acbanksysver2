@@ -225,7 +225,7 @@ const ReviewHubPage = () => {
       count: counts.leaves,
       description: '대기 중인 휴가 신청·취소',
       icon: ClipboardCheck,
-      path: '/attendance?scope=all&tab=leave',
+      path: '/attendance?scope=all&tab=approvals',
       tone: counts.leaves > 0 ? 'text-amber-600' : 'text-emerald-600',
     },
     {
@@ -385,7 +385,7 @@ const ReviewHubPage = () => {
                       title={`${cancellation.requested_by_name} · 휴가 취소`}
                       description={cancellation.reason}
                       badge="취소 승인 대기"
-                      onClick={() => navigate(`/attendance?scope=all&tab=leave&request=${cancellation.leave_request_id}`)}
+                      onClick={() => navigate(`/attendance?scope=all&tab=approvals&request=${cancellation.leave_request_id}`)}
                     />
                   ))}
                   {leaves.map((leave) => (
@@ -395,7 +395,7 @@ const ReviewHubPage = () => {
                       title={`${leave.user_name} · ${leave.leave_type}`}
                       description={`${formatDate(leave.start_date)} - ${formatDate(leave.end_date)} · ${leave.days}일`}
                       badge="승인 대기"
-                      onClick={() => navigate(`/attendance?scope=all&tab=leave&request=${leave.id}`)}
+                      onClick={() => navigate(`/attendance?scope=all&tab=approvals&request=${leave.id}`)}
                     />
                   ))}
                 </>

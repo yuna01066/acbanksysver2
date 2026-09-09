@@ -1,3 +1,5 @@
+import { useAuth } from '@/contexts/AuthContext';
+import { refreshAttendanceLeave } from '@/lib/attendanceLeaveQueries';
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -30,6 +32,8 @@ const HOLIDAY_TYPE_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 const CompanyHolidayManager: React.FC = () => {
+  const { isAdmin } = useAuth();
+  const [saving, setSaving] = useState(false);
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Holiday | null>(null);
@@ -42,7 +46,7 @@ const CompanyHolidayManager: React.FC = () => {
     substitute_holiday: false,
   });
 
-  const { data: holidays, isLoading } = useQuery({
+  const { data: holidays, isLoading, error: loadError, refetch } = useQuery({
     queryKey: ['company-holidays'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -73,10 +77,13 @@ const CompanyHolidayManager: React.FC = () => {
   };
 
   const handleSave = async () => {
+    if (!isAdmin || saving) return;
+    if (form.end_date && form.end_date < form.start_date) { toast.error('종료일은 시작일 이후여야 합니다.'); return; }
     if (!form.name || !form.start_date) {
       toast.error('이름과 시작일을 입력하세요');
       return;
     }
+    setSaving(true);
     try {
       const payload = {
         ...form,
@@ -97,14 +104,16 @@ const CompanyHolidayManager: React.FC = () => {
         toast.success('휴일이 추가되었습니다');
       }
       queryClient.invalidateQueries({ queryKey: ['company-holidays'] });
+      void refreshAttendanceLeave(queryClient);
       setDialogOpen(false);
       resetForm();
     } catch (e: any) {
       toast.error('저장 실패: ' + (e.message || ''));
-    }
+    } finally { setSaving(false); }
   };
 
   const handleDelete = async (id: string) => {
+    if (!isAdmin) return;
     if (!confirm('이 휴일을 삭제하시겠습니까?')) return;
     const { error } = await supabase.from('company_holidays').delete().eq('id', id);
     if (error) {
@@ -113,6 +122,7 @@ const CompanyHolidayManager: React.FC = () => {
     }
     toast.success('삭제되었습니다');
     queryClient.invalidateQueries({ queryKey: ['company-holidays'] });
+      void refreshAttendanceLeave(queryClient);
   };
 
   const formatDateRange = (start: string, end: string) => {
@@ -125,19 +135,21 @@ const CompanyHolidayManager: React.FC = () => {
 
   const totalCount = holidays?.length || 0;
 
+  if (loadError) return <div role="alert">회사 휴일 조회 실패 <Button variant="outline" onClick={() => void refetch()}>다시 시도</Button></div>;
+  if (!isAdmin) return <p>회사 휴일 설정은 관리자만 변경할 수 있습니다.</p>;
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2 text-lg">
               <CalendarDays className="h-5 w-5" /> 쉬는 날
             </CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
-              2026년 <span className="font-semibold text-primary">총 {totalCount}일</span> · 법정 공휴일과 함께, 회사 지정 휴일도 정할 수 있어요.
+              <span className="font-semibold text-primary">등록된 휴일 {totalCount}건</span> · 법정 공휴일과 함께, 회사 지정 휴일도 정할 수 있어요.
             </p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={(v) => { setDialogOpen(v); if (!v) resetForm(); }}>
+          <Dialog open={dialogOpen} onOpenChange={(v) => { if (saving) return; setDialogOpen(v); if (!v) resetForm(); }}>
             <DialogTrigger asChild>
               <Button size="sm" className="gap-1.5">
                 <Plus className="h-4 w-4" /> 쉬는 날 추가
@@ -180,7 +192,7 @@ const CompanyHolidayManager: React.FC = () => {
                   <Label>토·일요일 대체휴일</Label>
                   <Switch checked={form.substitute_holiday} onCheckedChange={(v) => setForm(p => ({ ...p, substitute_holiday: v }))} />
                 </div>
-                <Button onClick={handleSave} className="w-full">{editing ? '수정' : '추가'}</Button>
+                <Button disabled={saving} onClick={handleSave} className="w-full">{editing ? '수정' : '추가'}</Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -211,10 +223,10 @@ const CompanyHolidayManager: React.FC = () => {
                       <Badge variant="secondary" className="text-[10px] h-5">매년</Badge>
                     )}
                     <Badge className={`text-[10px] h-5 ${typeInfo.color} border-0`}>{typeInfo.label}</Badge>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={() => openEdit(h)}>
+                    <Button variant="ghost" size="icon" aria-label="휴일 수정" className="h-9 w-9" onClick={() => openEdit(h)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 text-destructive" onClick={() => handleDelete(h.id)}>
+                    <Button variant="ghost" size="icon" aria-label="휴일 삭제" className="h-9 w-9 text-destructive" onClick={() => handleDelete(h.id)}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>

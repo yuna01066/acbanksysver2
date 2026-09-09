@@ -1,4 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { readAllRows } from '@/lib/readAllRows';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
+import { refreshAttendanceLeave } from '@/lib/attendanceLeaveQueries';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface LeaveAdjustment {
@@ -17,28 +20,21 @@ export interface LeaveAdjustment {
 }
 
 export const useLeaveAdjustments = (userId?: string) => {
-  const [adjustments, setAdjustments] = useState<LeaveAdjustment[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchAdjustments = useCallback(async () => {
-    setLoading(true);
-    let query = supabase
-      .from('leave_adjustments')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (userId) {
-      query = query.eq('user_id', userId);
-    }
-
-    const { data } = await query;
-    if (data) setAdjustments(data as LeaveAdjustment[]);
-    setLoading(false);
-  }, [userId]);
-
-  useEffect(() => {
-    fetchAdjustments();
-  }, [fetchAdjustments]);
+  const { user, isAdmin, isModerator } = useAuth();
+  const client = useQueryClient();
+  const target = (isAdmin || isModerator) ? (userId || 'all') : user?.id;
+  const query = useQuery({
+    queryKey: ['leave-adjustments', user?.id, target],
+    enabled: !!user,
+    queryFn: async () => {
+      let request = supabase.from('leave_adjustments').select('*').order('created_at', { ascending: false }).order('id');
+      if (target !== 'all') request = request.eq('user_id', target!);
+      return readAllRows<LeaveAdjustment>(request);
+    },
+  });
+  const adjustments = query.data || [];
+  const loading = query.isLoading;
+  const fetchAdjustments = () => refreshAttendanceLeave(client);
 
   /** Calculate net adjustment days for a user, optionally by category */
   const getNetAdjustment = (uid: string, category?: string): number => {
@@ -63,5 +59,5 @@ export const useLeaveAdjustments = (userId?: string) => {
     return error;
   };
 
-  return { adjustments, loading, refresh: fetchAdjustments, getNetAdjustment, deleteAdjustment };
+  return { adjustments, loading, error: query.error, refresh: fetchAdjustments, getNetAdjustment, deleteAdjustment };
 };

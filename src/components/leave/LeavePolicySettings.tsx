@@ -1,3 +1,6 @@
+import { useAuth } from '@/contexts/AuthContext';
+import { useQueryClient } from '@tanstack/react-query';
+import { refreshAttendanceLeave } from '@/lib/attendanceLeaveQueries';
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -79,7 +82,10 @@ const ANNUAL_METHOD_LABELS: Record<string, string> = {
 };
 
 const LeavePolicySettings: React.FC = () => {
+  const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
   const [policies, setPolicies] = useState<LeavePolicy[]>([]);
+  const [loadError, setLoadError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<LeavePolicy | null>(null);
@@ -107,11 +113,13 @@ const LeavePolicySettings: React.FC = () => {
   });
 
   const fetchPolicies = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('leave_policy_settings')
       .select('*')
       .order('created_at');
+    setLoadError(!!error);
     if (data) setPolicies(data as LeavePolicy[]);
+    void refreshAttendanceLeave(queryClient);
     setLoading(false);
   };
 
@@ -153,6 +161,7 @@ const LeavePolicySettings: React.FC = () => {
   };
 
   const handleSave = async () => {
+    if (saving || !isAdmin) return;
     if (!form.policy_name.trim()) {
       toast.error('정책 이름을 입력하세요.');
       return;
@@ -199,10 +208,12 @@ const LeavePolicySettings: React.FC = () => {
     return `${monthlyLabel} · ${annualLabel}`.substring(0, 30) + '...';
   };
 
+  if (loadError) return <div role="alert">정책 조회에 실패했습니다. <Button variant="outline" onClick={() => void fetchPolicies()}>다시 시도</Button></div>;
   if (loading) {
     return <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>;
   }
 
+  if (!isAdmin) return <p role="alert">연차 정책 변경은 관리자만 가능합니다.</p>;
   return (
     <div className="space-y-8">
       {/* 연차 정책 */}
@@ -219,7 +230,7 @@ const LeavePolicySettings: React.FC = () => {
         ) : (
           <div className="space-y-3">
             {policies.map(policy => (
-              <Card key={policy.id} className="cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => openEditDialog(policy)}>
+              <Card key={policy.id} role="button" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.currentTarget.click(); } }} className="cursor-pointer hover:bg-muted/30 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary" onClick={() => openEditDialog(policy)}>
                 <CardContent className="p-4">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>

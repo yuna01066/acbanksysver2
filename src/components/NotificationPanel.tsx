@@ -1,3 +1,4 @@
+import { getNotificationPath } from '@/hooks/useTodayWorkItems';
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -492,7 +493,7 @@ const NotificationPanel = ({
                         className="h-7 text-xs"
                         onClick={() => {
                           onRemove(notification.id);
-                          navigate(notification.data?.eventId ? `/meeting-reservations?event=${notification.data.eventId}` : '/');
+                          navigate(getNotificationPath(notification));
                           setOpen(false);
                         }}
                       >
@@ -636,11 +637,7 @@ const NotificationPanel = ({
                         className="h-7 text-xs"
                         onClick={() => {
                           onRemove(notification.id);
-                          const isReview = notification.type === 'leave_request' || notification.type === 'leave_cancellation_request';
-                          const requestId = notification.data?.leaveRequestId || notification.data?.leave_request_id;
-                          navigate(notification.type === 'attendance_correction_request'
-                            ? '/attendance'
-                            : `/attendance?${isReview ? 'scope=all&' : ''}tab=leave${requestId ? `&request=${requestId}` : ''}`);
+                          navigate(getNotificationPath(notification));
                           setOpen(false);
                         }}
                       >

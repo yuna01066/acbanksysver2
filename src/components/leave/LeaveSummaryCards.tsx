@@ -22,7 +22,7 @@ const LeaveSummaryCards: React.FC<LeaveSummaryCardsProps> = ({
 }) => {
   const cards = [
     { icon: Calendar, label: '총 연차', value: totalDays, color: 'text-primary' },
-    { icon: CalendarCheck, label: '사용', value: usedDays, color: 'text-green-600 dark:text-green-400' },
+    { icon: CalendarCheck, label: '사용 반영', value: usedDays, color: 'text-green-600 dark:text-green-400' },
     { icon: CalendarClock, label: '승인 대기', value: pendingDays, color: 'text-yellow-600 dark:text-yellow-400' },
     { icon: CalendarX, label: allowAdvanceUse ? '잔여 (당겨쓰기 가능)' : '잔여', value: remainingDays, color: remainingDays < 0 ? 'text-destructive' : 'text-blue-600 dark:text-blue-400' },
   ];
@@ -37,7 +37,7 @@ const LeaveSummaryCards: React.FC<LeaveSummaryCardsProps> = ({
                 <c.icon className={`h-4 w-4 ${c.color}`} />
                 <span className="text-xs text-muted-foreground">{c.label}</span>
               </div>
-              <div className={`${compact ? 'text-xl' : 'text-2xl'} font-semibold ${c.color}`}>
+              <div className={`${compact ? 'text-xl' : 'text-2xl'} font-semibold tabular-nums ${c.color}`}>
                 {c.value}<span className="text-sm font-normal ml-1">{unitLabel}</span>
               </div>
             </CardContent>

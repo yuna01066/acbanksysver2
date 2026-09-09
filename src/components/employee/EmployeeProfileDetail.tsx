@@ -5,8 +5,6 @@ import AvatarUpload from './AvatarUpload';
 import LaborLawPanel from './LaborLawPanel';
 import EmployeeDocumentsPanel from './EmployeeDocumentsPanel';
 import EmployeeContractsPanel from './EmployeeContractsPanel';
-import EmployeeAttendancePanel from './EmployeeAttendancePanel';
-import EmployeeLeavePanel from './EmployeeLeavePanel';
 import PerformanceReviewPanel from './PerformanceReviewPanel';
 import EmployeeIncidentList from '@/components/performance/EmployeeIncidentList';
 import { Badge } from '@/components/ui/badge';
@@ -399,10 +397,10 @@ const EmployeeProfileDetail: React.FC<EmployeeProfileDetailProps> = ({ employee,
         <ScrollArea className="flex-1">
           <div className="px-6 pb-6">
             <TabsContent value="attendance" className="mt-0 py-4">
-              <EmployeeAttendancePanel userId={employee.id} userName={employee.full_name} />
+              <Button variant="outline" onClick={() => navigate(`/attendance?scope=all&tab=members&employee=${employee.id}&memberTab=attendance`)}>통합 근태 관리에서 보기</Button>
             </TabsContent>
             <TabsContent value="leave" className="mt-0 py-4">
-              <EmployeeLeavePanel userId={employee.id} />
+              <Button variant="outline" onClick={() => navigate(`/attendance?scope=all&tab=members&employee=${employee.id}&memberTab=leave`)}>통합 연차·휴가 관리에서 보기</Button>
             </TabsContent>
             <TabsContent value="review" className="mt-0 py-4">
               <PerformanceReviewPanel userId={employee.id} userName={employee.full_name} summaryOnly />

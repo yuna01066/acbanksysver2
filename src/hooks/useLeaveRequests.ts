@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { readAllRows } from '@/lib/readAllRows';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { refreshAttendanceLeave } from '@/lib/attendanceLeaveQueries';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { differenceInMonths, differenceInYears, differenceInCalendarDays, eachDayOfInterval, isWeekend } from 'date-fns';
+export { calculateAnnualLeaveDays, calculatePolicyBasedLeaveDays, calculateMonthlyLeaveDays, calculateAnnualOnlyDays, calculateBusinessDays } from '@/lib/leaveBalance';
 
 export interface LeaveRequest {
   id: string;
@@ -62,196 +64,42 @@ export const LEAVE_STATUS: Record<string, { label: string; color: string }> = {
   cancelled: { label: '취소', color: 'bg-muted text-muted-foreground' },
 };
 
-// 근로기준법 제60조 기반 연차 계산 (기본)
-export const calculateAnnualLeaveDays = (joinDate: string): number => {
-  if (!joinDate) return 0;
-  const jd = new Date(joinDate);
-  const now = new Date();
-  const totalMonths = differenceInMonths(now, jd);
-  const totalYears = differenceInYears(now, jd);
-
-  if (totalMonths < 12) return Math.min(totalMonths, 11);
-
-  let days = 15;
-  if (totalYears >= 3) {
-    days += Math.min(Math.floor((totalYears - 1) / 2), 10);
-  }
-  return Math.min(days, 25);
-};
-
-/**
- * 정책 기반 연차 계산
- * @param joinDate 입사일
- * @param grantMethod 부여 방식: monthly_accrual | annual_grant | proportional
- * @param grantBasis 부여 기준일: join_date | fiscal_year
- */
-export const calculatePolicyBasedLeaveDays = (
-  joinDate: string,
-  grantMethod: string,
-  grantBasis: string,
-): number => {
-  if (!joinDate) return 0;
-  const jd = new Date(joinDate);
-  const now = new Date();
-  const totalMonths = differenceInMonths(now, jd);
-  const totalYears = differenceInYears(now, jd);
-
-  // 근로기준법 기준 연차 (1년 이상 근무자)
-  const legalAnnualDays = (() => {
-    let days = 15;
-    if (totalYears >= 3) {
-      days += Math.min(Math.floor((totalYears - 1) / 2), 10);
-    }
-    return Math.min(days, 25);
-  })();
-
-  switch (grantMethod) {
-    case 'monthly_accrual': {
-      // 매월 개근 시 1일 부여 (1년 미만), 1년 이상 시 법정 연차
-      if (totalMonths < 12) {
-        return Math.min(totalMonths, 11);
+export const useLeaveRequests = (scope: 'my' | 'all' | string = 'my') => {
+  const { user, isAdmin, isModerator, loading: authLoading } = useAuth();
+  const queryClient = useQueryClient();
+  const target = (isAdmin || isModerator) && scope !== 'my' ? scope : user?.id;
+  const query = useQuery({
+    queryKey: ['leave-requests', user?.id, target],
+    enabled: !!user && !authLoading,
+    queryFn: async () => {
+      const requestQuery = supabase.from('leave_requests').select('*').order('created_at', { ascending: false }).order('id');
+      const cancellationQuery = supabase.from('leave_cancellation_requests').select('*, leave_requests!inner(user_id)').order('created_at', { ascending: false }).order('id');
+      if (target !== 'all') {
+        requestQuery.eq('user_id', target!);
+        cancellationQuery.eq('leave_requests.user_id', target!);
       }
-      return legalAnnualDays;
-    }
-
-    case 'annual_grant': {
-      // 연 단위 일괄 부여
-      if (totalMonths < 12) {
-        // 1년 미만: 아직 연차 미발생 (월차만 적용)
-        return Math.min(totalMonths, 11);
-      }
-      if (grantBasis === 'fiscal_year') {
-        // 회계연도 기준: 1월 1일에 일괄 부여
-        return legalAnnualDays;
-      }
-      // 입사일 기준: 입사 기념일에 일괄 부여
-      return legalAnnualDays;
-    }
-
-    case 'proportional': {
-      // 비례 부여: 회계연도 기준 잔여 기간에 비례하여 부여
-      if (totalMonths < 12) {
-        return Math.min(totalMonths, 11);
-      }
-      if (grantBasis === 'fiscal_year') {
-        // 회계연도(1/1~12/31) 기준 비례 계산
-        const currentYear = now.getFullYear();
-        const yearStart = new Date(currentYear, 0, 1);
-        const yearEnd = new Date(currentYear, 11, 31);
-        const totalDaysInYear = differenceInCalendarDays(yearEnd, yearStart) + 1;
-        const daysWorked = differenceInCalendarDays(now, yearStart) + 1;
-        const ratio = Math.min(daysWorked / totalDaysInYear, 1);
-        return Math.round(legalAnnualDays * ratio * 10) / 10;
-      }
-      // 입사일 기준 비례 (입사 기념일 주기)
-      const anniversaryStart = new Date(jd);
-      anniversaryStart.setFullYear(jd.getFullYear() + totalYears);
-      const anniversaryEnd = new Date(anniversaryStart);
-      anniversaryEnd.setFullYear(anniversaryStart.getFullYear() + 1);
-      const periodDays = differenceInCalendarDays(anniversaryEnd, anniversaryStart);
-      const elapsed = differenceInCalendarDays(now, anniversaryStart);
-      const ratio = Math.min(elapsed / periodDays, 1);
-      return Math.round(legalAnnualDays * ratio * 10) / 10;
-    }
-
-    default:
-      return calculateAnnualLeaveDays(joinDate);
-  }
-};
-
-/**
- * 월차 계산: 1년 미만 근무자에게 매월 1일씩 부여 (최대 11일)
- */
-export const calculateMonthlyLeaveDays = (joinDate: string): number => {
-  if (!joinDate) return 0;
-  const jd = new Date(joinDate);
-  const now = new Date();
-  const totalMonths = differenceInMonths(now, jd);
-  if (totalMonths >= 12) return 0; // 1년 이상 근무자는 월차 없음 (연차로 전환)
-  return Math.min(totalMonths, 11);
-};
-
-/**
- * 연차 계산 (월차 제외, 1년 이상 근무자만)
- */
-export const calculateAnnualOnlyDays = (joinDate: string): number => {
-  if (!joinDate) return 0;
-  const jd = new Date(joinDate);
-  const now = new Date();
-  const totalMonths = differenceInMonths(now, jd);
-  const totalYears = differenceInYears(now, jd);
-  if (totalMonths < 12) return 0; // 1년 미만은 월차만
-  let days = 15;
-  if (totalYears >= 3) {
-    days += Math.min(Math.floor((totalYears - 1) / 2), 10);
-  }
-  return Math.min(days, 25);
-};
-
-export const calculateBusinessDays = (start: string, end: string): number => {
-  const days = eachDayOfInterval({ start: new Date(start), end: new Date(end) });
-  return days.filter(d => !isWeekend(d)).length;
-};
-
-export const useLeaveRequests = () => {
-  const { user, isAdmin, isModerator } = useAuth();
-  const [requests, setRequests] = useState<LeaveRequest[]>([]);
-  const [cancellations, setCancellations] = useState<LeaveCancellationRequest[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-
-  const fetchRequests = useCallback(async () => {
-    if (!user) {
-      setRequests([]);
-      setCancellations([]);
-      setLoadError(null);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const requestQuery = supabase
-        .from('leave_requests')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      // Non-admin users only see their own (RLS handles this, but be explicit)
-      if (!isAdmin && !isModerator) {
-        requestQuery.eq('user_id', user.id);
-      }
-
-      // Generated database types are refreshed after the migration is applied.
-      const cancellationQuery = (supabase.from as any)('leave_cancellation_requests')
-        .select('*')
-        .order('created_at', { ascending: false });
-      const [requestResult, cancellationResult] = await Promise.all([requestQuery, cancellationQuery]);
-      if (requestResult.error) throw requestResult.error;
-      if (cancellationResult.error) throw cancellationResult.error;
-      setRequests(requestResult.data as LeaveRequest[]);
-      setCancellations(cancellationResult.data as LeaveCancellationRequest[]);
-    } catch (error) {
-      console.error('연차 신청 내역 조회 에러:', error);
-      setLoadError(error instanceof Error ? error.message : '휴가 데이터를 불러오지 못했습니다.');
-    } finally {
-      setLoading(false);
-    }
-  }, [user, isAdmin, isModerator]);
-
-  useEffect(() => {
-    fetchRequests();
-  }, [fetchRequests]);
+      const [requests, cancellations] = await Promise.all([readAllRows(requestQuery), readAllRows(cancellationQuery)]);
+      return { requests: requests as LeaveRequest[], cancellations: cancellations as LeaveCancellationRequest[] };
+    },
+  });
+  const requests = query.data?.requests || [];
+  const cancellations = query.data?.cancellations || [];
+  const loading = authLoading || query.isLoading;
+  const loadError = query.error?.message || null;
+  const fetchRequests = () => refreshAttendanceLeave(queryClient);
 
   const callRpc = async (name: string, args: Record<string, unknown>, success: string, failure: string) => {
-    const { error } = await (supabase.rpc as any)(name, args);
-    if (error) {
-      toast.error(`${failure}: ${error.message}`);
+    try {
+      const { error } = await (supabase.rpc as any)(name, args);
+      if (error) throw error;
+      await fetchRequests();
+      toast.success(success);
+      return true;
+    } catch (error) {
+      toast.error(`${failure}: ${error instanceof Error ? error.message : (error as { message?: string })?.message || '다시 시도해주세요.'}`);
       await fetchRequests();
       return false;
     }
-    toast.success(success);
-    await fetchRequests();
-    return true;
   };
 
   const createRequest = async (params: {
