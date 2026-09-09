@@ -12,6 +12,7 @@
     "test:priority": "node scripts/test-auth-access-security.mjs && node scripts/test-saved-quotes-regressions.mjs && node scripts/test-priority-regressions.mjs && npm run test:ux-reliability",
     "test:ux-reliability": "node scripts/test-chat-message-regressions.mjs && node scripts/test-draft-reliability-regressions.mjs && node scripts/test-tax-invoice-reliability.mjs && node scripts/test-ux-state-reliability.mjs",
     "test:leave-attendance": "node scripts/test-leave-attendance-priority.mjs",
+    "test:attendance-hub": "node scripts/test-leave-attendance-priority.mjs && node scripts/test-attendance-hub.mjs",
     "test:pricing:ab-e2e": "node scripts/test-ab-buffer-pricing-e2e.mjs",
     "test:pricing:saved-quotes": "node scripts/test-saved-quotes-unchanged.mjs",
     "test:get-schedule": "node scripts/test-get-schedule-integration.mjs",

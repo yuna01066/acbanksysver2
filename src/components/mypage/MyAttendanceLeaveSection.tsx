@@ -38,7 +38,9 @@ import {
 import { useLeaveAdjustments } from '@/hooks/useLeaveAdjustments';
 import { useLeavePolicy } from '@/hooks/useLeavePolicy';
 import { useMyHrProfile } from '@/hooks/useHrSelfService';
-import { calculateExpiredLeave } from '@/utils/leaveExpiration';
+import { calculateLeaveBalance } from '@/lib/leaveBalance';
+import { submitAttendanceCorrection, cancelAttendanceCorrection } from '@/services/attendanceCorrections';
+import { refreshAttendanceLeave } from '@/lib/attendanceLeaveQueries';
 import { cn } from '@/lib/utils';
 
 type AttendanceRecord = Database['public']['Tables']['attendance_records']['Row'];
@@ -87,10 +89,10 @@ const CorrectionStatusBadge = ({ status }: { status: string }) => {
 const MyAttendanceLeaveSection: React.FC = () => {
   const { user, profile: authProfile } = useAuth();
   const queryClient = useQueryClient();
-  const { data: profile, isLoading: profileLoading } = useMyHrProfile();
-  const { requests, cancellations, loading, createRequest, cancelRequest, requestCancellation } = useLeaveRequests();
-  const { policy, loading: policyLoading, unitLabel, canRequest } = useLeavePolicy();
-  const { getNetAdjustment } = useLeaveAdjustments(user?.id);
+  const { data: profile, isLoading: profileLoading, error: profileError } = useMyHrProfile();
+  const { requests, cancellations, loading, loadError: leaveError, refresh: refreshLeave, createRequest, cancelRequest, requestCancellation } = useLeaveRequests();
+  const { policy, loading: policyLoading, error: policyError, unitLabel, canRequest } = useLeavePolicy();
+  const { getNetAdjustment, error: adjustmentError, loading: adjustmentLoading } = useLeaveAdjustments(user?.id);
   const [correctionOpen, setCorrectionOpen] = useState(false);
   const [correctionForm, setCorrectionForm] = useState({
     date: format(new Date(), 'yyyy-MM-dd'),
@@ -105,7 +107,7 @@ const MyAttendanceLeaveSection: React.FC = () => {
   const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
   const monthEnd = format(endOfMonth(new Date()), 'yyyy-MM-dd');
 
-  const { data: todayRecord, isLoading: todayLoading } = useQuery({
+  const { data: todayRecord, isLoading: todayLoading, error: todayError } = useQuery({
     queryKey: ['mypage-attendance-today', user?.id, today],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -120,7 +122,7 @@ const MyAttendanceLeaveSection: React.FC = () => {
     enabled: !!user,
   });
 
-  const { data: monthlyRecords = [], isLoading: monthlyLoading } = useQuery({
+  const { data: monthlyRecords = [], isLoading: monthlyLoading, error: monthlyError } = useQuery({
     queryKey: ['mypage-attendance-monthly', user?.id, monthStart],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -136,7 +138,7 @@ const MyAttendanceLeaveSection: React.FC = () => {
     enabled: !!user,
   });
 
-  const { data: correctionRequests = [], isLoading: correctionLoading } = useQuery({
+  const { data: correctionRequests = [], isLoading: correctionLoading, error: correctionError } = useQuery({
     queryKey: ['mypage-attendance-corrections', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -155,31 +157,7 @@ const MyAttendanceLeaveSection: React.FC = () => {
     [requests, user?.id],
   );
 
-  const leaveSummary = useMemo(() => {
-    const joinDate = profile?.join_date || '';
-    const base = calculatePolicyBasedLeaveDays(joinDate, policy.grant_method, policy.grant_basis);
-    const totalDays = base + (user ? getNetAdjustment(user.id) : 0);
-    const usedDays = myRequests
-      .filter((request) => request.status === 'approved' && leaveBalanceTypes.includes(request.leave_type))
-      .reduce((sum, request) => sum + Number(request.days || 0), 0);
-    const usedMonthlyDays = myRequests
-      .filter((request) => request.status === 'approved' && ['monthly', 'annual'].includes(request.leave_type))
-      .reduce((sum, request) => sum + Number(request.days || 0), 0);
-    const pendingDays = myRequests
-      .filter((request) => request.status === 'pending' && leaveBalanceTypes.includes(request.leave_type))
-      .reduce((sum, request) => sum + Number(request.days || 0), 0);
-    const expiration = policy.auto_expire_enabled
-      ? calculateExpiredLeave(joinDate, policy.grant_basis, policy.auto_expire_type, usedDays, usedMonthlyDays)
-      : { expiredDays: 0, expiringSoonDays: 0, expirationDate: null, details: [] };
-
-    return {
-      totalDays,
-      usedDays,
-      pendingDays,
-      remainingDays: totalDays - usedDays - expiration.expiredDays,
-      expiration,
-    };
-  }, [getNetAdjustment, myRequests, policy.auto_expire_enabled, policy.auto_expire_type, policy.grant_basis, policy.grant_method, profile?.join_date, user]);
+  const leaveSummary = calculateLeaveBalance(profile?.join_date || '', policy, myRequests, user ? getNetAdjustment(user.id) : 0);
 
   const attendanceSummary = useMemo(() => {
     const completed = monthlyRecords.filter(record => record.check_in && record.check_out);
@@ -209,6 +187,7 @@ const MyAttendanceLeaveSection: React.FC = () => {
   };
 
   const refreshAttendanceQueries = () => {
+    void refreshAttendanceLeave(queryClient);
     queryClient.invalidateQueries({ queryKey: ['mypage-attendance-today'] });
     queryClient.invalidateQueries({ queryKey: ['mypage-attendance-monthly'] });
   };
@@ -216,23 +195,11 @@ const MyAttendanceLeaveSection: React.FC = () => {
   const createCorrectionMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error('로그인이 필요합니다.');
-      const recordForDate = monthlyRecords.find(record => record.date === correctionForm.date);
-      const attendanceRecordId = correctionForm.attendanceRecordId || recordForDate?.id || null;
-      const { error } = await supabase.from('attendance_correction_requests').insert({
-        user_id: user.id,
-        user_name: profile?.full_name || authProfile?.full_name || user.email || '',
-        attendance_record_id: attendanceRecordId,
-        date: correctionForm.date,
-        request_type: correctionForm.requestType,
-        requested_check_in: ['check_in', 'both'].includes(correctionForm.requestType)
-          ? toIsoFromDateTime(correctionForm.date, correctionForm.requestedCheckIn)
-          : null,
-        requested_check_out: ['check_out', 'both'].includes(correctionForm.requestType)
-          ? toIsoFromDateTime(correctionForm.date, correctionForm.requestedCheckOut)
-          : null,
-        reason: correctionForm.reason.trim(),
+      await submitAttendanceCorrection({
+        date: correctionForm.date, requestType: correctionForm.requestType, reason: correctionForm.reason,
+        checkIn: ['check_in', 'both'].includes(correctionForm.requestType) ? toIsoFromDateTime(correctionForm.date, correctionForm.requestedCheckIn) : null,
+        checkOut: ['check_out', 'both'].includes(correctionForm.requestType) ? toIsoFromDateTime(correctionForm.date, correctionForm.requestedCheckOut) : null,
       });
-      if (error) throw error;
     },
     onSuccess: () => {
       toast.success('근태 정정 요청이 접수되었습니다.');
@@ -245,7 +212,7 @@ const MyAttendanceLeaveSection: React.FC = () => {
         reason: '',
         attendanceRecordId: null,
       });
-      queryClient.invalidateQueries({ queryKey: ['mypage-attendance-corrections'] });
+      void refreshAttendanceLeave(queryClient);
     },
     onError: (error: any) => {
       toast.error('정정 요청 실패: ' + (error.message || '알 수 없는 오류'));
@@ -254,15 +221,11 @@ const MyAttendanceLeaveSection: React.FC = () => {
 
   const cancelCorrectionMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('attendance_correction_requests')
-        .update({ status: 'cancelled' })
-        .eq('id', id);
-      if (error) throw error;
+      await cancelAttendanceCorrection(id);
     },
     onSuccess: () => {
       toast.success('정정 요청이 취소되었습니다.');
-      queryClient.invalidateQueries({ queryKey: ['mypage-attendance-corrections'] });
+      void refreshAttendanceLeave(queryClient);
     },
     onError: (error: any) => {
       toast.error('취소 실패: ' + (error.message || '알 수 없는 오류'));
@@ -275,7 +238,8 @@ const MyAttendanceLeaveSection: React.FC = () => {
     || (correctionForm.requestType === 'both' && correctionForm.requestedCheckIn && correctionForm.requestedCheckOut);
   const canSubmitCorrection = Boolean(correctionForm.date && correctionForm.reason.trim().length >= 3 && hasRequestedTime);
 
-  if (profileLoading || policyLoading || loading || todayLoading || monthlyLoading || correctionLoading) {
+  if (todayError || monthlyError || correctionError || leaveError || policyError || adjustmentError || profileError) return <div role="alert" className="p-4 text-sm">근태·연차 정보를 불러오지 못했습니다. <Button variant="outline" onClick={() => { void refreshLeave(); void queryClient.invalidateQueries(); }}>다시 시도</Button></div>;
+  if (adjustmentLoading || profileLoading || policyLoading || loading || todayLoading || monthlyLoading || correctionLoading) {
     return (
       <div className="flex justify-center py-12">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

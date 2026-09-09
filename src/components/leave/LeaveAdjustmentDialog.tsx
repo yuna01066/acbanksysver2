@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,6 +33,8 @@ const LeaveAdjustmentDialog: React.FC<LeaveAdjustmentDialogProps> = ({
   open, onOpenChange, employee, onSuccess,
 }) => {
   const { user, profile } = useAuth();
+  const lock = useRef(false);
+  const requestId = useRef('');
   const [adjustmentType, setAdjustmentType] = useState<'grant' | 'deduct'>('grant');
   const [days, setDays] = useState('');
   const [category, setCategory] = useState('annual');
@@ -41,16 +43,23 @@ const LeaveAdjustmentDialog: React.FC<LeaveAdjustmentDialogProps> = ({
   const [expiresAt, setExpiresAt] = useState<Date | undefined>();
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => { if (open) resetForm(); }, [open, employee?.id]);
+
   const handleSubmit = async () => {
+    if (lock.current) return;
     if (!employee || !user || !profile) return;
     const numDays = parseFloat(days);
-    if (isNaN(numDays) || numDays <= 0) {
+    if (!Number.isFinite(numDays) || numDays <= 0) {
       toast.error('유효한 일수를 입력해주세요.');
       return;
     }
 
-    setSaving(true);
+    if (!reason.trim()) { toast.error('부여·차감 사유를 입력해 주세요.'); return; }
+    if (expiresAt && expiresAt < effectiveDate) { toast.error('만료일은 적용일 이후여야 합니다.'); return; }
+    lock.current = true; setSaving(true);
+    try {
     const { error } = await supabase.from('leave_adjustments').insert({
+      id: requestId.current,
       user_id: employee.id,
       user_name: employee.full_name,
       adjustment_type: adjustmentType,
@@ -63,15 +72,18 @@ const LeaveAdjustmentDialog: React.FC<LeaveAdjustmentDialogProps> = ({
       expires_at: expiresAt ? format(expiresAt, 'yyyy-MM-dd') : null,
     });
 
-    setSaving(false);
     if (error) {
-      toast.error('저장 실패: ' + error.message);
-      return;
+      if (error.code === '23505') {
+        toast.info('이 요청은 이미 저장되었습니다. 기존 부여·차감 이력을 확인해 주세요.');
+        onOpenChange(false); onSuccess();
+        return;
+      }
+      throw error;
     }
 
     toast.success(`${employee.full_name}님에게 ${numDays}일 ${adjustmentType === 'grant' ? '부여' : '차감'}되었습니다.`);
     // Notify the employee
-    await supabase.from('notifications').insert({
+    const notification = await supabase.from('notifications').insert({
       user_id: employee.id,
       type: 'leave_adjustment',
       title: adjustmentType === 'grant' ? '연차 추가 부여' : '연차 차감',
@@ -79,12 +91,18 @@ const LeaveAdjustmentDialog: React.FC<LeaveAdjustmentDialogProps> = ({
       data: { adjustment_type: adjustmentType, days: numDays, category },
     });
 
+    if (notification.error) toast.warning('부여·차감은 저장되었지만 알림 전달은 실패했습니다. 다시 등록하지 마세요.');
     resetForm();
     onOpenChange(false);
     onSuccess();
+    } catch (error) {
+      toast.error('저장 결과 확인 실패: ' + ((error as { message?: string }).message || '목록을 확인한 뒤 다시 시도해 주세요.'));
+      onSuccess();
+    } finally { lock.current = false; setSaving(false); }
   };
 
   const resetForm = () => {
+    requestId.current = crypto.randomUUID();
     setDays('');
     setCategory('annual');
     setReason('');
@@ -96,7 +114,7 @@ const LeaveAdjustmentDialog: React.FC<LeaveAdjustmentDialogProps> = ({
   if (!employee) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={value => !saving && onOpenChange(value)}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -212,7 +230,7 @@ const LeaveAdjustmentDialog: React.FC<LeaveAdjustmentDialogProps> = ({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>취소</Button>
+          <Button variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>취소</Button>
           <Button
             onClick={handleSubmit}
             disabled={saving || !days}

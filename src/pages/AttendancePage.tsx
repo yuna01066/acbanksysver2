@@ -6,7 +6,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -24,12 +23,9 @@ import AttendanceEditDialog from '@/components/attendance/AttendanceEditDialog';
 import AttendanceCalendarView from '@/components/attendance/AttendanceCalendarView';
 import LocationConfirmDialog from '@/components/attendance/LocationConfirmDialog';
 import ScrollTimePicker from '@/components/ui/scroll-time-picker';
-import AttendanceDashboard from '@/components/attendance/AttendanceDashboard';
-import OvertimeDetectionPanel from '@/components/attendance/OvertimeDetectionPanel';
-import MonthlyAttendanceReport from '@/components/attendance/MonthlyAttendanceReport';
-import DepartmentWorkPatternAnalysis from '@/components/attendance/DepartmentWorkPatternAnalysis';
 import { BrandedCardHeader } from '@/components/ui/branded-card-header';
-import LeaveManagementPage from '@/pages/LeaveManagementPage';
+import { LEAVE_TYPES, useLeaveRequests } from '@/hooks/useLeaveRequests';
+import { refreshAttendanceLeave } from '@/lib/attendanceLeaveQueries';
 
 type AttendanceAction = 'check_in' | 'check_out';
 type AttendanceLocation = { lat: number; lng: number } | null;
@@ -89,14 +85,23 @@ const isDuplicateAttendanceError = (error: any) => {
   return error?.code === '23505' || message.includes('duplicate key') || message.includes('attendance_records_user_id_date');
 };
 
-const AttendancePage = () => {
+const AttendancePage = ({ scope = 'my' }: { scope?: 'my' | 'all' }) => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, profile, isAdmin, isModerator, loading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const [gettingLocation, setGettingLocation] = useState(false);
-  const [selectedMonth, setSelectedMonth] = useState(new Date());
-  const [adminTab, setAdminTab] = useState(searchParams.get('scope') === 'all' ? 'all' : 'my');
+  const monthParam = searchParams.get('month');
+  const selectedMonth = monthParam && /^\d{4}-(0[1-9]|1[0-2])$/.test(monthParam) ? new Date(monthParam + '-01T12:00:00+09:00') : new Date();
+  const setSelectedMonth = (date: Date) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('month', format(date, 'yyyy-MM')); next.delete('attention');
+    setSearchParams(next);
+    setFilterDate('');
+  };
+  const canManageAttendance = isAdmin || isModerator;
+  const adminTab = canManageAttendance && scope === 'all' ? 'all' : 'my';
+  const [view, setView] = useState<'list' | 'calendar'>('list');
   const [editRecord, setEditRecord] = useState<any>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [filterDate, setFilterDate] = useState('');
@@ -136,14 +141,14 @@ const AttendancePage = () => {
     queryFn: async () => {
       return fetchAttendanceRecordForDate(user!.id, today);
     },
-    enabled: !!user,
+    enabled: !!user && !authLoading,
   });
 
   // Monthly attendance
   const monthStart = format(startOfMonth(selectedMonth), 'yyyy-MM-dd');
   const monthEnd = format(endOfMonth(selectedMonth), 'yyyy-MM-dd');
 
-  const { data: monthlyRecords = [], error: monthlyRecordsError } = useQuery({
+  const { data: monthlyRecords = [], isLoading: monthlyLoading, error: monthlyRecordsError } = useQuery({
     queryKey: ['attendance-monthly', adminTab === 'all' ? 'all' : user?.id, monthStart],
     queryFn: async () => {
       let query = supabase
@@ -157,32 +162,21 @@ const AttendancePage = () => {
       if (error) throw error;
       return data || [];
     },
-    enabled: !!user,
+    enabled: !!user && !authLoading,
   });
 
   // Employee list for manual registration
-  const { data: employees = [], error: employeesError } = useQuery({
+  const { data: employees = [], isLoading: employeesLoading, error: employeesError } = useQuery({
     queryKey: ['all-employees-for-attendance'],
     queryFn: async () => {
       const { data, error } = await (supabase.from('profile_directory' as any) as any).select('id, full_name, department').order('full_name');
       if (error) throw error;
       return data || [];
     },
-    enabled: !!user && (isAdmin || isModerator),
+    enabled: !!user && !authLoading && adminTab === 'all',
   });
 
-  // Leave requests
-  const { data: leaveRequests = [], error: leaveRequestsError } = useQuery({
-    queryKey: ['leave-requests', adminTab === 'all' ? 'all' : user?.id],
-    queryFn: async () => {
-      let query = supabase.from('leave_requests').select('*').order('created_at', { ascending: false });
-      if (adminTab !== 'all') query = query.eq('user_id', user!.id);
-      const { data, error } = await query;
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!user,
-  });
+  const { requests: leaveRequests, loading: leaveLoading, loadError: leaveRequestsError } = useLeaveRequests(adminTab);
 
   const getLocation = (): Promise<{ lat: number; lng: number } | null> => {
     return new Promise((resolve) => {
@@ -258,13 +252,13 @@ const AttendancePage = () => {
       if (result?.alreadyRecorded) {
         toast.info(result.checkedOut ? '오늘 퇴근까지 완료된 기록이 있습니다.' : '오늘 출근 기록이 이미 있습니다.');
         queryClient.invalidateQueries({ queryKey: ['attendance-today'] });
-        queryClient.invalidateQueries({ queryKey: ['attendance-monthly'] });
+        void refreshAttendanceLeave(queryClient);
         return;
       }
       toast.success('출근이 기록되었습니다.');
       triggerHamzzi('attendance_check_in');
       queryClient.invalidateQueries({ queryKey: ['attendance-today'] });
-      queryClient.invalidateQueries({ queryKey: ['attendance-monthly'] });
+      void refreshAttendanceLeave(queryClient);
       queryClient.invalidateQueries({ queryKey: ['employee-online-status'] });
     },
     onError: (err: any) => toast.error('출근 기록 실패: ' + err.message),
@@ -285,14 +279,14 @@ const AttendancePage = () => {
       const { error } = await supabase
         .from('attendance_records')
         .update(updateData)
-        .eq('id', todayRecord!.id);
+        .eq('id', todayRecord!.id).is('check_out', null).select('id').single();
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success('퇴근이 기록되었습니다.');
       triggerHamzzi('attendance_check_out');
       queryClient.invalidateQueries({ queryKey: ['attendance-today'] });
-      queryClient.invalidateQueries({ queryKey: ['attendance-monthly'] });
+      void refreshAttendanceLeave(queryClient);
       queryClient.invalidateQueries({ queryKey: ['employee-online-status'] });
     },
     onError: (err: any) => toast.error('퇴근 기록 실패: ' + err.message),
@@ -333,12 +327,15 @@ const AttendancePage = () => {
   };
 
   const handleManualAttendanceAdd = async () => {
+    if (manualSaving) return;
     if (!manualForm.userId || !manualForm.date) { toast.warning('직원과 날짜를 선택해주세요.'); return; }
     setManualSaving(true);
     try {
       const checkIn = manualForm.checkIn ? new Date(`${manualForm.date}T${manualForm.checkIn}:00+09:00`).toISOString() : null;
       const checkOut = manualForm.checkOut ? new Date(`${manualForm.date}T${manualForm.checkOut}:00+09:00`).toISOString() : null;
+      if (checkOut && (!checkIn || checkOut <= checkIn)) throw new Error('퇴근은 출근 이후여야 합니다.');
       const existingRecord = await fetchAttendanceRecordForDate(manualForm.userId, manualForm.date);
+      if (existingRecord) throw new Error('이 날짜의 기록이 이미 있습니다. 구성원 상세에서 원본을 확인한 뒤 수정해 주세요.');
       const manualData = {
         user_name: manualForm.userName,
         check_in: checkIn,
@@ -346,9 +343,7 @@ const AttendancePage = () => {
         status: checkOut ? 'checked_out' : 'checked_in',
         memo: manualForm.memo || null,
       };
-      const { error } = existingRecord
-        ? await supabase.from('attendance_records').update(manualData).eq('id', existingRecord.id)
-        : await supabase.from('attendance_records').insert({
+      const { error } = await supabase.from('attendance_records').insert({
           ...manualData,
           user_id: manualForm.userId,
           date: manualForm.date,
@@ -359,10 +354,10 @@ const AttendancePage = () => {
         }
         throw error;
       }
-      toast.success(existingRecord ? '기존 근태 기록이 업데이트되었습니다.' : '근태 기록이 등록되었습니다.');
+      toast.success('근태 기록이 등록되었습니다.');
       setManualDialogOpen(false);
       setManualForm({ userId: '', userName: '', date: '', checkIn: '09:00', checkOut: '18:00', status: 'checked_out', memo: '' });
-      queryClient.invalidateQueries({ queryKey: ['attendance-monthly'] });
+      void refreshAttendanceLeave(queryClient);
     } catch (e: any) {
       toast.error('등록 실패: ' + (e.message || ''));
     } finally {
@@ -388,14 +383,17 @@ const AttendancePage = () => {
         updates.check_out = new Date(`${record.date}T${bulkCheckOut}:00+09:00`).toISOString();
         updates.status = 'checked_out';
       }
-      const { error } = await supabase.from('attendance_records').update(updates).eq('id', id);
+      const finalIn = updates.check_in || record.check_in;
+      const finalOut = updates.check_out || record.check_out;
+      if (finalOut && (!finalIn || finalOut <= finalIn)) { errorCount++; continue; }
+      const { error } = await supabase.from('attendance_records').update(updates).eq('id', id).eq('updated_at', record.updated_at).select('id').single();
       if (error) errorCount++;
     }
     setBulkProcessing(false);
     setSelectedIds(new Set());
     setBulkCheckIn('');
     setBulkCheckOut('');
-    queryClient.invalidateQueries({ queryKey: ['attendance-monthly'] });
+    void refreshAttendanceLeave(queryClient);
     queryClient.invalidateQueries({ queryKey: ['attendance-today'] });
     if (errorCount > 0) toast.error(`${errorCount}건 처리 실패`);
     else toast.success(`${selectedIds.size}명의 시간이 일괄 수정되었습니다.`);
@@ -405,7 +403,7 @@ const AttendancePage = () => {
     const { error } = await supabase.from('attendance_records').delete().eq('id', recordId);
     if (error) { toast.error('삭제 실패: ' + error.message); return; }
     toast.success('근태 기록이 삭제되었습니다.');
-    queryClient.invalidateQueries({ queryKey: ['attendance-monthly'] });
+    void refreshAttendanceLeave(queryClient);
     queryClient.invalidateQueries({ queryKey: ['attendance-today'] });
   };
 
@@ -420,7 +418,7 @@ const AttendancePage = () => {
     }
     setBulkProcessing(false);
     setSelectedIds(new Set());
-    queryClient.invalidateQueries({ queryKey: ['attendance-monthly'] });
+    void refreshAttendanceLeave(queryClient);
     queryClient.invalidateQueries({ queryKey: ['attendance-today'] });
     if (errorCount > 0) toast.error(`${errorCount}건 삭제 실패`);
     else toast.success(`${selectedIds.size}건이 삭제되었습니다.`);
@@ -432,16 +430,12 @@ const AttendancePage = () => {
     .filter((r: any) => r.work_hours && (adminTab === 'all' || r.user_id === user?.id))
     .reduce((sum: number, r: any) => sum + Number(r.work_hours || 0), 0);
   const avgHours = totalWorkDays > 0 ? (totalHours / totalWorkDays).toFixed(1) : '0';
-  const approvedLeaves = leaveRequests.filter((l: any) => l.status === 'approved').reduce((sum: number, l: any) => sum + Number(l.days), 0);
-  const canManageAttendance = isAdmin || isModerator;
-  const filteredRecords = filterDate
-    ? monthlyRecords.filter((r: any) => r.date === filterDate)
-    : monthlyRecords;
-  const pendingLeaveCount = leaveRequests.filter((l: any) => l.status === 'pending').length;
-  const activeTodayCount = monthlyRecords.filter((r: any) => r.date === today && (r.status === 'checked_in' || r.status === 'present')).length;
+  const unfinished = monthlyRecords.filter(r => r.date < today && r.check_in && !r.check_out);
+  const displayRecords = searchParams.get('attention') === 'unfinished' ? unfinished : monthlyRecords;
+  const filteredRecords = filterDate ? displayRecords.filter(r => r.date === filterDate) : displayRecords;
   const loadError = todayRecordError || monthlyRecordsError || employeesError || leaveRequestsError;
   const monthLabel = format(selectedMonth, 'yyyy년 M월', { locale: ko });
-  const isCheckedIn = todayRecord && !todayRecord.check_out;
+  const isCheckedIn = todayRecord?.check_in && !todayRecord.check_out;
   const isCheckedOut = todayRecord && todayRecord.check_out;
   const todayStatusMeta = isCheckedOut
     ? getAttendanceStatusMeta('checked_out')
@@ -467,89 +461,20 @@ const AttendancePage = () => {
       helper: '퇴근 완료 기록 기준',
       icon: Clock,
     },
-    {
-      label: adminTab === 'all' ? '승인 휴가' : '사용 휴가',
-      value: approvedLeaves,
-      helper: pendingLeaveCount > 0 ? `승인 대기 ${pendingLeaveCount}건` : '승인된 휴가 일수',
-      icon: Palmtree,
-    },
   ];
-  const requestedSection = searchParams.get('tab');
-  const activeSection = ['attendance', 'leave', 'overtime', 'monthly-report', 'dept-analysis'].includes(requestedSection || '')
-    ? requestedSection!
-    : 'attendance';
-  const changeScope = (scope: 'my' | 'all') => {
-    setAdminTab(scope);
-    const next = new URLSearchParams(searchParams);
-    next.set('scope', scope);
-    setSearchParams(next, { replace: true });
-  };
-  const changeSection = (section: string) => {
-    const next = new URLSearchParams(searchParams);
-    next.set('tab', section);
-    setSearchParams(next, { replace: true });
-  };
-
-  if (authLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
+  if (authLoading || todayLoading || monthlyLoading || employeesLoading || leaveLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin" aria-hidden="true" /><span role="status">근태 정보를 불러오는 중…</span></div>;
 
   return (
     <TooltipProvider>
-      <div className="min-h-screen bg-background p-4 sm:p-6">
+      <div className="bg-background">
         <div className="w-full max-w-7xl mx-auto space-y-5">
-          <header className="rounded-lg border border-border bg-card p-4 shadow-none">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="min-w-0">
-                <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-foreground">
-                  <Clock className="h-6 w-6 text-muted-foreground" />
-                  근태·휴가 관리
-                </h1>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {monthLabel} · {adminTab === 'all' ? '전체 직원 기준' : profile?.full_name || user?.email || '내 기록'}
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                {canManageAttendance && (
-                  <div className="inline-flex rounded-full border border-border bg-muted/40 p-1">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className={cn(
-                        'h-8 rounded-full px-4 text-sm',
-                        adminTab === 'my'
-                          ? 'bg-foreground text-background hover:bg-foreground/90 hover:text-background'
-                          : 'text-muted-foreground hover:text-foreground'
-                      )}
-                      onClick={() => changeScope('my')}
-                    >
-                      내 근태
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className={cn(
-                        'h-8 rounded-full px-4 text-sm',
-                        adminTab === 'all'
-                          ? 'bg-foreground text-background hover:bg-foreground/90 hover:text-background'
-                          : 'text-muted-foreground hover:text-foreground'
-                      )}
-                      onClick={() => changeScope('all')}
-                    >
-                      전체 직원
-                    </Button>
-                  </div>
-                )}
-                {canManageAttendance && adminTab === 'all' && (
-                  <Button variant="outline" size="sm" className="h-9 rounded-full gap-1.5" onClick={() => setManualDialogOpen(true)}>
-                    <Plus className="h-4 w-4" />
-                    수동 등록
-                  </Button>
-                )}
-              </div>
+          {adminTab === 'all' && <div className="flex flex-wrap justify-between gap-3">
+            <div role="group" aria-label="운영 현황 보기">
+              <Button variant={view === 'list' ? 'secondary' : 'ghost'} aria-pressed={view === 'list'} onClick={() => setView('list')}>목록</Button>
+              <Button variant={view === 'calendar' ? 'secondary' : 'ghost'} aria-pressed={view === 'calendar'} onClick={() => setView('calendar')}>캘린더</Button>
             </div>
-          </header>
+            <Button variant="outline" onClick={() => setManualDialogOpen(true)}><Plus className="mr-2 h-4 w-4" />근태 수동 등록</Button>
+          </div>}
 
           {loadError && (
             <Card className="border-destructive/30 bg-destructive/5 shadow-none">
@@ -561,14 +486,15 @@ const AttendancePage = () => {
                     {getQueryErrorMessage(loadError)}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    데이터가 삭제된 것은 아닐 수 있습니다. 권한 또는 RLS 정책 오류를 확인해주세요.
+                    데이터 조회에 실패했습니다. 다시 시도하거나 관리자에게 문의해 주세요.
                   </p>
+                  <Button variant="outline" onClick={() => void refreshAttendanceLeave(queryClient)}>다시 시도</Button>
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {adminTab === 'my' && (
+          {adminTab === 'my' && !loadError && (
             <Card className="border-border shadow-none">
               <CardContent className="p-5">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
@@ -638,7 +564,7 @@ const AttendancePage = () => {
                   </div>
 
                   <div className="flex shrink-0 gap-2">
-                    {!todayRecord && (
+                    {!todayRecord?.check_in && (
                       <Button onClick={() => handleAttendanceAction('check_in')} disabled={checkInMutation.isPending || gettingLocation || todayLoading} className="h-10 rounded-full gap-2 px-5">
                         {(checkInMutation.isPending || gettingLocation) ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
                         출근하기
@@ -656,7 +582,16 @@ const AttendancePage = () => {
             </Card>
           )}
 
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {adminTab === 'all' && !loadError && <div className="flex flex-wrap items-center gap-3 rounded-lg border p-3 text-sm">
+            <span>{monthLabel} 확인할 기록</span>
+            <Button variant="outline" aria-pressed={searchParams.get('attention') === 'unfinished'} onClick={() => {
+              const next = new URLSearchParams(searchParams);
+              if (next.has('attention')) next.delete('attention'); else next.set('attention', 'unfinished');
+              setSearchParams(next); setFilterDate(''); setView('list');
+            }}>이전 날짜 미퇴근 {unfinished.length}건</Button>
+            <Button variant="ghost" onClick={() => { setSelectedMonth(new Date()); setFilterDate(today); setView('list'); }}>오늘 출근·휴가 확인</Button>
+          </div>}
+          {!loadError && <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
             {summaryCards.map((card) => {
               const Icon = card.icon;
               return (
@@ -676,30 +611,14 @@ const AttendancePage = () => {
                 </Card>
               );
             })}
-          </div>
+          </div>}
 
-          {canManageAttendance && adminTab === 'all' && (
-            <section className="space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h2 className="text-lg font-semibold text-foreground">운영 인사이트</h2>
-                  <p className="text-sm text-muted-foreground">근무 누락, 지각, 초과근무, 휴가 승인 대기를 먼저 확인합니다.</p>
-                </div>
-                <Badge variant="outline" className="rounded-full px-3 py-1 text-xs">
-                  <Users className="mr-1 h-3 w-3" />
-                  근무 중 {activeTodayCount}명
-                </Badge>
-              </div>
-              <AttendanceDashboard />
-            </section>
-          )}
-
-          {canManageAttendance && adminTab === 'all' && (
+          {canManageAttendance && adminTab === 'all' && view === 'calendar' && (
             <section className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h2 className="text-lg font-semibold text-foreground">월간 현황</h2>
-                  <p className="text-sm text-muted-foreground">날짜를 선택하면 아래 상세 기록과 미출근 직원 목록이 함께 필터링됩니다.</p>
+                  <p className="text-sm text-muted-foreground">날짜를 선택하면 해당 날짜의 기록과 출근 확인이 필요한 구성원 목록으로 이동합니다.</p>
                 </div>
                 {filterDate && (
                   <Button variant="outline" size="sm" className="h-8 rounded-full" onClick={() => setFilterDate('')}>
@@ -708,68 +627,30 @@ const AttendancePage = () => {
                 )}
               </div>
               <AttendanceCalendarView
+                month={selectedMonth}
+                onMonthChange={setSelectedMonth}
                 onDateSelect={(date: string) => {
+                  if (date) setSelectedMonth(new Date(date));
                   setFilterDate(date);
-                  if (date) {
-                    setSelectedMonth(new Date(date));
-                  }
+                  setView('list');
                 }}
                 selectedDate={filterDate}
               />
             </section>
           )}
 
-          <Tabs value={activeSection} onValueChange={changeSection} className="space-y-4">
-            <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-full border border-border bg-muted/30 p-1">
-              <TabsTrigger value="attendance" className="rounded-full px-4">
-                <Clock className="mr-1 h-4 w-4" />
-                상세 기록
-              </TabsTrigger>
-              <TabsTrigger value="leave" className="rounded-full px-4">
-                <CalendarDays className="mr-1 h-4 w-4" />
-                휴가 관리
-              </TabsTrigger>
-              {canManageAttendance && adminTab === 'all' && (
-                <>
-                  <TabsTrigger value="overtime" className="rounded-full px-4">
-                    <AlertTriangle className="mr-1 h-4 w-4" />
-                    초과근무
-                  </TabsTrigger>
-                  <TabsTrigger value="monthly-report" className="rounded-full px-4">
-                    <BarChart3 className="mr-1 h-4 w-4" />
-                    월별 리포트
-                  </TabsTrigger>
-                  <TabsTrigger value="dept-analysis" className="rounded-full px-4">
-                    <BarChart3 className="mr-1 h-4 w-4" />
-                    부서 분석
-                  </TabsTrigger>
-                </>
-              )}
-            </TabsList>
-
-            {canManageAttendance && adminTab === 'all' && (
-              <TabsContent value="overtime">
-                <OvertimeDetectionPanel />
-              </TabsContent>
-            )}
-
-            {canManageAttendance && adminTab === 'all' && (
-              <TabsContent value="monthly-report">
-                <MonthlyAttendanceReport />
-              </TabsContent>
-            )}
-
-            {canManageAttendance && adminTab === 'all' && (
-              <TabsContent value="dept-analysis">
-                <DepartmentWorkPatternAnalysis />
-              </TabsContent>
-            )}
-
-          <TabsContent value="attendance" className="mt-0 space-y-4">
-            {canManageAttendance && adminTab === 'all' && filterDate && (() => {
+          {view === 'list' && <div className="mt-0 space-y-4">
+            {canManageAttendance && adminTab === 'all' && filterDate && !loadError && <div className="rounded-lg border p-4 text-sm">
+              <h3 className="font-medium">{filterDate} 승인 휴가</h3>
+              <ul className="mt-2 flex flex-wrap gap-3">{leaveRequests.filter(r => r.status === 'approved' && r.start_date <= filterDate && r.end_date >= filterDate).map(r =>
+                <li key={r.id}>{r.user_name} · {LEAVE_TYPES[r.leave_type] || r.leave_type}</li>
+              )}</ul>
+              {!leaveRequests.some(r => r.status === 'approved' && r.start_date <= filterDate && r.end_date >= filterDate) && <p className="mt-2 text-muted-foreground">승인된 휴가가 없습니다.</p>}
+            </div>}
+            {canManageAttendance && adminTab === 'all' && filterDate && !loadError && (() => {
               const recordedUserIds = new Set(monthlyRecords.filter((r: any) => r.date === filterDate).map((r: any) => r.user_id));
               const onLeaveUserIds = new Set(leaveRequests
-                .filter((leave: any) => leave.status === 'approved' && leave.start_date <= filterDate && leave.end_date >= filterDate)
+                .filter((leave: any) => leave.status === 'approved' && !['half_am', 'half_pm'].includes(leave.leave_type) && leave.start_date <= filterDate && leave.end_date >= filterDate)
                 .map((leave: any) => leave.user_id));
               const missingEmployees = employees.filter((e: any) => !recordedUserIds.has(e.id) && !onLeaveUserIds.has(e.id));
               if (missingEmployees.length === 0) return null;
@@ -779,7 +660,7 @@ const AttendancePage = () => {
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                         <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-                        미출근 직원 {missingEmployees.length}명
+                        출근 확인 필요 {missingEmployees.length}명
                       </div>
                       <Badge variant="outline" className="rounded-full text-xs">
                         {format(new Date(filterDate), 'M월 d일 EEE', { locale: ko })}
@@ -834,7 +715,7 @@ const AttendancePage = () => {
                       <Input
                         type="date"
                         value={filterDate}
-                        onChange={(e) => setFilterDate(e.target.value)}
+                        aria-label="기록 날짜" onChange={(e) => { if (e.target.value) setSelectedMonth(new Date(e.target.value)); setFilterDate(e.target.value); }}
                         className="h-7 w-[142px] border-0 bg-transparent px-1 text-xs shadow-none focus-visible:ring-0"
                         placeholder="날짜 선택"
                       />
@@ -845,13 +726,13 @@ const AttendancePage = () => {
                       )}
                     </div>
                     <div className="flex items-center rounded-full border border-border bg-muted/30 p-1">
-                      <Button variant="ghost" size="sm" className="h-7 w-7 rounded-full p-0" onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() - 1))}>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 rounded-full p-0" aria-label="이전 월" onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() - 1))}>
                         <ChevronLeft className="h-4 w-4" />
                       </Button>
                       <Button variant="ghost" size="sm" className="h-7 rounded-full px-3 text-xs" onClick={() => setSelectedMonth(new Date())}>
                         오늘
                       </Button>
-                      <Button variant="ghost" size="sm" className="h-7 w-7 rounded-full p-0" onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1))}>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 rounded-full p-0" aria-label="다음 월" onClick={() => setSelectedMonth(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1))}>
                         <ChevronRight className="h-4 w-4" />
                       </Button>
                     </div>
@@ -916,6 +797,7 @@ const AttendancePage = () => {
                     </TableHeader>
                     <TableBody>
                       {(() => {
+                        if (loadError) return <TableRow><TableCell colSpan={9}>조회 실패. 다시 시도해 주세요.</TableCell></TableRow>;
                         if (filteredRecords.length === 0) return (
                           <TableRow><TableCell colSpan={adminTab === 'all' ? 9 : 6} className="text-center py-8 text-muted-foreground">{filterDate ? `${filterDate}의 기록이 없습니다` : '기록이 없습니다'}</TableCell></TableRow>
                         );
@@ -989,6 +871,7 @@ const AttendancePage = () => {
                                     <TooltipTrigger asChild>
                                       <Button
                                         size="sm"
+                                        aria-label="근태 기록 수정"
                                         variant="ghost"
                                         className="h-8 w-8 rounded-full p-0"
                                         onClick={() => { setEditRecord(r); setEditDialogOpen(true); }}
@@ -1002,6 +885,7 @@ const AttendancePage = () => {
                                     <TooltipTrigger asChild>
                                       <Button
                                         size="sm"
+                                        aria-label="근태 기록 삭제"
                                         variant="ghost"
                                         className="h-8 w-8 rounded-full p-0 text-destructive hover:text-destructive"
                                         onClick={() => handleDeleteRecord(r.id)}
@@ -1023,17 +907,8 @@ const AttendancePage = () => {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+          </div>}
 
-          <TabsContent value="leave" className="mt-0">
-            <LeaveManagementPage
-              embedded
-              key={adminTab}
-              defaultTab={canManageAttendance && adminTab === 'all' ? 'admin' : 'overview'}
-              focusedRequestId={searchParams.get('request') || undefined}
-            />
-          </TabsContent>
-        </Tabs>
       </div>
 
       {/* Manual Attendance Registration Dialog */}
@@ -1098,7 +973,7 @@ const AttendancePage = () => {
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
         onSaved={() => {
-          queryClient.invalidateQueries({ queryKey: ['attendance-monthly'] });
+          void refreshAttendanceLeave(queryClient);
           queryClient.invalidateQueries({ queryKey: ['attendance-today'] });
         }}
       />

@@ -43,10 +43,10 @@ const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
 const MyPage = lazy(() => import("./pages/MyPage"));
 const UserStatisticsPage = lazy(() => import("./pages/UserStatisticsPage"));
 const RecipientManagementPage = lazy(() => import("./pages/RecipientManagementPage"));
-const AttendancePage = lazy(() => import("./pages/AttendancePage"));
+const AttendancePage = lazy(() => import("./pages/AttendanceHubPage"));
 const EmployeeProfileManagementPage = lazy(() => import("./pages/EmployeeProfileManagementPage"));
 const EmployeeWorkManagementPage = lazy(() => import("./pages/EmployeeWorkManagementPage"));
-const LeaveManagementPage = lazy(() => import("./pages/LeaveManagementPage"));
+const LeaveManagementPage = lazy(() => import("./pages/AttendanceHubPage").then(module => ({ default: module.LeaveManagementRedirect })));
 const TeamChatPage = lazy(() => import("./pages/TeamChatPage"));
 const CompanySettingsPage = lazy(() => import("./pages/CompanySettingsPage"));
 const ProjectManagementPage = lazy(() => import("./pages/ProjectManagementPage"));
@@ -158,7 +158,7 @@ const App = () => (
               <Route path="/recipient-management" element={<Navigate to="/recipients" replace />} />
               <Route path="/attendance" element={<G><AttendancePage /></G>} />
               <Route path="/employee-profiles" element={<S><EmployeeProfileManagementPage /></S>} />
-              <Route path="/employee-work" element={<Navigate to="/employee-profiles" replace />} />
+              <Route path="/employee-work" element={<Navigate to="/attendance?scope=all&tab=members" replace />} />
               <Route path="/leave-management" element={<G><LeaveManagementPage /></G>} />
               <Route path="/team-chat" element={<G><TeamChatPage /></G>} />
               <Route path="/company-settings" element={<CompanySettingsPage />} />

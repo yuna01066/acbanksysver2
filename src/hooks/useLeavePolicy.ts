@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface LeavePolicy {
@@ -32,24 +33,20 @@ const DEFAULT_POLICY: LeavePolicy = {
 };
 
 export const useLeavePolicy = () => {
-  const [policy, setPolicy] = useState<LeavePolicy>(DEFAULT_POLICY);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetch = async () => {
-      // Try to get default policy first, fallback to first policy
-      const { data } = await supabase
-        .from('leave_policy_settings')
-        .select('*')
-        .order('is_default', { ascending: false })
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .single();
-      if (data) setPolicy(data as LeavePolicy);
-      setLoading(false);
-    };
-    fetch();
-  }, []);
+  const { user } = useAuth();
+  const query = useQuery({
+    queryKey: ['leave-policy', user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('leave_policy_settings').select('*')
+        .order('is_default', { ascending: false }).order('created_at', { ascending: true }).limit(1).maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error('연차 정책이 없습니다. 관리자에게 설정을 요청해 주세요.');
+      return data as LeavePolicy;
+    },
+  });
+  const policy = query.data || DEFAULT_POLICY;
+  const loading = query.isLoading;
 
   /** Get unit label */
   const unitLabel = policy.leave_unit === 'hour' ? '시간' : policy.leave_unit === 'half_day' ? '반차' : '일';
@@ -60,5 +57,5 @@ export const useLeavePolicy = () => {
     return requestDays <= remainingDays;
   };
 
-  return { policy, loading, unitLabel, canRequest };
+  return { policy, loading, error: query.error, refresh: query.refetch, unitLabel, canRequest };
 };

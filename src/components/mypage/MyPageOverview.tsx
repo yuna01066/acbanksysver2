@@ -1,3 +1,4 @@
+import { calculateLeaveBalance } from '@/lib/leaveBalance';
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -136,10 +137,11 @@ const MyPageOverview: React.FC = () => {
   const [personalEventDialogOpen, setPersonalEventDialogOpen] = useState(false);
   const [quickTaskTitle, setQuickTaskTitle] = useState('');
   const canReview = isAdmin || isModerator;
-  const { data: hrProfile } = useMyHrProfile();
-  const { requests } = useLeaveRequests();
-  const { policy } = useLeavePolicy();
-  const { getNetAdjustment } = useLeaveAdjustments(user?.id);
+  const { data: hrProfile, isLoading: hrLoading, error: hrError } = useMyHrProfile();
+  const { requests, loadError: leaveError, loading: leaveLoading } = useLeaveRequests();
+  const { policy, error: policyError, loading: policyLoading } = useLeavePolicy();
+  const { getNetAdjustment, error: adjustmentError, loading: adjustmentLoading } = useLeaveAdjustments(user?.id);
+  const leaveUnavailable = hrLoading || hrError || leaveError || policyError || adjustmentError || leaveLoading || policyLoading || adjustmentLoading;
   const { categories = [] } = useDocumentBox();
   const { documents = [] } = useEmployeeDocuments(user?.id);
   const { notifications } = useNotifications();
@@ -178,27 +180,10 @@ const MyPageOverview: React.FC = () => {
     enabled: !!user,
   });
 
-  const leaveSummary = useMemo(() => {
-    const myRequests = requests.filter((request) => request.user_id === user?.id);
-    const totalDays = calculatePolicyBasedLeaveDays(
-      hrProfile?.join_date || '',
-      policy.grant_method,
-      policy.grant_basis,
-    ) + (user ? getNetAdjustment(user.id) : 0);
-    const usedDays = myRequests
-      .filter((request) => request.status === 'approved' && ['annual', 'monthly', 'half_am', 'half_pm'].includes(request.leave_type))
-      .reduce((sum, request) => sum + Number(request.days || 0), 0);
-    const pendingDays = myRequests
-      .filter((request) => request.status === 'pending' && ['annual', 'monthly', 'half_am', 'half_pm'].includes(request.leave_type))
-      .reduce((sum, request) => sum + Number(request.days || 0), 0);
-    return {
-      totalDays,
-      usedDays,
-      pendingDays,
-      remainingDays: totalDays - usedDays,
-      pendingCount: myRequests.filter((request) => request.status === 'pending').length,
-    };
-  }, [getNetAdjustment, hrProfile?.join_date, policy.grant_basis, policy.grant_method, requests, user]);
+  const leaveSummary = {
+    ...calculateLeaveBalance(hrProfile?.join_date || '', policy, requests.filter(r => r.user_id === user?.id), user ? getNetAdjustment(user.id) : 0),
+    pendingCount: requests.filter(r => r.user_id === user?.id && r.status === 'pending').length,
+  };
 
   const pendingContracts = contracts.filter((contract) => ['requested', 'opened'].includes(contract.status)).length;
   const signedContracts = contracts.filter((contract) => contract.status === 'signed').length;
@@ -495,8 +480,8 @@ const MyPageOverview: React.FC = () => {
                 />
                 <OverviewMetric
                   title="잔여 연차"
-                  value={`${leaveSummary.remainingDays.toFixed(1)}일`}
-                  description={`승인 대기 ${leaveSummary.pendingDays.toFixed(1)}일 · 사용 ${leaveSummary.usedDays.toFixed(1)}일`}
+                  value={leaveUnavailable ? '확인 필요' : `${leaveSummary.remainingDays.toFixed(1)}일`}
+                  description={leaveUnavailable ? '연차·휴가에서 다시 확인해 주세요.' : `승인 대기 ${leaveSummary.pendingDays.toFixed(1)}일 · 사용 반영 ${leaveSummary.usedDays.toFixed(1)}일`}
                   icon={CalendarDays}
                   tone={leaveSummary.remainingDays < 2 ? 'warning' : 'primary'}
                   actionLabel="연차 신청"

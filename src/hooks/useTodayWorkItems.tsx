@@ -123,7 +123,7 @@ export function getNotificationPath(notification: AppNotification): string {
     return '/my-page?tab=contracts';
   }
   if (notification.type === 'attendance_correction_request') {
-    return '/my-page?tab=attendance';
+    return `/attendance?scope=all&tab=approvals&kind=attendance${notification.data?.requestId ? `&request=${notification.data.requestId}` : ''}`;
   }
   if (notification.type === 'approval_request' || notification.type === 'approval_approved' || notification.type === 'approval_rejected') {
     return notification.data?.projectId ? `/project-management?id=${notification.data.projectId}` : '/review-hub';
@@ -137,10 +137,14 @@ export function getNotificationPath(notification: AppNotification): string {
     || notification.type === 'leave_cancellation_rejected'
   ) {
     const isReview = notification.type === 'leave_request' || notification.type === 'leave_cancellation_request';
-    return `/attendance?${isReview ? 'scope=all&' : ''}tab=leave`;
+    const requestId = notification.data?.leaveRequestId || notification.data?.leave_request_id || notification.data?.requestId;
+    return `/attendance?${isReview ? 'scope=all&tab=approvals' : 'scope=my&tab=leave'}${requestId ? '&request=' + encodeURIComponent(requestId) : ''}`;
   }
   if (notification.type === 'peer_feedback') return '/my-page';
   if (notification.type === 'performance_review_summary') return '/my-page?tab=business';
+  if (notification.type === 'system' && notification.data?.url === '/attendance?scope=my&tab=attendance') {
+    return notification.data.url + (notification.data.requestId ? '&request=' + encodeURIComponent(notification.data.requestId) : '');
+  }
   if (notification.type === 'system' && notification.data?.eventId) {
     return `/meeting-reservations?event=${notification.data.eventId}`;
   }

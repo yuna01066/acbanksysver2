@@ -17,10 +17,8 @@ import {
   UserCog,
 } from 'lucide-react';
 import CompanyInfoForm from '@/components/company/CompanyInfoForm';
-import CompanyHolidayManager from '@/components/company/CompanyHolidayManager';
 import CompanySettingsGuard from '@/components/company/CompanySettingsGuard';
 import ContractTemplateSettings from '@/components/contract/ContractTemplateSettings';
-import LeavePolicySettings from '@/components/leave/LeavePolicySettings';
 import FeatureAccessManager from '@/components/company/FeatureAccessManager';
 import QuoteDefaultTextSettings from '@/components/company/QuoteDefaultTextSettings';
 import { COMPANY_MASTER_EMAIL } from '@/lib/companyMaster';
@@ -168,13 +166,13 @@ const CompanySettingsPage: React.FC = () => {
               <CompanyInfoForm />
             </TabsContent>
             <TabsContent value="holidays">
-              <CompanyHolidayManager />
+              <Button variant="outline" onClick={() => navigate('/attendance?scope=all&tab=settings')}>통합 근태·휴가 설정에서 회사 휴일 관리</Button>
             </TabsContent>
             <TabsContent value="contracts">
               <ContractTemplateSettings />
             </TabsContent>
             <TabsContent value="leave">
-              <LeavePolicySettings />
+              <Button variant="outline" onClick={() => navigate('/attendance?scope=all&tab=settings')}>통합 근태·휴가 설정에서 연차 정책 관리</Button>
             </TabsContent>
             <TabsContent value="quote-text">
               <QuoteDefaultTextSettings />
