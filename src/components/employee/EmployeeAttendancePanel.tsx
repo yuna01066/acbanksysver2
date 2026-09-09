@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,11 +12,13 @@ import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { refreshAttendanceLeave } from '@/lib/attendanceLeaveQueries';
 import ScrollTimePicker from '@/components/ui/scroll-time-picker';
 
 interface AttendanceRecord {
   id: string;
+  updated_at: string;
   date: string;
   check_in: string | null;
   check_out: string | null;
@@ -43,9 +45,6 @@ const statusMap: Record<string, { label: string; variant: 'default' | 'secondary
 const EmployeeAttendancePanel: React.FC<Props> = ({ userId, userName }) => {
   const { isAdmin, isModerator } = useAuth();
   const queryClient = useQueryClient();
-  const [records, setRecords] = useState<AttendanceRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editRecord, setEditRecord] = useState<AttendanceRecord | null>(null);
@@ -61,30 +60,21 @@ const EmployeeAttendancePanel: React.FC<Props> = ({ userId, userName }) => {
 
   const canEdit = isAdmin || isModerator;
 
-  const fetchRecords = async () => {
-    setLoading(true);
-    setFetchError(null);
-    const start = format(startOfMonth(currentMonth), 'yyyy-MM-dd');
-    const end = format(endOfMonth(currentMonth), 'yyyy-MM-dd');
-
-    const { data, error } = await supabase
-      .from('attendance_records')
-      .select('id, date, check_in, check_out, status, work_hours, memo')
-      .eq('user_id', userId)
-      .gte('date', start)
-      .lte('date', end)
-      .order('date', { ascending: true });
-
-    if (error) {
-      setFetchError(error.message || '근태 기록 조회 중 오류가 발생했습니다.');
-      setRecords([]);
-    } else {
-      setRecords(data || []);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => { fetchRecords(); }, [userId, currentMonth]);
+  const query = useQuery({
+    queryKey: ['employee-attendance', userId, format(currentMonth, 'yyyy-MM')],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('attendance_records')
+        .select('id, updated_at, date, check_in, check_out, status, work_hours, memo')
+        .eq('user_id', userId).gte('date', format(startOfMonth(currentMonth), 'yyyy-MM-dd'))
+        .lte('date', format(endOfMonth(currentMonth), 'yyyy-MM-dd')).order('date', { ascending: true });
+      if (error) throw error;
+      return data as AttendanceRecord[];
+    },
+  });
+  const records = query.data || [];
+  const loading = query.isLoading;
+  const fetchError = query.error?.message;
+  const fetchRecords = () => refreshAttendanceLeave(queryClient);
 
   const openAddDialog = () => {
     setIsAdding(true);
@@ -109,11 +99,13 @@ const EmployeeAttendancePanel: React.FC<Props> = ({ userId, userName }) => {
   };
 
   const handleSave = async () => {
+    if (formSaving || !canEdit) return;
     setFormSaving(true);
     try {
       const checkIn = formCheckIn ? new Date(`${formDate}T${formCheckIn}:00+09:00`).toISOString() : null;
       const checkOut = formCheckOut ? new Date(`${formDate}T${formCheckOut}:00+09:00`).toISOString() : null;
 
+      if (checkOut && (!checkIn || checkOut <= checkIn)) throw new Error('퇴근은 출근 이후여야 합니다.');
       if (isAdding) {
         const { error } = await supabase.from('attendance_records').insert({
           user_id: userId,
@@ -132,13 +124,13 @@ const EmployeeAttendancePanel: React.FC<Props> = ({ userId, userName }) => {
           check_out: checkOut,
           status: formCheckOut ? 'checked_out' : formStatus,
           memo: formMemo || null,
-        }).eq('id', editRecord.id);
+        }).eq('id', editRecord.id).eq('updated_at', editRecord.updated_at).select('id').single();
         if (error) throw error;
         toast.success('근태 기록이 수정되었습니다.');
       }
       setEditDialogOpen(false);
       fetchRecords();
-      queryClient.invalidateQueries({ queryKey: ['attendance-monthly'] });
+      void refreshAttendanceLeave(queryClient);
     } catch (e: any) {
       toast.error('저장 실패: ' + (e.message || ''));
     } finally {
@@ -156,16 +148,19 @@ const EmployeeAttendancePanel: React.FC<Props> = ({ userId, userName }) => {
   const absentDays = records.filter(r => r.status === 'absent').length;
   const lateDays = records.filter(r => r.status === 'late').length;
 
+  if (fetchError) return <div role="alert">근태 조회 실패 <Button variant="outline" onClick={() => void fetchRecords()}>다시 시도</Button></div>;
+  if (loading) return <p role="status">근태를 불러오는 중…</p>;
+
   return (
     <div className="py-4 space-y-6">
       {/* Month Navigation */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="이전 월" onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <h3 className="text-sm font-semibold">{format(currentMonth, 'yyyy년 M월', { locale: ko })}</h3>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="다음 월" onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
@@ -177,7 +172,7 @@ const EmployeeAttendancePanel: React.FC<Props> = ({ userId, userName }) => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="bg-muted/50 rounded-lg p-3 text-center">
           <p className="text-xs text-muted-foreground">출근일</p>
           <p className="text-lg font-bold">{totalWorkDays}일</p>

@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -49,16 +51,20 @@ const statusColors: Record<string, string> = {
 };
 
 interface AttendanceCalendarViewProps {
+  month?: Date;
+  onMonthChange?: (date: Date) => void;
   onDateSelect?: (date: string) => void;
   selectedDate?: string;
 }
 
-const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({ onDateSelect, selectedDate: externalSelectedDate }) => {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [leaveEvents, setLeaveEvents] = useState<LeaveEvent[]>([]);
-  const [attendanceSummary, setAttendanceSummary] = useState<AttendanceSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({ onDateSelect, selectedDate: externalSelectedDate, month, onMonthChange }) => {
+  const { user, isAdmin, isModerator } = useAuth();
+  const [localMonth, setLocalMonth] = useState(new Date());
+  const currentMonth = month || localMonth;
+  const setCurrentMonth = (next: (date: Date) => Date) => {
+    const value = next(currentMonth);
+    if (onMonthChange) onMonthChange(value); else setLocalMonth(value);
+  };
   const [internalSelectedDate, setInternalSelectedDate] = useState<Date | null>(null);
 
   const selectedDate = externalSelectedDate ? new Date(externalSelectedDate) : internalSelectedDate;
@@ -69,58 +75,34 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({ onDateS
   const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
   const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      setLoadError(null);
-      const startStr = format(monthStart, 'yyyy-MM-dd');
-      const endStr = format(monthEnd, 'yyyy-MM-dd');
-
+  const query = useQuery({
+    queryKey: ['attendance-calendar', user?.id, format(monthStart, 'yyyy-MM-dd')],
+    enabled: !!user && (isAdmin || isModerator),
+    queryFn: async () => {
+      const startStr = format(monthStart, 'yyyy-MM-dd'), endStr = format(monthEnd, 'yyyy-MM-dd');
       const [leaveRes, attendanceRes] = await Promise.all([
-        supabase
-          .from('leave_requests')
-          .select('id, user_name, leave_type, start_date, end_date, days, status, reason')
-          .lte('start_date', endStr)
-          .gte('end_date', startStr)
-          .in('status', ['pending', 'approved'])
-          .order('start_date'),
-        supabase
-          .from('attendance_records')
-          .select('date, status')
-          .gte('date', startStr)
-          .lte('date', endStr),
+        supabase.from('leave_requests').select('id, user_name, leave_type, start_date, end_date, days, status, reason')
+          .lte('start_date', endStr).gte('end_date', startStr).in('status', ['pending', 'approved']).order('start_date'),
+        supabase.from('attendance_records').select('date, status').gte('date', startStr).lte('date', endStr),
       ]);
-
-      if (leaveRes.error || attendanceRes.error) {
-        setLoadError(leaveRes.error?.message || attendanceRes.error?.message || '근태 캘린더 조회 중 오류가 발생했습니다.');
-        setLeaveEvents([]);
-        setAttendanceSummary([]);
-        setLoading(false);
-        return;
+      if (leaveRes.error) throw leaveRes.error;
+      if (attendanceRes.error) throw attendanceRes.error;
+      const map = new Map<string, AttendanceSummary>();
+      for (const row of attendanceRes.data) {
+        const summary = map.get(row.date) || { date: row.date, total: 0, checked_in: 0, checked_out: 0, absent: 0 };
+        summary.total++;
+        if (row.status === 'checked_in' || row.status === 'present') summary.checked_in++;
+        else if (row.status === 'checked_out') summary.checked_out++;
+        else if (row.status === 'absent') summary.absent++;
+        map.set(row.date, summary);
       }
-
-      if (leaveRes.data) setLeaveEvents(leaveRes.data as LeaveEvent[]);
-
-      // Summarize attendance by date
-      if (attendanceRes.data) {
-        const map = new Map<string, AttendanceSummary>();
-        for (const r of attendanceRes.data) {
-          if (!map.has(r.date)) {
-            map.set(r.date, { date: r.date, total: 0, checked_in: 0, checked_out: 0, absent: 0 });
-          }
-          const s = map.get(r.date)!;
-          s.total++;
-          if (r.status === 'checked_in' || r.status === 'present') s.checked_in++;
-          else if (r.status === 'checked_out') s.checked_out++;
-          else if (r.status === 'absent') s.absent++;
-        }
-        setAttendanceSummary(Array.from(map.values()));
-      }
-
-      setLoading(false);
-    };
-    fetchData();
-  }, [currentMonth]);
+      return { leaveEvents: leaveRes.data as LeaveEvent[], attendanceSummary: [...map.values()] };
+    },
+  });
+  const leaveEvents = query.data?.leaveEvents || [];
+  const attendanceSummary = query.data?.attendanceSummary || [];
+  const loading = query.isLoading;
+  const loadError = query.error?.message;
 
   const getEventsForDate = (date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
@@ -140,13 +122,13 @@ const AttendanceCalendarView: React.FC<AttendanceCalendarViewProps> = ({ onDateS
       <CardContent className="p-4">
         {/* Month Navigation */}
         <div className="flex items-center justify-between mb-4">
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setCurrentMonth(m => subMonths(m, 1))}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" aria-label="이전 월" onClick={() => setCurrentMonth(m => subMonths(m, 1))}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <h3 className="text-base font-semibold">
             {format(currentMonth, 'yyyy년 M월', { locale: ko })}
           </h3>
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setCurrentMonth(m => addMonths(m, 1))}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" aria-label="다음 월" onClick={() => setCurrentMonth(m => addMonths(m, 1))}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

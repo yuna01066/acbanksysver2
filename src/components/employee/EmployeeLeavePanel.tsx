@@ -23,9 +23,9 @@ const EmployeeLeavePanel: React.FC<Props> = ({ userId }) => {
   const { isAdmin, isModerator, user } = useAuth();
   const canManage = isAdmin || isModerator;
   const {
-    requests, cancellations, loading, approveRequest, rejectRequest, cancelRequest,
+    requests, cancellations, loading, loadError, refresh, approveRequest, rejectRequest, cancelRequest,
     reviewCancellation, adminCancelRequest, adminCreateRequest,
-  } = useLeaveRequests();
+  } = useLeaveRequests(userId);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [recordScope, setRecordScope] = useState<'used' | 'all'>('used');
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -50,7 +50,7 @@ const EmployeeLeavePanel: React.FC<Props> = ({ userId }) => {
     .reduce((sum, request) => sum + Number(request.days), 0);
 
   const handleAddLeave = async () => {
-    if (!form.startDate || !form.endDate) return;
+    if (formSaving || !form.startDate || !form.endDate) return;
     setFormSaving(true);
     const isHalf = form.leaveType === 'half_am' || form.leaveType === 'half_pm';
     const ok = await adminCreateRequest({
@@ -63,6 +63,9 @@ const EmployeeLeavePanel: React.FC<Props> = ({ userId }) => {
     setFormSaving(false);
     if (ok) setAddDialogOpen(false);
   };
+
+  if (loadError) return <div role="alert">연차 기록을 불러오지 못했습니다. <Button variant="outline" onClick={() => void refresh()}>다시 시도</Button></div>;
+  if (loading) return <p role="status">연차 기록을 불러오는 중…</p>;
 
   return (
     <div className="py-4 space-y-6">
@@ -126,7 +129,7 @@ const EmployeeLeavePanel: React.FC<Props> = ({ userId }) => {
           </div>
         </div>
 
-        {loading ? (
+        {loadError ? <div role="alert" className="text-sm text-destructive">연차 기록을 불러오지 못했습니다. <Button variant="outline" onClick={() => void refresh()}>다시 시도</Button></div> : loading ? (
           <div className="flex items-center justify-center py-8" role="status">
             <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
             <span className="sr-only">연차 기록을 불러오는 중</span>

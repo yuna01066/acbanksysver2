@@ -13,6 +13,7 @@ import ScrollTimePicker from '@/components/ui/scroll-time-picker';
 
 interface AttendanceRecord {
   id: string;
+  updated_at: string;
   user_name: string;
   date: string;
   check_in: string | null;
@@ -45,14 +46,15 @@ const AttendanceEditDialog: React.FC<Props> = ({ record, open, onOpenChange, onS
   }, [record]);
 
   const handleSave = async () => {
-    if (!record) return;
+    if (!record || saving) return;
     setSaving(true);
     try {
       const dateStr = record.date;
       const checkIn = checkInTime ? new Date(`${dateStr}T${checkInTime}:00+09:00`).toISOString() : null;
       const checkOut = checkOutTime ? new Date(`${dateStr}T${checkOutTime}:00+09:00`).toISOString() : null;
 
-      const updateData: any = {
+      if (checkOut && (!checkIn || checkOut <= checkIn)) throw new Error('퇴근은 출근 이후여야 합니다.');
+      const updateData = {
         check_in: checkIn,
         check_out: checkOut,
         status,
@@ -62,9 +64,9 @@ const AttendanceEditDialog: React.FC<Props> = ({ record, open, onOpenChange, onS
       const { error } = await supabase
         .from('attendance_records')
         .update(updateData)
-        .eq('id', record.id);
+        .eq('id', record.id).eq('updated_at', record.updated_at).select('id').single();
 
-      if (error) throw error;
+      if (error) throw new Error('기록이 변경되었거나 저장하지 못했습니다. 최신 기록을 확인한 뒤 다시 시도해 주세요.');
       toast.success('근태 기록이 수정되었습니다.');
       onSaved();
       onOpenChange(false);
@@ -78,7 +80,7 @@ const AttendanceEditDialog: React.FC<Props> = ({ record, open, onOpenChange, onS
   if (!record) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={value => !saving && onOpenChange(value)}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>근태 기록 수정</DialogTitle>
