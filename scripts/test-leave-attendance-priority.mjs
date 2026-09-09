@@ -35,6 +35,10 @@ for (const rpc of [
 assert.doesNotMatch(hook, /from\('leave_requests'\)\.insert/);
 assert.doesNotMatch(employeePanel, /\.delete\(\)/);
 assert.doesNotMatch(employeePanel, /삭제된 데이터는/);
+assert.match(employeePanel, /BALANCE_LEAVE_TYPES = new Set\(\['annual', 'monthly', 'half_am', 'half_pm'\]\)/);
+assert.match(employeePanel, /request\.status === 'approved' && isAnnualBalanceRequest\(request\)/);
+assert.match(employeePanel, /aria-label="기록 표시 범위"/);
+assert.match(employeePanel, /승인된 연차·월차·반차는 사용량과 잔여 연차에 반영됩니다/);
 assert.match(usageHistory, /취소 요청/);
 assert.match(usageHistory, /반려·취소 기록 포함/);
 assert.match(attendancePage, /<LeaveManagementPage\s+embedded/);
