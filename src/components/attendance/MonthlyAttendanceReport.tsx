@@ -6,69 +6,68 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, FileText, Download, TrendingUp, TrendingDown, Minus, AlertTriangle } from 'lucide-react';
+import { Loader2, FileText, Printer, AlertTriangle } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { useAuth } from '@/contexts/AuthContext';
+import { readAllRows } from '@/lib/readAllRows';
+import { printMonthlyAttendanceReport } from './monthlyAttendancePrint';
 
 const MonthlyAttendanceReport: React.FC = () => {
+  const { user, isAdmin, isModerator } = useAuth();
+  const canManage = !!user && (isAdmin || isModerator);
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
+  const [printEmployee, setPrintEmployee] = useState('all');
+  const [printing, setPrinting] = useState(false);
+  const [printError, setPrintError] = useState<string | null>(null);
 
   const targetDate = new Date(year, month - 1, 1);
   const startDate = format(startOfMonth(targetDate), 'yyyy-MM-dd');
   const endDate = format(endOfMonth(targetDate), 'yyyy-MM-dd');
 
-  const { data: records = [], isLoading, error: recordsError } = useQuery({
-    queryKey: ['monthly-report-records', startDate, endDate],
-    queryFn: async () => {
-      const { data, error } = await supabase
+  const { data: records = [], isLoading, isFetching: recordsFetching, error: recordsError } = useQuery({
+    queryKey: ['monthly-report-records', user?.id, startDate, endDate],
+    enabled: canManage,
+    queryFn: () => readAllRows(supabase
         .from('attendance_records')
-        .select('*')
+        .select('user_id, date, check_in, check_out, work_hours, status')
         .gte('date', startDate)
-        .lte('date', endDate);
-      if (error) throw error;
-      return data || [];
-    },
+        .lte('date', endDate)
+        .order('date').order('id')),
   });
 
-  const { data: employees = [], error: employeesError } = useQuery({
-    queryKey: ['monthly-report-employees'],
-    queryFn: async () => {
-      const { data, error } = await (supabase.from('profile_directory' as any) as any)
+  const { data: employees = [], isLoading: employeesLoading, isFetching: employeesFetching, error: employeesError } = useQuery({
+    queryKey: ['monthly-report-employees', user?.id],
+    enabled: canManage,
+    queryFn: () => readAllRows<{ id: string; full_name: string | null; department: string | null }>((supabase.from('profile_directory' as any) as any)
         .select('id, full_name, department')
-        .order('full_name');
-      if (error) throw error;
-      return data || [];
-    },
+        .order('full_name').order('id')),
   });
 
-  const { data: leaveRequests = [], error: leaveRequestsError } = useQuery({
-    queryKey: ['monthly-report-leaves', startDate, endDate],
-    queryFn: async () => {
-      const { data, error } = await supabase
+  const { data: leaveRequests = [], isLoading: leavesLoading, isFetching: leavesFetching, error: leaveRequestsError } = useQuery({
+    queryKey: ['monthly-report-leaves', user?.id, startDate, endDate],
+    enabled: canManage,
+    queryFn: () => readAllRows(supabase
         .from('leave_requests')
-        .select('*')
+        .select('user_id, start_date, end_date, leave_type, status')
         .eq('status', 'approved')
         .lte('start_date', endDate)
-        .gte('end_date', startDate);
-      if (error) throw error;
-      return data || [];
-    },
+        .gte('end_date', startDate)
+        .order('id')),
   });
 
-  const { data: holidays = [], isLoading: holidaysLoading, error: holidaysError } = useQuery({
-    queryKey: ['monthly-report-holidays', startDate, endDate],
-    queryFn: async () => {
-      const { data, error } = await supabase
+  const { data: holidays = [], isLoading: holidaysLoading, isFetching: holidaysFetching, error: holidaysError } = useQuery({
+    queryKey: ['monthly-report-holidays', user?.id, startDate, endDate],
+    enabled: canManage,
+    queryFn: () => readAllRows(supabase
         .from('company_holidays')
         .select('start_date, end_date')
         .lte('start_date', endDate)
-        .gte('end_date', startDate);
-      if (error) throw error;
-      return data || [];
-    },
+        .gte('end_date', startDate)
+        .order('id')),
   });
 
   const businessDateSet = useMemo(() => {
@@ -151,15 +150,17 @@ const MonthlyAttendanceReport: React.FC = () => {
     });
   }, [records, year, month]);
 
-  if (isLoading || holidaysLoading) {
-    return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+  if (!canManage) return <p role="alert">월별 근태 리포트는 관리자·중간관리자만 이용할 수 있습니다.</p>;
+
+  if (isLoading || employeesLoading || leavesLoading || holidaysLoading) {
+    return <div role="status" className="flex items-center justify-center gap-2 py-20"><Loader2 aria-hidden="true" className="h-6 w-6 animate-spin text-muted-foreground" />월별 근태 자료를 불러오는 중…</div>;
   }
 
   const loadError = recordsError || employeesError || leaveRequestsError || holidaysError;
   if (loadError) {
     const message = loadError instanceof Error ? loadError.message : String((loadError as any)?.message || loadError);
     return (
-      <Card className="border-destructive/30 bg-destructive/5 shadow-none">
+      <Card role="alert" className="border-destructive/30 bg-destructive/5 shadow-none">
         <CardContent className="flex items-start gap-3 p-4">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
           <div>
@@ -171,6 +172,21 @@ const MonthlyAttendanceReport: React.FC = () => {
     );
   }
 
+  const printEmployees = employeeStats.filter(employee => printEmployee === 'all' || employee.id === printEmployee);
+  const refreshing = recordsFetching || employeesFetching || leavesFetching || holidaysFetching;
+  const handlePrint = async () => {
+    if (!canManage || printing || refreshing || !printEmployees.length) return;
+    setPrintError(null);
+    setPrinting(true);
+    try {
+      await printMonthlyAttendanceReport({ year, month, employees: printEmployees, records, leaveRequests, businessDateSet });
+    } catch (error) {
+      setPrintError(error instanceof Error ? error.message : 'PDF 인쇄창을 열지 못했습니다. 다시 시도해 주세요.');
+    } finally {
+      setPrinting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Controls */}
@@ -178,7 +194,7 @@ const MonthlyAttendanceReport: React.FC = () => {
         <FileText className="h-5 w-5 text-primary" />
         <h3 className="text-sm font-semibold">월별 근태 리포트</h3>
         <Select value={String(year)} onValueChange={v => setYear(Number(v))}>
-          <SelectTrigger className="w-24 h-8 text-xs"><SelectValue /></SelectTrigger>
+          <SelectTrigger aria-label="리포트 연도" className="w-28 min-h-11 text-sm"><SelectValue /></SelectTrigger>
           <SelectContent>
             {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map(y => (
               <SelectItem key={y} value={String(y)}>{y}년</SelectItem>
@@ -186,14 +202,27 @@ const MonthlyAttendanceReport: React.FC = () => {
           </SelectContent>
         </Select>
         <Select value={String(month)} onValueChange={v => setMonth(Number(v))}>
-          <SelectTrigger className="w-20 h-8 text-xs"><SelectValue /></SelectTrigger>
+          <SelectTrigger aria-label="리포트 월" className="w-24 min-h-11 text-sm"><SelectValue /></SelectTrigger>
           <SelectContent>
             {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
               <SelectItem key={m} value={String(m)}>{m}월</SelectItem>
             ))}
           </SelectContent>
         </Select>
+        <Select value={printEmployee} onValueChange={setPrintEmployee}>
+          <SelectTrigger aria-label="PDF 출력 대상" className="w-52 min-h-11"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">전체 구성원 · {employees.length}명</SelectItem>
+            {employees.map(employee => <SelectItem key={employee.id} value={employee.id}>{employee.full_name || '이름 미등록'} · {employee.department || '미지정'}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Button variant="outline" className="min-h-11" disabled={printing || refreshing || !printEmployees.length} onClick={handlePrint} aria-describedby="attendance-print-help">
+          {printing ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <Printer aria-hidden="true" className="h-4 w-4" />}
+          {printing ? '인쇄창 준비 중…' : '월별 PDF / 인쇄'}
+        </Button>
       </div>
+      <p id="attendance-print-help" className="text-xs text-muted-foreground">선택한 월·대상의 요약과 직원별 일자 기록을 출력합니다. 인쇄창에서 ‘PDF로 저장’을 선택하세요. {refreshing ? '자료를 갱신하는 동안 출력할 수 없습니다.' : !printEmployees.length ? '출력할 구성원이 없습니다.' : ''}</p>
+      {printError && <p role="alert" className="text-sm text-destructive">{printError}</p>}
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
