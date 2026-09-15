@@ -156,6 +156,12 @@ const PublicBookingPage = () => {
     loadAvailability();
   }, [link, date, accessCode, result]);
 
+  useEffect(() => {
+    const defaultCompanyName = link?.publicScheduleDefaultCompanyName?.trim();
+    if (!defaultCompanyName) return;
+    setForm((prev) => (prev.companyName.trim() ? prev : { ...prev, companyName: defaultCompanyName }));
+  }, [link?.publicScheduleDefaultCompanyName]);
+
   const [pendingSlot, setPendingSlot] = useState<{ resourceId: string | null; time: string } | null>(null);
 
   useEffect(() => {

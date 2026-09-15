@@ -409,6 +409,15 @@ function publicScheduleDetailsEnabled(link: PublicBookingLink) {
   return flag !== false;
 }
 
+const INTERNAL_ROOM_BOOKING_COMPANY_NAME = "ACBANK";
+
+/** Default public company label configured on the link (e.g. "PROG"). */
+function publicScheduleDefaultCompanyName(link: PublicBookingLink) {
+  const metadata = (link.metadata || {}) as Record<string, unknown>;
+  return optionalText(metadata.public_schedule_default_company_name, 120)
+    || optionalText(metadata.publicScheduleDefaultCompanyName, 120);
+}
+
 
 function requiresResource(link: PublicBookingLink, meetingMode: MeetingMode) {
   return !isConsultationLink(link) || meetingMode === "visit";
@@ -428,6 +437,7 @@ function publicLinkResponse(link: PublicBookingLink, resources: CalendarResource
     previewDescription: link.preview_description ?? null,
     previewImageUrl: link.preview_image_url ?? null,
     publicScheduleDetailsEnabled: publicScheduleDetailsEnabled(link),
+    publicScheduleDefaultCompanyName: publicScheduleDefaultCompanyName(link),
 
     rules: {
       allowedWeekdays: link.allowed_weekdays,
@@ -886,6 +896,7 @@ async function handleGetSchedule(
 
   const blocks: JsonObject[] = [];
   const showDetails = publicScheduleDetailsEnabled(link);
+  const defaultCompanyName = publicScheduleDefaultCompanyName(link);
 
   // Coarse public context (company + purpose only) for confirmed bookings that
   // originated from this public link. Never contact info or internal notes.
@@ -943,7 +954,10 @@ async function handleGetSchedule(
         const manualPurpose = typeof eventMetadata.public_schedule_purpose === "string"
           ? eventMetadata.public_schedule_purpose.trim()
           : "";
-        const publicCompany = detail?.company || manualCompany || null;
+        const publicCompany = (detail ? (detail.company || defaultCompanyName) : null)
+          || manualCompany
+          || (event.source_type === "manual" ? INTERNAL_ROOM_BOOKING_COMPANY_NAME : null)
+          || null;
         const publicPurpose = detail?.purpose || manualPurpose || null;
         blocks.push({
           id: `event:${row.event_id}:${row.resource_id}`,
@@ -1008,7 +1022,7 @@ async function handleGetSchedule(
       sourceType: "public_booking_request",
       ...(showDetails
         ? {
-          publicCompanyName: row.company_name ? text(row.company_name, 60) : null,
+          publicCompanyName: (row.company_name || defaultCompanyName) ? text(row.company_name || defaultCompanyName, 60) : null,
           publicPurpose: row.purpose ? text(row.purpose, 80) : null,
         }
         : {}),
@@ -1232,7 +1246,7 @@ async function handleCreateRequest(req: Request, origin: string | null, body: Js
       ends_at: endsAt.toISOString(),
       resource_id: resourceId,
       requester_name: requesterName,
-      company_name: optionalText(body.companyName, 120),
+      company_name: optionalText(body.companyName, 120) || publicScheduleDefaultCompanyName(link),
       phone: optionalText(body.phone, 80),
       email: optionalText(body.email, 160),
       purpose,
