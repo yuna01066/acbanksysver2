@@ -409,6 +409,15 @@ function publicScheduleDetailsEnabled(link: PublicBookingLink) {
   return flag !== false;
 }
 
+const INTERNAL_ROOM_BOOKING_COMPANY_NAME = "ACBANK";
+
+/** Default public company label configured on the link (e.g. "PROG"). */
+function publicScheduleDefaultCompanyName(link: PublicBookingLink) {
+  const metadata = (link.metadata || {}) as Record<string, unknown>;
+  return optionalText(metadata.public_schedule_default_company_name, 120)
+    || optionalText(metadata.publicScheduleDefaultCompanyName, 120);
+}
+
 
 function requiresResource(link: PublicBookingLink, meetingMode: MeetingMode) {
   return !isConsultationLink(link) || meetingMode === "visit";
@@ -428,6 +437,7 @@ function publicLinkResponse(link: PublicBookingLink, resources: CalendarResource
     previewDescription: link.preview_description ?? null,
     previewImageUrl: link.preview_image_url ?? null,
     publicScheduleDetailsEnabled: publicScheduleDetailsEnabled(link),
+    publicScheduleDefaultCompanyName: publicScheduleDefaultCompanyName(link),
 
     rules: {
       allowedWeekdays: link.allowed_weekdays,
