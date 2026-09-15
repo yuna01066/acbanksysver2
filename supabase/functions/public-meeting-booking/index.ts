@@ -81,6 +81,7 @@ type ScheduleBlock = {
 
 const RATE_LIMIT_WINDOW_MINUTES = 10;
 const RATE_LIMIT_MAX_REQUESTS = 20;
+const INTERNAL_ROOM_BOOKING_COMPANY_NAME = "ACBANK";
 const MEETING_MODES: MeetingMode[] = ["visit", "phone", "online"];
 const CONTACT_PREFERENCES: ContactPreference[] = ["phone", "email", "kakao", "any"];
 
@@ -370,12 +371,30 @@ function getPublicScheduleDetail(record: JsonObject | undefined) {
   };
 }
 
+function getPublicScheduleDefaultCompanyName(link: PublicBookingLink) {
+  const metadata = asObject(link.metadata);
+  return optionalText(metadata.public_schedule_default_company_name, 120)
+    || optionalText(metadata.publicScheduleDefaultCompanyName, 120);
+}
+
+function withDefaultPublicCompany(
+  detail: ReturnType<typeof getPublicScheduleDetail>,
+  defaultCompanyName: string | null,
+) {
+  return {
+    ...detail,
+    publicCompanyName: detail.publicCompanyName ?? defaultCompanyName,
+  };
+}
+
 function getPublicScheduleDetailFromEvent(event: JsonObject | undefined) {
   if (!event) return {};
   const metadata = asObject(event.metadata);
+  const sourceType = text(event.source_type, 80);
   return {
     publicCompanyName: optionalText(metadata.public_schedule_company_name, 120)
-      || optionalText(metadata.publicScheduleCompanyName, 120),
+      || optionalText(metadata.publicScheduleCompanyName, 120)
+      || (sourceType === "manual" ? INTERNAL_ROOM_BOOKING_COMPANY_NAME : null),
     publicPurpose: optionalText(metadata.public_schedule_purpose, 220)
       || optionalText(metadata.publicSchedulePurpose, 220),
   };
@@ -403,6 +422,7 @@ function publicLinkResponse(link: PublicBookingLink, resources: CalendarResource
     requiresAccessCode: Boolean(link.access_code_hash),
     meetingModes: normalizeMeetingModes(link),
     publicScheduleDetailsEnabled: isPublicScheduleDetailsEnabled(link),
+    publicScheduleDefaultCompanyName: getPublicScheduleDefaultCompanyName(link),
     previewTitle: link.preview_title ?? null,
     previewDescription: link.preview_description ?? null,
     previewImageUrl: link.preview_image_url ?? null,
@@ -751,6 +771,7 @@ async function handleSchedule(origin: string | null, body: JsonObject, supabase:
   const view = getScheduleView(body.view);
   const { rangeStart, rangeEnd } = getScheduleRange(date, view);
   const exposeDetails = isPublicScheduleDetailsEnabled(link);
+  const defaultLinkCompanyName = getPublicScheduleDefaultCompanyName(link);
 
   if (resourceIds.length === 0) {
     return ok(origin, { view, rangeStart, rangeEnd, resources: [], blocks: [] });
@@ -800,9 +821,11 @@ async function handleSchedule(origin: string | null, body: JsonObject, supabase:
     const id = text(event.id, 80);
     if (!resourceId || !resourceName || !startsAt || !endsAt || !id) return [];
     const requestId = getPublicBookingRequestIdFromEvent(event);
+    const requestRecord = requestId ? requestDetailById.get(requestId) : undefined;
+    const requestDetail = getPublicScheduleDetail(requestRecord);
     const detail = exposeDetails
       ? mergePublicScheduleDetail(
-        getPublicScheduleDetail(requestId ? requestDetailById.get(requestId) : undefined),
+        requestRecord ? withDefaultPublicCompany(requestDetail, defaultLinkCompanyName) : requestDetail,
         getPublicScheduleDetailFromEvent(event),
       )
       : {};
@@ -839,7 +862,9 @@ async function handleSchedule(origin: string | null, body: JsonObject, supabase:
     const endsAt = text(record.ends_at, 80);
     const id = text(record.id, 80);
     if (!resourceId || !resourceName || !startsAt || !endsAt || !id) return [];
-    const detail = exposeDetails ? getPublicScheduleDetail(record) : {};
+    const detail = exposeDetails
+      ? withDefaultPublicCompany(getPublicScheduleDetail(record), defaultLinkCompanyName)
+      : {};
     return [createScheduleBlock({
       id,
       resourceId,
@@ -1002,6 +1027,7 @@ async function handleCreateRequest(req: Request, origin: string | null, body: Js
   const conflictRange = getBufferedRange(link, startsAt, endsAt);
 
   const requesterName = text(body.requesterName, 80);
+  const companyName = optionalText(body.companyName, 120) || getPublicScheduleDefaultCompanyName(link);
   const purpose = text(body.purpose, 500);
   const phone = text(body.phone, 80);
   const privacyConsent = Boolean(body.privacyConsent);
@@ -1051,7 +1077,7 @@ async function handleCreateRequest(req: Request, origin: string | null, body: Js
       ends_at: endsAt.toISOString(),
       resource_id: resourceId,
       requester_name: requesterName,
-      company_name: optionalText(body.companyName, 120),
+      company_name: companyName,
       phone: optionalText(body.phone, 80),
       email: optionalText(body.email, 160),
       purpose,

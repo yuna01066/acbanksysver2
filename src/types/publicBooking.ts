@@ -30,6 +30,7 @@ export type PublicBookingLinkPublic = {
   requiresAccessCode: boolean;
   meetingModes: PublicBookingMeetingMode[];
   publicScheduleDetailsEnabled?: boolean;
+  publicScheduleDefaultCompanyName?: string | null;
   previewTitle?: string | null;
   previewDescription?: string | null;
   previewImageUrl?: string | null;
