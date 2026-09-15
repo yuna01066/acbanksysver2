@@ -106,11 +106,11 @@ function formatBlockTime(block: PublicBookingScheduleBlock) {
 }
 
 function getBlockCompanyLabel(block: PublicBookingScheduleBlock) {
-  return block.publicCompanyName?.trim() || '공개 회사명 미입력';
+  return block.publicCompanyName?.trim() || '사용 주체 미입력';
 }
 
 function getBlockPurposeLabel(block: PublicBookingScheduleBlock) {
-  return block.publicPurpose?.trim() || '공개 용무 미입력';
+  return block.publicPurpose?.trim() || '용무 미입력';
 }
 
 function hasPublicBlockDetails(block: PublicBookingScheduleBlock) {

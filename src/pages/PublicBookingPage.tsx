@@ -173,6 +173,12 @@ const PublicBookingPage = () => {
     loadAvailability();
   }, [link, date, accessCode, result]);
 
+  useEffect(() => {
+    const defaultCompanyName = link?.publicScheduleDefaultCompanyName?.trim();
+    if (!defaultCompanyName) return;
+    setForm((prev) => (prev.companyName.trim() ? prev : { ...prev, companyName: defaultCompanyName }));
+  }, [link?.publicScheduleDefaultCompanyName]);
+
   const updateForm = (key: keyof typeof form, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
