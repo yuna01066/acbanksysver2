@@ -33,6 +33,7 @@ export interface Quote {
   factory: string;
   material: string;
   quality: string;
+  specDisplay?: { qualityName?: string; colorName?: string };
   thickness: string;
   size: string;
   colorType?: string;

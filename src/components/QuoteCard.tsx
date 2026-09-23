@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Trash2, Plus, Minus, Edit, FileText, ShieldCheck } from "lucide-react";
 import { formatPrice } from "@/utils/priceCalculations";
 import { Quote } from "@/contexts/QuoteContext";
+import { quoteSpecNames } from '@/utils/issuedQuoteRevision';
 import { getQuoteStyleForItem, getQuoteStyleProfile } from "@/utils/quoteStyle";
 import { formatPricingVersionDisplayName } from "@/utils/pricingVersionDisplay";
 import { isPanelStockSummaryValue, isPanelSurfaceSummaryValue } from "@/utils/quoteOptionDisplay";
@@ -110,11 +111,12 @@ const QuoteCard = ({ quote, index, onRemove, onUpdateQuantity, readOnly = false 
   const visibleOptions = [
     {
       label: '색상',
-      value: quote.colorType === 'CUSTOM' ? (quote.customColorName || '맞춤 색상') : (quote.selectedColor || quote.colorType || 'AC-미선택'),
+      value: quoteSpecNames(quote).color || 'AC-미선택',
       swatch: quote.selectedColorHex,
     },
     { label: isFabrication ? '견적 기준' : '소재', value: quote.material },
-    { label: isFabrication ? '소재' : '재질', value: quote.quality },
+    { label: isFabrication ? '소재' : '재질', value: quoteSpecNames(quote).quality },
+    ...(quote.specDisplay ? [{ label: '계산 기준', value: `${quote.quality} / ${quote.selectedColor || quote.colorType || '-'}` }] : []),
     { label: '두께', value: quote.thickness },
     ...(!shouldHideStockSize ? [{ label: isFabrication ? '규격' : '사이즈', value: quote.size }] : []),
     ...(!shouldHideStockSurface ? [{ label: isFabrication ? '마감/면' : '면수', value: quote.surface }] : []),

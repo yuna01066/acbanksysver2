@@ -33,6 +33,8 @@ interface ColorOption {
 }
 
 interface ColorSelectionProps {
+  registeredOnly?: boolean;
+  onAvailabilityChange?: (ready: boolean) => void;
   selectedColor: string;
   onColorSelect: (id: string, extraInfo?: { 
     acCode: string; 
@@ -88,7 +90,9 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
   selectedQuality,
   initialCustomColor,
   initialCustomColorName,
-  initialCustomOpacity
+  initialCustomOpacity,
+  registeredOnly = false,
+  onAvailabilityChange,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [customColor, setCustomColor] = useState(initialCustomColor || '#ffffff');
@@ -101,7 +105,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
     : selectedQuality?.id;
 
   // panel_master 조회
-  const { data: panelMaster } = useQuery({
+  const { data: panelMaster, isFetching: masterLoading, error: masterError } = useQuery({
     queryKey: ['panel-master-for-colors', colorLookupQualityId],
     queryFn: async () => {
       if (!colorLookupQualityId) return null;
@@ -114,7 +118,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
 
       if (error) {
         console.error('Error fetching panel master:', error);
-        return null;
+        throw error;
       }
       return data;
     },
@@ -122,7 +126,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
   });
 
   // DB에서 컬러 옵션 조회
-  const { data: colors, isLoading } = useQuery({
+  const { data: colors, isLoading, isFetching, error: colorsError } = useQuery({
     queryKey: ['color-options', panelMaster?.id],
     queryFn: async () => {
       if (!panelMaster?.id) return [];
@@ -137,7 +141,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
 
       if (error) {
         console.error('Error fetching colors:', error);
-        return [];
+        throw error;
       }
       
       return data as ColorOption[];
@@ -150,7 +154,10 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
   const [activeTab, setActiveTab] = React.useState<'A' | 'B' | 'reference'>('A');
   const colorOptions = colors && colors.length > 0
     ? colors
-    : getMirrorFallbackColors(selectedQuality?.id);
+    : registeredOnly ? [] : getMirrorFallbackColors(selectedQuality?.id);
+
+  const selectedIsAvailable = !masterLoading && !isFetching && !masterError && !colorsError && !!colors?.some(c => c.id === selectedColor || c.color_name.split(' ')[0] === selectedColor);
+  useEffect(() => { onAvailabilityChange?.(selectedIsAvailable); }, [selectedIsAvailable, onAvailabilityChange]);
   
   const hasSeriesTabs = hasExplicitSeriesTabs(colorOptions);
   const referenceColors = colorOptions.filter(isWhiteOpacityReference);
@@ -221,7 +228,8 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
     setCustomColor('#ffffff');
   };
 
-  if (isLoading) {
+  if (masterError || colorsError) return <p role="alert">컬러 목록을 불러오지 못했습니다. 연결을 확인한 뒤 다시 열어 주세요.</p>;
+  if (isLoading || masterLoading) {
     return (
       <div className="space-y-6">
         <div className="text-center">
@@ -253,13 +261,14 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
           <Input
             type="text"
             placeholder="색상명, AC 코드, HEX 코드로 검색..."
+            aria-label="등록 컬러 검색"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 w-full"
           />
         </div>
         
-        <Dialog open={isCustomDialogOpen} onOpenChange={setIsCustomDialogOpen}>
+        {!registeredOnly && <Dialog open={isCustomDialogOpen} onOpenChange={setIsCustomDialogOpen}>
           <DialogTrigger asChild>
             <Button 
               variant="outline" 
@@ -347,7 +356,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
               </div>
             </div>
           </DialogContent>
-        </Dialog>
+        </Dialog>}
       </div>
 
       {hasColorTabs && (
@@ -404,9 +413,12 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
               const colorTypeLabel = getColorSelectionTypeLabel(color);
               
               return (
-                <div
+                <button
                   key={color.id}
-                  className="relative group cursor-pointer"
+                  type="button"
+                  aria-label={`${acCode} ${color.color_code || ''}`}
+                  aria-pressed={isSelected}
+                  className="relative group cursor-pointer rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4"
                   onClick={() => onColorSelect(color.id, { 
                     acCode, 
                     hexCode: color.color_code || '',
@@ -464,7 +476,7 @@ const ColorSelection: React.FC<ColorSelectionProps> = ({
                       </div>
                     )}
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>

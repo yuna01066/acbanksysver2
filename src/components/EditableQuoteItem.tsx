@@ -6,6 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Trash2, Plus, Minus, ChevronDown, ChevronUp, Calculator } from "lucide-react";
 import { formatPrice } from "@/utils/priceCalculations";
+import type { Quote } from '@/contexts/QuoteContext';
+import { isPanelQuote } from '@/utils/issuedQuoteRevision';
+import IssuedQuoteSpecEditor from './IssuedQuoteSpecEditor';
 
 interface BreakdownItem {
   label: string;
@@ -13,6 +16,10 @@ interface BreakdownItem {
 }
 
 interface QuoteItem {
+  specDisplay?: Quote['specDisplay'];
+  calculationSnapshot?: Quote['calculationSnapshot'];
+  pricingVersionId?: string | null;
+  pricingVersionName?: string;
   id: string;
   itemTitle?: string;
   factory: string;
@@ -37,6 +44,8 @@ interface QuoteItem {
 }
 
 interface EditableQuoteItemProps {
+  original?: Quote;
+  onSpecStatus?: (itemId: string, reason: string) => void;
   item: QuoteItem;
   index: number;
   onUpdate: (itemId: string, updatedItem: QuoteItem) => void;
@@ -44,16 +53,26 @@ interface EditableQuoteItemProps {
   quoteId?: string;
 }
 
-const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: EditableQuoteItemProps) => {
+const EditableQuoteItem = ({ item, original, index, onUpdate, onRemove, quoteId, onSpecStatus }: EditableQuoteItemProps) => {
   const navigate = useNavigate();
   const [isExpanded, setIsExpanded] = useState(false);
   const [editedItem, setEditedItem] = useState<QuoteItem>(item);
+  const [specOpen, setSpecOpen] = useState(false);
+  const panel = isPanelQuote(item);
 
   useEffect(() => {
     setEditedItem(item);
-  }, [item.id]);
+  }, [item]);
+
+  const handleSpecChange = (patch: Partial<Quote> | null, reason: string) => {
+    const source = original || item;
+    const { quality, thickness, size, surface, selectedColor, selectedColorHex, colorType, customColorName, customOpacity, colorMixingCost, specDisplay, totalPrice, breakdown, pricingVersionId, pricingVersionName, calculationSnapshot } = source;
+    onUpdate(item.id, { ...item, quality, thickness, size, surface, selectedColor, selectedColorHex, colorType, customColorName, customOpacity, colorMixingCost, specDisplay, totalPrice, breakdown, pricingVersionId, pricingVersionName, calculationSnapshot, ...patch });
+    onSpecStatus?.(item.id, reason);
+  };
 
   const handleEditInCalculator = () => {
+    if (!window.confirm('계산기로 이동하면 이 화면의 저장하지 않은 수정은 유지되지 않습니다. 이동할까요?')) return;
     // 견적 데이터를 URL 파라미터로 전달하여 계산기로 이동
     const quoteParams = new URLSearchParams({
       type: 'quote',
@@ -76,6 +95,7 @@ const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: Editabl
       editMode: 'saved',
       savedQuoteId: quoteId || '',
       itemId: editedItem.id,
+      itemIndex: String(index),
     });
     
     navigate(`/calculator?${quoteParams.toString()}`);
@@ -163,6 +183,7 @@ const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: Editabl
                 variant="outline"
                 size="sm"
                 onClick={() => handleQuantityChange(editedItem.quantity - 1)}
+                aria-label="품목 수량 줄이기"
                 className="w-8 h-8 p-0 border-0 hover:bg-gray-100"
               >
                 <Minus className="w-4 h-4" />
@@ -170,6 +191,7 @@ const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: Editabl
               <Input
                 type="number"
                 value={editedItem.quantity}
+                aria-label="품목 수량"
                 onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
                 className="w-16 text-center border-0 h-8 p-0 text-sm font-semibold"
                 min="1"
@@ -178,6 +200,7 @@ const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: Editabl
                 variant="outline"
                 size="sm"
                 onClick={() => handleQuantityChange(editedItem.quantity + 1)}
+                aria-label="품목 수량 늘리기"
                 className="w-8 h-8 p-0 border-0 hover:bg-gray-100"
               >
                 <Plus className="w-4 h-4" />
@@ -189,6 +212,7 @@ const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: Editabl
               onClick={handleEditInCalculator}
               className="text-green-600 border-green-300 hover:bg-green-50"
               title="계산기에서 수정"
+              aria-label="계산기에서 수정"
             >
               <Calculator className="w-4 h-4" />
             </Button>
@@ -196,6 +220,8 @@ const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: Editabl
               variant="outline"
               size="sm"
               onClick={() => setIsExpanded(!isExpanded)}
+              aria-label="가격 상세 내역"
+              aria-expanded={isExpanded}
               className="text-blue-600 border-blue-300"
             >
               {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -204,6 +230,7 @@ const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: Editabl
               variant="outline"
               size="sm"
               onClick={() => onRemove(editedItem.id)}
+              aria-label="품목 삭제"
               className="text-red-600 border-red-300 hover:bg-red-50"
             >
               <Trash2 className="w-4 h-4" />
@@ -212,12 +239,17 @@ const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: Editabl
         </div>
       </CardHeader>
       <CardContent className="pt-4">
+        {panel && <div className="mb-4 space-y-3">
+          <Button variant="outline" aria-expanded={specOpen} onClick={() => { if (specOpen) handleSpecChange(null, ''); setSpecOpen(!specOpen); }}>{specOpen ? '사양 변경 취소' : '재질·컬러 변경'}</Button>
+          {specOpen && <IssuedQuoteSpecEditor original={original || item as Quote} onChange={handleSpecChange} onRecover={handleEditInCalculator} />}
+        </div>}
         {/* 기본 옵션들 표시 (편집 가능) */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           <div className="p-3 bg-white rounded-lg border border-gray-200">
             <Label className="text-xs text-gray-600 mb-1">소재</Label>
             <Input
               value={editedItem.material}
+              readOnly={panel}
               onChange={(e) => handleFieldChange('material', e.target.value)}
               className="h-8 text-sm font-semibold"
             />
@@ -226,6 +258,7 @@ const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: Editabl
             <Label className="text-xs text-gray-600 mb-1">재질</Label>
             <Input
               value={editedItem.quality}
+              readOnly={panel}
               onChange={(e) => handleFieldChange('quality', e.target.value)}
               className="h-8 text-sm font-semibold"
             />
@@ -234,6 +267,7 @@ const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: Editabl
             <Label className="text-xs text-gray-600 mb-1">두께</Label>
             <Input
               value={editedItem.thickness}
+              readOnly={panel}
               onChange={(e) => handleFieldChange('thickness', e.target.value)}
               className="h-8 text-sm font-semibold"
             />
@@ -242,6 +276,7 @@ const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: Editabl
             <Label className="text-xs text-gray-600 mb-1">사이즈</Label>
             <Input
               value={editedItem.size}
+              readOnly={panel}
               onChange={(e) => handleFieldChange('size', e.target.value)}
               className="h-8 text-sm font-semibold"
             />
@@ -250,6 +285,7 @@ const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: Editabl
             <Label className="text-xs text-gray-600 mb-1">면수</Label>
             <Input
               value={editedItem.surface}
+              readOnly={panel}
               onChange={(e) => handleFieldChange('surface', e.target.value)}
               className="h-8 text-sm font-semibold"
             />
@@ -258,6 +294,7 @@ const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: Editabl
             <Label className="text-xs text-gray-600 mb-1">가공방법</Label>
             <Input
               value={editedItem.processingName}
+              readOnly={panel}
               onChange={(e) => handleFieldChange('processingName', e.target.value)}
               className="h-8 text-sm font-semibold"
             />
@@ -294,7 +331,7 @@ const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: Editabl
         )}
         
         {/* 가격 상세 내역 (확장 시 표시) */}
-        {isExpanded && editedItem.breakdown.length > 0 && (
+        {isExpanded && !specOpen && editedItem.breakdown.length > 0 && (
           <div className="mb-4 p-4 bg-white rounded-lg border border-gray-200">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-sm font-medium text-gray-700">가격 상세 내역 (단가)</h4>
@@ -340,7 +377,7 @@ const EditableQuoteItem = ({ item, index, onUpdate, onRemove, quoteId }: Editabl
         )}
 
         {/* 단가 직접 수정 (breakdown 없을 때) */}
-        {!isExpanded && (
+        {!isExpanded && !specOpen && (
           <div className="mb-4 p-3 bg-white rounded-lg border border-gray-200">
             <Label className="text-xs text-gray-600 mb-1">단가 직접 입력</Label>
             <div className="flex items-center gap-2">
