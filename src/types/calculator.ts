@@ -4,6 +4,9 @@ export interface Material {
   name: string;
 }
 
+// Existing calculator default; shared so issued revisions do not retain the previous color's charge.
+export const DEFAULT_COLOR_MIXING_COST = 40000;
+
 export interface Quality {
   id: string;
   name: string;

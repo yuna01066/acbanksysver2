@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, ArrowRight, Calculator, Plus, ShoppingCart } from "lucide-react";
-import { MATERIALS, CASTING_QUALITIES, OTHER_ACRYLIC_QUALITIES, Material, Quality } from "@/types/calculator";
+import { MATERIALS, CASTING_QUALITIES, OTHER_ACRYLIC_QUALITIES, Material, Quality, DEFAULT_COLOR_MIXING_COST } from "@/types/calculator";
 import ProcessingOptions from "./ProcessingOptions";
 import ColorMixingStep from "./ColorMixingStep";
 import StepIndicator from "./StepIndicator";
@@ -33,8 +33,9 @@ import ManualProductEntry, { ManualProductItem } from "./ManualProductEntry";
 import type { Database } from '@/integrations/supabase/types';
 import { formatPricingVersionDisplayName } from '@/utils/pricingVersionDisplay';
 import { createQuoteItemId, normalizeQuoteItems } from '@/utils/quoteItemIdentity';
+import { calculateQuoteTotals, restorePanelCalculation, hasPanelCalculationChanges } from '@/utils/issuedQuoteRevision';
+import { saveIssuedQuoteRevision } from '@/services/issuedQuoteRevision';
 
-const DEFAULT_COLOR_MIXING_COST = 40000;
 const CALCULATOR_RECOVERY_STORAGE_KEY = 'acbank_calculator_recovery_v1';
 
 type PricingVersion = Pick<
@@ -166,6 +167,11 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [selectedSizes, setSelectedSizes] = useState<SizeQuantitySelection[]>([]);
   const [selectedColor, setSelectedColor] = useState<string>('');
+  const [selectedColorId, setSelectedColorId] = useState('');
+  const [registeredColorReady, setRegisteredColorReady] = useState(false);
+  const [savedBaseline, setSavedBaseline] = useState<Database['public']['Tables']['saved_quotes']['Row'] | null>(null);
+  const [restoreWarning, setRestoreWarning] = useState('');
+  const savedSubmitRef = useRef(false);
   const [selectedColorHex, setSelectedColorHex] = useState<string>('');
   const [selectedColorType, setSelectedColorType] = useState<string>('');
   const [customColorName, setCustomColorName] = useState<string>('');
@@ -288,6 +294,10 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
 
   const applyCalculatorRecoveryDraft = (draft: CalculatorRecoveryDraft) => {
     const state = draft.state;
+    if (state.editMode === 'saved') {
+      toast.warning('발행 견적은 최신 기록과 충돌 여부를 확인해야 합니다. 상세 화면에서 수정으로 다시 진입해 주세요. 기존 복구 데이터는 보존됩니다.');
+      return;
+    }
     const allQualities = [...CASTING_QUALITIES, ...OTHER_ACRYLIC_QUALITIES];
     const material = state.selectedMaterialId
       ? MATERIALS.find(candidate => candidate.id === state.selectedMaterialId) || null
@@ -458,6 +468,41 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
     }
 
     const editModeParam = searchParams.get('editMode');
+    if (editModeParam === 'saved' && (!searchParams.get('material') || searchParams.get('material') === '아크릴 판')) {
+      setEditMode('saved'); setSavedQuoteId(searchParams.get('savedQuoteId')); setSavedQuoteItemId(searchParams.get('itemId'));
+      setRestoreWarning('저장된 계산 근거를 불러오는 중입니다.');
+      let active = true;
+      void (async () => {
+        const { data, error } = await supabase.from('saved_quotes').select('*').eq('id', searchParams.get('savedQuoteId')).single();
+        if (!active) return;
+        restoredSearchKeyRef.current = restoreKey;
+        if (error) { setRestoreWarning('견적 조회에 실패했습니다. 기존 값을 추정하여 복원하지 않습니다.'); return; }
+        const normalizedItems = toSavedQuoteItems(data.items);
+        const item = (normalizedItems.find(row => row.id === searchParams.get('itemId')) || (searchParams.has('itemIndex') ? normalizedItems[Number(searchParams.get('itemIndex'))] : null)) as unknown as Quote;
+        if (!item) { setRestoreWarning('수정할 품목을 찾을 수 없습니다. 상세 화면에서 다시 열어 주세요.'); return; }
+        setSavedBaseline({ ...data, items: normalizedItems as unknown as typeof data.items }); setSavedQuoteItemId(item.id);
+        const restored = restorePanelCalculation(item);
+        if (!restored.inputs || restored.confirmation.some(text => text.includes('다릅니다'))) {
+          setRestoreWarning('과거 계산 근거가 부족하거나 표시 사양과 다릅니다. 원판 장수·가공·조색비를 포함한 모든 조건을 다시 선택해 주세요. 저장 전 전체 조건을 확인합니다.');
+          setSelectedMaterial(MATERIALS[0]); setSelectedQuality(null); setSelectedSizes([]); setSelectedProcessing(''); setCurrentStep(2);
+          return;
+        }
+        const input = restored.inputs;
+        setSelectedMaterial(input.selectedMaterial); setSelectedQuality(input.selectedQuality);
+        setSelectedThickness(input.selectedThickness); setSelectedSize(input.selectedSize); setSelectedSizes(input.selectedSizes);
+        setSelectedColor(item.selectedColor || ''); setSelectedColorId(String(item.calculationSnapshot?.selectedOptions?.colorId || ''));
+        setSelectedColorHex(item.selectedColorHex || ''); setSelectedColorType(input.selectedColorType);
+        setCustomColorName(item.customColorName || ''); setCustomOpacity(item.customOpacity || '');
+        setSelectedSurface(input.selectedSurface); setColorMixingCost(input.colorMixingCost);
+        setSelectedProcessing(String(item.calculationSnapshot.selectedOptions.processing)); setSelectedProcessingName(item.processingName);
+        setSelectedAdhesion(input.selectedAdhesion); setSelectedAdditionalOptions(input.selectedAdditionalOptions);
+        setQty(input.qty); setIsComplex(input.isComplex); setBevelLengthM(input.bevelLengthM); setLaserHoles(input.laserHoles);
+        setPolishedEdgeLengthMm(input.polishedEdgeLengthM * 1000); setEdgeFinishing(input.edgeFinishing);
+        setBulgwang(input.bulgwang); setTapung(input.tapung); setMugwangPainting(input.mugwangPainting);
+        setRestoreWarning(restored.confirmation.join(' ')); setCurrentStep(3);
+      })();
+      return () => { active = false; };
+    }
     if (editModeParam === 'saved' || editModeParam === 'draft') {
       console.log('Edit mode detected, restoring quote data from URL params');
       console.log('All URL params:', Object.fromEntries(searchParams.entries()));
@@ -759,6 +804,9 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
 
   const {
     priceInfo,
+    isReady: priceReady,
+    isLoading: priceLoading,
+    error: priceError,
     getAvailableSizes
   } = usePriceCalculation({
     selectedFactory: 'jangwon',
@@ -776,9 +824,9 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
     // V2 고급 옵션
     qty,
     isComplex,
-    bevelLengthM: 0,
+    bevelLengthM,
     polishedEdgeLengthM,
-    laserHoles: 0,
+    laserHoles,
     edgeFinishing,
     bulgwang,
     tapung,
@@ -928,6 +976,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
     setCurrentStep(2);
   };
   const handleQualitySelect = (quality: Quality) => {
+    setSelectedColorId(''); setRegisteredColorReady(false);
     console.log('Quality selected:', quality);
     setSelectedQuality(quality);
     setYieldAppliedSelection(null);
@@ -945,6 +994,8 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
   }) => {
     console.log('Color selected:', colorId, colorInfo);
     if (colorInfo) {
+      setSelectedColorId(colorId);
+      if (editMode === 'saved' && colorInfo.acCode !== selectedColor) setSelectedSizes(prev => prev.map(size => ({ ...size, colorMixingCost: undefined })));
       setSelectedColor(colorInfo.acCode);
       setSelectedColorHex(colorInfo.hexCode);
       setCustomColorName(colorInfo.customColorName || '');
@@ -1133,10 +1184,12 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
         yieldRecommendation: yieldAppliedSelection?.yieldRecommendation || null,
         colorType: selectedColorType,
         selectedColor,
+        colorId: selectedColorId,
         selectedColorHex,
         customColorName,
         customOpacity,
         processing: selectedProcessing,
+        adhesion: selectedAdhesion || 'none',
         processingName: selectedProcessingName || PROCESSING_OPTIONS.find(p => p.id === selectedProcessing)?.name || '',
         additionalOptions: selectedAdditionalOptions,
         quantityContext: {
@@ -1147,10 +1200,10 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
         },
         qty,
         isComplex,
-        bevelLengthM: 0,
+        bevelLengthM,
         polishedEdgeLengthM,
         polishedEdgeLengthMm,
-        laserHoles: 0,
+        laserHoles,
         edgeFinishing,
         bulgwang,
         tapung,
@@ -1175,6 +1228,10 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
   };
 
   const handleAddQuote = async () => {
+    if (savedSubmitRef.current) return;
+    if (priceError || priceLoading || !priceReady) { toast.error('단가 조회가 완료되지 않았습니다. 잠시 후 다시 확인해 주세요.'); return; }
+    if (editMode === 'saved' && (!savedBaseline || !activePricingVersion || !registeredColorReady || !selectedColorId)) { toast.error('저장된 견적과 등록 컬러·단가표를 확인해 주세요.'); return; }
+    if (editMode === 'saved' && (!selectedQuality?.thicknesses.includes(selectedThickness) || selectedSizes.some(s => !getAvailableSizes().includes(s.size) || !Number.isFinite(s.colorMixingCost) || s.colorMixingCost < 0))) { toast.error('두께·규격·새 조색비를 다시 확인해 주세요.'); return; }
     // 다중 선택 방식으로 검증 수정
     if (!selectedMaterial || !selectedQuality || !selectedThickness || selectedSizes.length === 0) {
       alert('모든 필수 항목을 선택해주세요.');
@@ -1200,7 +1257,9 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
     }
 
     const processingName = selectedProcessingName || PROCESSING_OPTIONS.find(p => p.id === selectedProcessing)?.name || '';
-    const itemTitleParam = searchParams.get('itemTitle')?.trim();
+    const itemTitleParam = editMode === 'saved'
+      ? toSavedQuoteItems(savedBaseline?.items).find(item => item.id === savedQuoteItemId)?.itemTitle?.trim()
+      : searchParams.get('itemTitle')?.trim();
     
     // 다중 선택된 사이즈를 하나의 견적으로 처리 (총 가격은 priceInfo.totalPrice)
     const quoteData: QuoteDraft = {
@@ -1249,15 +1308,10 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
 
     // 편집 모드일 때: 저장된 견적서의 해당 항목을 업데이트
     if (editMode === 'saved' && savedQuoteId && (savedQuoteItemId || legacyItemIndex !== null)) {
+      if (!window.confirm(`원판·가공 조건을 확인해 주세요.\n${selectedSizes.map(s => `${s.size}: ${s.quantity}장, ${s.surface}, 조색 ${s.colorMixingCost}원`).join('\n')}\n${processingName} / 별도 접착 ${selectedAdhesion || '없음'} / 제품 수량 ${qty}\n추가 옵션 ${JSON.stringify(selectedAdditionalOptions)}\n${priceInfo.warnings.join('\n')}\n변경 품목 단가 ${priceInfo.totalPrice.toLocaleString()}원. 사양 변경 시 수동 총액 조정을 해제합니다. 수정 저장할까요?`)) return;
+      savedSubmitRef.current = true;
       try {
-        // 기존 견적서 데이터 가져오기
-        const { data: existingQuote, error: fetchError } = await supabase
-          .from('saved_quotes')
-          .select('items, subtotal, tax, total, quote_number, project_name, recipient_company, recipient_name, recipient_phone, recipient_email, recipient_address, recipient_memo, quote_date_display, valid_until, delivery_period, payment_condition, desired_delivery_date, issuer_name, issuer_email, issuer_phone, attachments, user_id')
-          .eq('id', savedQuoteId)
-          .single();
-
-        if (fetchError) throw fetchError;
+        const existingQuote = savedBaseline;
 
         // items 배열 업데이트
         const items = toSavedQuoteItems(existingQuote.items);
@@ -1274,45 +1328,29 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
         items[targetIndex] = {
           ...existingItem,
           ...quoteData,
+          quantity: existingItem.quantity,
+          specDisplay: existingItem.specDisplay,
           id: existingItem.id || savedQuoteItemId || createQuoteItemId(),
           createdAt: existingItem.createdAt || new Date().toISOString(),
         };
 
-        // 총액 재계산
-        const newSubtotal = calculateSavedQuoteSubtotal(items);
-        const roundedSubtotal = Math.round(newSubtotal / 100) * 100;
-        const newTax = Math.round(roundedSubtotal * 0.1);
-        const newTotal = roundedSubtotal + newTax;
+        const snapshot = items[targetIndex].calculationSnapshot;
+        snapshot.selectedOptions.reviewAcknowledged = true;
+        snapshot.selectedOptions.specDisplay = existingItem.specDisplay;
+        const calculationChanged = hasPanelCalculationChanges(existingItem as Quote, items[targetIndex] as Quote);
+        if (!calculationChanged) items[targetIndex] = { ...existingItem, ...(quoteData.itemTitle ? { itemTitle: quoteData.itemTitle } : {}) };
+        const totals = calculationChanged ? calculateQuoteTotals(items as Quote[]) : { subtotal: existingQuote.subtotal, tax: existingQuote.tax, total: existingQuote.total };
+        await saveIssuedQuoteRevision(savedQuoteId, existingQuote.updated_at, {
+          items, ...totals,
+          calculation_snapshot: {
+            ...(existingQuote.calculation_snapshot as Record<string, unknown> || {}),
+            ...totals, editedAt: new Date().toISOString(),
+            manualTotalAdjustment: calculationChanged ? null : (existingQuote.calculation_snapshot as Record<string, unknown>)?.manualTotalAdjustment || null,
+            items: items.map(item => ({ id: item.id, totalPrice: item.totalPrice, quantity: item.quantity, calculationSnapshot: item.calculationSnapshot || null })),
+          },
+        });
 
-        // 저장된 견적서 업데이트
-        const { error: updateError } = await supabase
-          .from('saved_quotes')
-          .update({
-            items,
-            subtotal: roundedSubtotal,
-            tax: newTax,
-            total: newTotal,
-            pricing_version_id: activePricingVersion?.id || null,
-            calculation_snapshot: {
-              schemaVersion: 2,
-              capturedAt: new Date().toISOString(),
-              snapshotVersion: 'issued-quote-snapshot-v2',
-              formulaDocVersion: 260520,
-              pricingVersionId: activePricingVersion?.id || null,
-              pricingVersionName: getActivePricingVersionDisplayName(),
-              items: items.map(item => ({
-                id: item.id,
-                totalPrice: item.totalPrice,
-                quantity: item.quantity || 1,
-                calculationSnapshot: item.calculationSnapshot || null,
-              })),
-            },
-          } as any)
-          .eq('id', savedQuoteId);
-
-        if (updateError) throw updateError;
-
-        alert('견적 항목이 수정되었습니다!');
+        alert('견적과 수정 이력이 저장되었습니다. PDF를 재출력하고 관련 발주·세금계산서를 확인해 주세요.');
         clearCalculatorRecoveryDraft();
         
         // 편집 모드 초기화 및 저장된 견적서 상세 페이지로 이동
@@ -1325,8 +1363,10 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
         return;
       } catch (error) {
         console.error('Error updating saved quote:', error);
-        alert('견적 수정에 실패했습니다.');
+        toast.error(error instanceof Error ? error.message : '견적 수정에 실패했습니다. 편집 내용은 유지됩니다.');
         return;
+      } finally {
+        savedSubmitRef.current = false;
       }
     }
 
@@ -1686,7 +1726,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
   const maxSteps = selectedQuality?.id === 'film-acrylic' ? 10 : 9;
   const isRawOnlyProcessing = selectedProcessing === 'raw-only';
   const isQuoteProcessingReady = isProcessingSelectionComplete || isRawOnlyProcessing;
-  const quoteSubmitDisabledReason = !isQuoteProcessingReady
+  const quoteSubmitDisabledReason = priceError ? '단가표 조회에 실패했습니다.' : priceLoading || !priceReady ? '단가 정보를 확인하고 있습니다.' : !isQuoteProcessingReady
     ? '가공 카테고리의 세부 옵션을 선택해주세요. 가공이 없는 경우 원판 구매 옵션을 선택해주세요.'
     : priceInfo.status === 'blocked'
       ? priceInfo.blockedReasons?.[0] || '생산 불가 조합 또는 단가 미등록 상태입니다.'
@@ -1716,6 +1756,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
           </div>
         </CardHeader>
         <CardContent className="p-5 sm:p-7 space-y-7">
+          {editMode === 'saved' && <p role="status" className="rounded-md border p-3 text-sm">{restoreWarning || '저장된 원판·가공 조건을 복원했습니다.'} 변경한 품목만 현재 단가로 재계산됩니다. 기존 첨부 PDF·발주·세금계산서는 자동 변경되지 않습니다.</p>}
           {pendingRecoveryDraft && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1833,7 +1874,9 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
                   onBaseTypeSelect={setSelectedBaseType}
                 />
               ) : (
-                <ColorSelection 
+                <ColorSelection
+                  registeredOnly={editMode === 'saved'}
+                  onAvailabilityChange={setRegisteredColorReady}
                   selectedColor={selectedColor} 
                   selectedQuality={selectedQuality} 
                   onColorSelect={handleColorSelect}

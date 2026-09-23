@@ -8674,6 +8674,10 @@ export type Database = {
       }
     }
     Functions: {
+      save_issued_quote_revision: {
+        Args: { quote_id: string; expected_updated_at: string; patch: Json }
+        Returns: Json
+      }
       admin_cancel_leave: {
         Args: { _leave_request_id: string; _reason: string }
         Returns: string
