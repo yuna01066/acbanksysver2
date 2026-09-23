@@ -8674,10 +8674,6 @@ export type Database = {
       }
     }
     Functions: {
-      save_issued_quote_revision: {
-        Args: { quote_id: string; expected_updated_at: string; patch: Json }
-        Returns: Json
-      }
       admin_cancel_leave: {
         Args: { _leave_request_id: string; _reason: string }
         Returns: string
@@ -9014,6 +9010,10 @@ export type Database = {
       save_assistant_shortcuts: {
         Args: { shortcut_ids: string[] }
         Returns: string[]
+      }
+      save_issued_quote_revision: {
+        Args: { expected_updated_at: string; patch: Json; quote_id: string }
+        Returns: Json
       }
       search_portfolio_posts: {
         Args: {
