@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
@@ -25,7 +25,7 @@ interface SizeQuantitySelection {
   surfaceAdditionalCost?: number; // 면수 추가금액
 }
 
-interface UsePriceCalculationProps {
+export interface UsePriceCalculationProps {
   selectedFactory: string;
   selectedMaterial: Material | null;
   selectedQuality: Quality | null;
@@ -97,13 +97,12 @@ export const usePriceCalculation = ({
   tapung = false,
   mugwangPainting = false
 }: UsePriceCalculationProps) => {
-  const [priceInfo, setPriceInfo] = useState<PriceInfo>(EMPTY_PRICE_INFO);
   const panelMasterLookupQualityId = selectedQuality?.id === 'bright-color'
     ? 'glossy-color'
     : selectedQuality?.id;
 
   // Fetch panel master for the selected quality
-  const { data: panelMaster } = useQuery({
+  const { data: panelMaster, ...masterQuery } = useQuery({
     queryKey: ['panel-master-for-calc', panelMasterLookupQualityId],
     queryFn: async () => {
       if (!panelMasterLookupQualityId) return null;
@@ -116,14 +115,14 @@ export const usePriceCalculation = ({
 
       if (error) {
         console.error('Error fetching panel master:', error);
-        return null;
+        throw error;
       }
 
       return data;
     },
   });
 
-  const { data: clearPanelMaster } = useQuery({
+  const { data: clearPanelMaster, ...clearMasterQuery } = useQuery({
     queryKey: ['panel-master-for-calc', 'glossy-color'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -134,7 +133,7 @@ export const usePriceCalculation = ({
 
       if (error) {
         console.error('Error fetching clear panel master:', error);
-        return null;
+        throw error;
       }
 
       return data;
@@ -142,7 +141,7 @@ export const usePriceCalculation = ({
   });
 
   // Fetch active processing options (모든 필드 가져오기)
-  const { data: processingOptions } = useQuery({
+  const { data: processingOptions, ...processingQuery } = useQuery({
     queryKey: ['processing-options', 'active'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -152,7 +151,7 @@ export const usePriceCalculation = ({
 
       if (error) {
         console.error('Error fetching processing options:', error);
-        return [];
+        throw error;
       }
 
       console.log('Loaded processing options:', data);
@@ -161,7 +160,7 @@ export const usePriceCalculation = ({
   });
 
   // Fetch advanced processing settings (raw_only_multiplier 등)
-  const { data: advancedSettings } = useQuery({
+  const { data: advancedSettings, ...settingsQuery } = useQuery({
     queryKey: ['advanced-processing-settings'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -171,7 +170,7 @@ export const usePriceCalculation = ({
 
       if (error) {
         console.error('Error fetching advanced processing settings:', error);
-        return [];
+        throw error;
       }
 
       return data;
@@ -179,7 +178,7 @@ export const usePriceCalculation = ({
   });
 
   // Fetch active panel sizes
-  const { data: activePanelSizes } = useQuery({
+  const { data: activePanelSizes, ...sizesQuery } = useQuery({
     queryKey: ['active-panel-sizes', panelMaster?.id, selectedThickness],
     queryFn: async () => {
       if (!panelMaster?.id || !selectedThickness) return [];
@@ -197,7 +196,7 @@ export const usePriceCalculation = ({
     enabled: !!panelMaster?.id && !!selectedThickness
   });
 
-  const { data: clearPanelSizes } = useQuery({
+  const { data: clearPanelSizes, ...clearSizesQuery } = useQuery({
     queryKey: ['active-panel-sizes-clear-base', clearPanelMaster?.id, selectedThickness],
     queryFn: async () => {
       if (!clearPanelMaster?.id || !selectedThickness) return [];
@@ -215,7 +214,7 @@ export const usePriceCalculation = ({
     enabled: !!clearPanelMaster?.id && !!selectedThickness
   });
 
-  const { data: optionSurcharges } = useQuery({
+  const { data: optionSurcharges, ...surchargesQuery } = useQuery({
     queryKey: ['panel-option-surcharges-calc', selectedQuality?.id],
     queryFn: async () => {
       if (!selectedQuality?.id) return [];
@@ -233,7 +232,7 @@ export const usePriceCalculation = ({
   });
 
   // Fetch color mixing costs
-  const { data: colorMixingCosts } = useQuery({
+  const { data: colorMixingCosts, ...mixingQuery } = useQuery({
     queryKey: ['color-mixing-costs-calc', panelMaster?.id],
     queryFn: async () => {
       if (!panelMaster?.id) return [];
@@ -302,7 +301,7 @@ export const usePriceCalculation = ({
   };
 
   // 가격 계산 업데이트 (V2 증분 방식)
-  useEffect(() => {
+  const priceInfo = useMemo<PriceInfo>(() => {
     console.log('Price calculation triggered with:', {
       factory: selectedFactory,
       material: selectedMaterial?.id,
@@ -592,7 +591,7 @@ export const usePriceCalculation = ({
         totalPrice, 
         breakdown: allBreakdown 
       });
-      setPriceInfo({
+      return {
         totalPrice,
         breakdown: allBreakdown,
         status: aggregateBlockedReasons.length > 0 ? 'blocked' : aggregateWarnings.length > 0 ? 'needs_review' : 'calculable',
@@ -607,7 +606,7 @@ export const usePriceCalculation = ({
         blockedReasons: Array.from(new Set(aggregateBlockedReasons)),
         snapshotVersion: 'pricing-engine-v2-core-260520',
         formulaDocVersion: 260520,
-      });
+      };
     }
     // 단일 선택된 사이즈가 있는 경우 (하위 호환성)
     else if (selectedMaterial && selectedQuality && selectedThickness && selectedSize && selectedFactory === 'jangwon') {
@@ -685,10 +684,10 @@ export const usePriceCalculation = ({
       );
       
       console.log('Single-size price calculation result:', result);
-      setPriceInfo(result);
+      return result;
     } else {
       console.log('Price calculation skipped - missing required fields or not Jangwon factory');
-      setPriceInfo(EMPTY_PRICE_INFO);
+      return EMPTY_PRICE_INFO;
     }
   }, [
     selectedFactory, 
@@ -727,6 +726,9 @@ export const usePriceCalculation = ({
 
   return {
     priceInfo,
+    isLoading: [masterQuery, clearMasterQuery, processingQuery, settingsQuery, sizesQuery, clearSizesQuery, surchargesQuery, mixingQuery].some(q => q.isFetching),
+    error: [masterQuery, clearMasterQuery, processingQuery, settingsQuery, sizesQuery, clearSizesQuery, surchargesQuery, mixingQuery].find(q => q.error)?.error ?? null,
+    isReady: !!panelMaster && !!clearPanelMaster && [processingQuery, settingsQuery, sizesQuery, clearSizesQuery, surchargesQuery, mixingQuery].every(q => q.isSuccess && !q.isFetching),
     hasPriceData,
     getAvailableSizes
   };

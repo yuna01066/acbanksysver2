@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Palette, Plus, Minus, ArrowRight } from "lucide-react";
 import { SizeQuantitySelection } from "./MultipleSizeSelection";
 
-const DEFAULT_COLOR_MIXING_COST = 40000;
+import { DEFAULT_COLOR_MIXING_COST } from '@/types/calculator';
 
 interface MultipleColorMixingStepProps {
   selectedSizes: SizeQuantitySelection[];

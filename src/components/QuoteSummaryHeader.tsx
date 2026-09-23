@@ -23,6 +23,7 @@ interface QuoteSummaryHeaderProps {
   isEditMode?: boolean;
   onEdit?: () => void;
   onSaveEdit?: () => void;
+  saveEditDisabled?: boolean;
   onCancelEdit?: () => void;
   onToggleViewMode?: () => void;
   viewMode?: 'internal' | 'customer';
@@ -45,6 +46,7 @@ const QuoteSummaryHeader = ({
   isEditMode = false,
   onEdit,
   onSaveEdit,
+  saveEditDisabled = false,
   onCancelEdit,
   onToggleViewMode,
   viewMode = 'internal',
@@ -97,11 +99,11 @@ const QuoteSummaryHeader = ({
             <>
               {isEditMode ? (
                 <>
-                  <Button variant="outline" onClick={onSaveEdit} className="text-green-600 border-green-600">
+                  <Button variant="outline" disabled={isSaving || saveEditDisabled} onClick={onSaveEdit} className="text-green-600 border-green-600">
                     <Save className="w-4 h-4 mr-2" />
-                    저장
+                    {isSaving ? '저장 중…' : '수정 저장'}
                   </Button>
-                  <Button variant="outline" onClick={onCancelEdit}>
+                  <Button variant="outline" disabled={isSaving} onClick={onCancelEdit}>
                     <X className="w-4 h-4 mr-2" />
                     취소
                   </Button>

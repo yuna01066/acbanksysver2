@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Trash2, Plus, Minus } from "lucide-react";
 import { formatPrice } from "@/utils/priceCalculations";
 import { Quote } from "@/contexts/QuoteContext";
+import { quoteSpecNames } from '@/utils/issuedQuoteRevision';
 import { getQuoteStyleForItem, getQuoteStyleProfile } from "@/utils/quoteStyle";
 import { isPanelStockSummaryValue, isPanelSurfaceSummaryValue } from "@/utils/quoteOptionDisplay";
 
@@ -39,11 +40,11 @@ const CustomerQuoteCard = ({ quote, index, onRemove, onUpdateQuantity, isCustome
   const visibleOptions = [
     {
       label: '색상',
-      value: quote.colorType === 'CUSTOM' ? (quote.customColorName || '맞춤 색상') : (quote.selectedColor || quote.colorType || '-'),
+      value: quoteSpecNames(quote).color || '-',
       swatch: quote.selectedColorHex,
     },
     { label: isFabrication ? '견적 기준' : '소재', value: quote.material },
-    { label: isFabrication ? '소재' : '재질', value: quote.quality },
+    { label: isFabrication ? '소재' : '재질', value: quoteSpecNames(quote).quality },
     { label: '두께', value: quote.thickness },
     ...((!isCustomerView || isFabrication) ? [
       ...(!shouldHideStockSize ? [{ label: isFabrication ? '규격' : '사이즈', value: quote.size }] : []),

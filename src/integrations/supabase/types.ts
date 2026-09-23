@@ -9011,6 +9011,10 @@ export type Database = {
         Args: { shortcut_ids: string[] }
         Returns: string[]
       }
+      save_issued_quote_revision: {
+        Args: { expected_updated_at: string; patch: Json; quote_id: string }
+        Returns: Json
+      }
       search_portfolio_posts: {
         Args: {
           p_category_keywords?: string[]

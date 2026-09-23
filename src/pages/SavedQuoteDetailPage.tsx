@@ -29,7 +29,6 @@ import QuoteDocumentsSection from "@/components/quote-detail/QuoteDocumentsSecti
 import QuoteVersionHistory from "@/components/quote-detail/QuoteVersionHistory";
 import QuoteActivityTimeline from "@/components/quote-detail/QuoteActivityTimeline";
 import QuoteWorkflowPanel from "@/components/quote-detail/QuoteWorkflowPanel";
-import { useQuoteVersions } from "@/hooks/useQuoteVersions";
 import QuoteStyleBanner from "@/components/quote-detail/QuoteStyleBanner";
 import { detectQuoteStyleFromItems, getQuoteStyleProfile } from "@/utils/quoteStyle";
 import {
@@ -49,8 +48,11 @@ import { recordQuoteLostReason } from "@/services/quoteLossReason";
 import type { QuoteAssigneeOption } from "@/components/QuoteAssigneeSelect";
 import type { QuoteLostReasonFormValue } from "@/components/quote/QuoteLostReasonDialog";
 import { normalizeQuoteItems } from "@/utils/quoteItemIdentity";
+import { hasQuotePriceChanges, hasQuoteSpecChanges } from '@/utils/issuedQuoteRevision';
+import { saveIssuedQuoteRevision } from '@/services/issuedQuoteRevision';
 
 interface SavedQuote {
+  updated_at: string;
   id: string;
   quote_number: string;
   quote_date: string;
@@ -154,7 +156,12 @@ const SavedQuoteDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [editedItems, setEditedItems] = useState<any[]>([]);
-  const [editedItemsTouched, setEditedItemsTouched] = useState(false);
+  const editedItemsTouched = hasQuotePriceChanges(quote?.items || [], editedItems);
+  const specsChanged = hasQuoteSpecChanges(quote?.items || [], editedItems);
+  const [specErrors, setSpecErrors] = useState<Record<string, string>>({});
+  const [savingRevision, setSavingRevision] = useState(false);
+  const savingRevisionRef = useRef(false);
+  const blockingSpecReason = editedItems.map(item => specErrors[item.id]).find(Boolean);
   const [editedQuoteNotes, setEditedQuoteNotes] = useState('');
   const [quotePdf, setQuotePdf] = useState<QuotePdfAttachment | null>(null);
   const [linkedProject, setLinkedProject] = useState<{ id: string; name: string; payment_status: string | null } | null>(null);
@@ -185,7 +192,6 @@ const SavedQuoteDetailPage = () => {
   const printContainerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const { user, profile, isAdmin, isModerator } = useAuth();
-  const { saveVersion } = useQuoteVersions(id);
 
   useEffect(() => {
     if (id) {
@@ -311,7 +317,7 @@ const SavedQuoteDetailPage = () => {
       const attachmentsArray = Array.isArray(formattedData.attachments) ? formattedData.attachments : [];
       setAttachments(attachmentsArray.filter((a: any) => a?.type !== 'quote_pdf'));
       setEditedItems(Array.isArray(formattedData.items) ? formattedData.items : []);
-      setEditedItemsTouched(false);
+      setSpecErrors({});
       setEditedQuoteNotes(formattedData.quote_notes || '');
       
       // 견적서 PDF 정보 로드 (attachments 배열에서 quote_pdf 타입 찾기)
@@ -440,7 +446,11 @@ const SavedQuoteDetailPage = () => {
   };
 
   const handleSaveEdit = async () => {
-    if (!id) return;
+    if (!id || !quote || savingRevisionRef.current) return;
+    if (blockingSpecReason) { toast.error(blockingSpecReason); return; }
+    savingRevisionRef.current = true;
+    setSavingRevision(true);
+    let revisionSaved = false;
 
     try {
       const normalizedEditedItems = normalizeQuoteItems(editedItems);
@@ -462,7 +472,7 @@ const SavedQuoteDetailPage = () => {
       let newTotal = autoCalculatedTotal;
       let manualTotalAdjustment: ManualTotalAdjustmentSnapshot | null = null;
 
-      if (manualTotalOverride) {
+      if (manualTotalOverride && !specsChanged) {
         roundedSubtotal = manualTotalOverride.subtotal;
         newTax = manualTotalOverride.tax;
         newTotal = manualTotalOverride.total;
@@ -501,9 +511,7 @@ const SavedQuoteDetailPage = () => {
       const projectNameForSave = getTextForSave('projectName', quote.project_name);
       const companyNameForSave = getTextForSave('companyName', quote.recipient_company);
 
-      const { error } = await supabase
-        .from('saved_quotes')
-        .update({
+      await saveIssuedQuoteRevision(id, quote.updated_at, {
           project_name: formatQuoteProjectTitle({
             projectName: projectNameForSave,
             companyName: companyNameForSave,
@@ -551,55 +559,9 @@ const SavedQuoteDetailPage = () => {
           subtotal: roundedSubtotal,
           tax: newTax,
           total: newTotal
-        })
-        .eq('id', id);
-
-      if (error) throw error;
-      await cleanupPendingFiles(pendingFiles);
-
-      // Save version snapshot before edit
-      if (quote) {
-        const changes: string[] = [];
-        if (recipientData.projectName !== (quote.project_name || '')) changes.push('프로젝트명');
-        if (recipientData.companyName !== (quote.recipient_company || '')) changes.push('거래처');
-        if (editedItems.length !== items.length) changes.push('품목 수');
-        if ((editedQuoteNotes.trim() || '') !== (quote.quote_notes || '')) changes.push('안내사항');
-        if (roundedSubtotal !== Math.round(quote.subtotal) || newTotal !== Math.round(quote.total)) changes.push('금액');
-        if (manualTotalAdjustment) changes.push('VAT 포함 최종금액 수동 조정');
-        const summary = changes.length > 0 ? `${changes.join(', ')} 변경` : '수정됨';
-        
-        saveVersion.mutate({
-          snapshot: {
-            project_name: quote.project_name,
-            recipient_company: quote.recipient_company,
-            recipient_name: quote.recipient_name,
-            items: quote.items,
-            subtotal: quote.subtotal,
-            tax: quote.tax,
-            total: quote.total,
-            valid_until: quote.valid_until,
-          },
-          changeSummary: summary,
         });
-
-        if (user) {
-          await logQuoteActivity({
-            quoteId: id,
-            actionType: 'quote_updated',
-            actorId: user.id,
-            actorName: profile?.full_name || user.email || '알 수 없음',
-            memo: summary,
-            metadata: {
-              quoteNumber: quote.quote_number,
-              summary,
-              subtotal: roundedSubtotal,
-              tax: newTax,
-              total: newTotal,
-              manualTotalAdjustment,
-            },
-          });
-        }
-      }
+      revisionSaved = true;
+      await cleanupPendingFiles(pendingFiles);
 
       if (user && pendingFiles.length > 0) {
         await Promise.allSettled(pendingFiles.map((file) => logQuoteActivity({
@@ -615,16 +577,25 @@ const SavedQuoteDetailPage = () => {
         })));
       }
 
-      toast.success('견적서가 수정되었습니다.');
+      toast.success('견적서와 수정 이력이 저장되었습니다. PDF를 재출력하고 관련 발주·세금계산서를 확인해 주세요.');
       setIsEditing(false);
       setManualTotalOverride(null);
-      setEditedItemsTouched(false);
+      setSpecErrors({});
+      queryClient.invalidateQueries({ queryKey: ['quote-versions', id] });
       queryClient.invalidateQueries({ queryKey: ['quote-activity-history', id] });
       await refreshQuoteDashboardState(queryClient, id);
       fetchQuote();
     } catch (error) {
       console.error('Error updating quote:', error);
-      toast.error('견적서 수정에 실패했습니다.');
+      if (revisionSaved) {
+        toast.warning('견적과 이력은 저장됐지만 화면 갱신에 실패했습니다. 다시 저장하지 말고 새로고침해 주세요.');
+        void fetchQuote();
+      } else {
+        toast.error(error instanceof Error ? error.message : '견적서 수정에 실패했습니다. 편집 내용은 유지됩니다.');
+      }
+    } finally {
+      savingRevisionRef.current = false;
+      setSavingRevision(false);
     }
   };
 
@@ -632,7 +603,6 @@ const SavedQuoteDetailPage = () => {
     setEditedItems(prev => normalizeQuoteItems(prev).map(item =>
       item.id === itemId ? { ...updatedItem, id: itemId } : item
     ));
-    setEditedItemsTouched(true);
   };
 
   const handleItemRemove = (itemId: string) => {
@@ -642,7 +612,6 @@ const SavedQuoteDetailPage = () => {
     }
 
     setEditedItems(prev => normalizeQuoteItems(prev).filter(item => item.id !== itemId));
-    setEditedItemsTouched(true);
   };
 
   const handleAttachmentsChange = (newAttachments: any[]) => {
@@ -931,6 +900,7 @@ const SavedQuoteDetailPage = () => {
   const quoteStyle = detectQuoteStyleFromItems(displayItems);
   const quoteStyleProfile = getQuoteStyleProfile(quoteStyle);
   const activeMode = printModeOverride ?? viewMode;
+  const EditGuard = isEditing ? 'fieldset' : 'div';
   
   // 편집 모드에서도 품목을 실제로 수정하기 전까지는 저장된 금액을 유지한다.
   const itemAutoSubtotal = Math.round(
@@ -948,9 +918,9 @@ const SavedQuoteDetailPage = () => {
     ? (editedItemsTouched ? itemAutoTotal : Math.round(quote.total))
     : Math.round(quote.total);
   
-  const subtotal = (isEditing && manualTotalOverride) ? manualTotalOverride.subtotal : autoSubtotal;
-  const tax = (isEditing && manualTotalOverride) ? manualTotalOverride.tax : autoTax;
-  const totalWithTax = (isEditing && manualTotalOverride) ? manualTotalOverride.total : autoTotal;
+  const subtotal = (isEditing && manualTotalOverride && !specsChanged) ? manualTotalOverride.subtotal : autoSubtotal;
+  const tax = (isEditing && manualTotalOverride && !specsChanged) ? manualTotalOverride.tax : autoTax;
+  const totalWithTax = (isEditing && manualTotalOverride && !specsChanged) ? manualTotalOverride.total : autoTotal;
   const calculationSnapshot = quote.calculation_snapshot && typeof quote.calculation_snapshot === 'object'
     ? quote.calculation_snapshot
     : null;
@@ -964,6 +934,7 @@ const SavedQuoteDetailPage = () => {
     versionName: rawSnapshotVersionName,
     capturedAt: snapshotCapturedAt,
   });
+  const itemPricingVersions = new Set(items.map((item: any) => item.pricingVersionId || item.calculationSnapshot?.pricingVersion?.id || 'legacy'));
   const snapshotItemsCount = items.filter((item: any) => item?.calculationSnapshot).length;
   const quoteExpired = isQuoteExpired(quote.valid_until);
   const canReissueQuote = quoteExpired
@@ -985,13 +956,15 @@ const SavedQuoteDetailPage = () => {
             validUntil={quote.valid_until}
             isEditMode={isEditing}
             onEdit={() => {
-              setEditedItemsTouched(false);
+              setSpecErrors({});
               setManualTotalOverride(null);
               setEditedQuoteNotes(quote.quote_notes || '');
               setIsEditing(true);
             }}
             onSaveEdit={handleSaveEdit}
-            onCancelEdit={() => { setIsEditing(false); setManualTotalOverride(null); setEditedItemsTouched(false); setEditedQuoteNotes(quote.quote_notes || ''); fetchQuote(); }}
+            isSaving={savingRevision}
+            saveEditDisabled={!!blockingSpecReason}
+            onCancelEdit={() => { if (savingRevision) return; setIsEditing(false); setManualTotalOverride(null); setSpecErrors({}); setEditedQuoteNotes(quote.quote_notes || ''); fetchQuote(); }}
             onToggleViewMode={toggleViewMode}
             viewMode={activeMode}
             showSavedQuoteActions={true}
@@ -1000,6 +973,7 @@ const SavedQuoteDetailPage = () => {
 
           <Card className="shadow-lg border border-gray-300 rounded-xl bg-white quote-main-card [backdrop-filter:none] [-webkit-backdrop-filter:none] [background:white]" style={{ overflow: 'visible' }}>
             <CardContent className="p-6 print:p-4" style={{ overflow: 'visible' }}>
+              <EditGuard disabled={isEditing ? savingRevision : undefined} className="min-w-0" aria-busy={savingRevision}>
               {/* 견적 요약 정보 */}
               <QuoteSummarySection
                 quoteNumber={quote.quote_number}
@@ -1033,7 +1007,7 @@ const SavedQuoteDetailPage = () => {
                         단가표
                       </div>
                       <div className="mt-1 truncate text-sm font-semibold text-slate-900">
-                        {snapshotVersionName}
+                        {itemPricingVersions.size > 1 ? '품목별 단가표 혼합 · 각 품목 계산 근거 확인' : snapshotVersionName}
                       </div>
                     </div>
                     <div className="rounded-md border bg-white p-3">
@@ -1135,6 +1109,8 @@ const SavedQuoteDetailPage = () => {
                         <EditableQuoteItem
                           key={item.id}
                           item={item}
+                          original={quote.items.find((row: any) => row.id === item.id)}
+                          onSpecStatus={(itemId, reason) => setSpecErrors(prev => prev[itemId] === reason ? prev : { ...prev, [itemId]: reason })}
                           index={index}
                           onUpdate={handleItemUpdate}
                           onRemove={handleItemRemove}
@@ -1178,13 +1154,18 @@ const SavedQuoteDetailPage = () => {
               </div>
 
               {/* 견적 총 합계 */}
+              {isEditing && <div aria-live="polite" className="mb-4 text-sm tabular-nums">
+                <p>기존 총액 {quote.total.toLocaleString()}원 → 수정 총액 {totalWithTax.toLocaleString()}원 (증감 {(totalWithTax - quote.total).toLocaleString()}원)</p>
+                {specsChanged && <p>사양 변경으로 기존 수동 총액 조정이 해제됩니다. 변경하지 않은 품목은 기존 단가를 유지합니다.</p>}
+                {blockingSpecReason && <p role="alert" className="text-destructive">{blockingSpecReason}</p>}
+              </div>}
               <QuoteTotalSection
                 subtotal={subtotal}
                 tax={tax}
                 totalWithTax={totalWithTax}
                 autoTotalWithTax={autoTotal}
-                isEditing={isEditing}
-                manualAdjustment={activeMode === 'internal' ? savedManualTotalAdjustment : null}
+                isEditing={isEditing && !specsChanged}
+                manualAdjustment={activeMode === 'internal' && !specsChanged ? savedManualTotalAdjustment : null}
                 onTotalOverride={(s, t, total) => {
                   if (total === 0) {
                     setManualTotalOverride(null);
@@ -1219,6 +1200,7 @@ const SavedQuoteDetailPage = () => {
 
               {/* 첨부 서류 */}
               <QuoteDocumentsSection />
+              </EditGuard>
             </CardContent>
           </Card>
         </div>
