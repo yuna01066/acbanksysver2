@@ -80,6 +80,71 @@ assert.equal(buildSavedQuoteSearchFilter('   ', []), null);
 assert.match(buildSavedQuoteSearchFilter('AC,%_은행', []), /project_name\.ilike\.\*AC 은행\*/);
 assert.match(buildSavedQuoteSearchFilter('AC*은행', []), /project_name\.ilike\.\*AC 은행\*/);
 
+for (const amount of ['1000000', '1,000,000', '₩1,000,000', '1,000,000원', ' ₩ 1,000,000 원 ']) {
+  assert.match(buildSavedQuoteSearchFilter(amount, []), /(?:^|,)total\.eq\.1000000(?:,|$)/);
+}
+assert.match(buildSavedQuoteSearchFilter('0원', []), /total\.eq\.0(?:,|$)/);
+assert.match(buildSavedQuoteSearchFilter('1000000', []), /quote_number\.ilike\.\*1000000\*/);
+for (const term of ['AC1000000', '1,00,000', '-1000', '1e6', '1000.5', '9007199254740992', '1000),total.gt.0']) {
+  assert.doesNotMatch(buildSavedQuoteSearchFilter(term, []), /(?:^|,)total\./);
+}
+
+assert.doesNotMatch(savedQuotesSource, /debouncedSearchTerm|setTimeout\(/);
+assert.match(savedQuotesSource, /onSubmit=\{/);
+assert.match(savedQuotesSource, /setAppliedSearchTerm\(searchTerm\.trim\(\)\)/);
+assert.match(savedQuotesSource, /fetchMatchingProfileIds\(appliedSearchTerm\)/);
+assert.match(savedQuotesSource, /buildSavedQuoteSearchFilter\(appliedSearchTerm, matchingProfileIds\)/);
+assert.match(savedQuotesSource, /nativeEvent\.isComposing/);
+assert.match(savedQuotesSource, /keyCode === 229/);
+assert.match(savedQuotesSource, /type="submit"/);
+assert.match(savedQuotesSource, /setSearchTerm\(''\);\s*setAppliedSearchTerm\(''\);/);
+assert.doesNotMatch(savedQuotesSource, /if \(loading\) \{\s*return/);
+assert.match(savedQuotesSource, /activeFilterCount > 0 \? '검색 결과가 없습니다\.'/);
+
+// Run the actual form/key handlers without a browser or a live database.
+function loadSearchHandler(name, context) {
+  const tree = ts.createSourceFile('page.tsx', savedQuotesSource, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let expression;
+  function visit(node) {
+    if (ts.isJsxAttribute(node) && node.name.text === name && ts.isJsxExpression(node.initializer)) {
+      expression = node.initializer.expression.getText(tree);
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(tree);
+  assert.ok(expression, `Missing search handler: ${name}`);
+  return vm.runInNewContext(`(${expression})`, context);
+}
+for (const [loading, appliedSearchTerm, currentPage, expected] of [
+  [false, '', 2, [['page', 1], ['search', 'AC 은행']]],
+  [false, 'AC 은행', 2, [['page', 1], ['search', 'AC 은행']]],
+  [false, 'AC 은행', 1, [['fetch']]],
+  [true, '', 1, []],
+]) {
+  const calls = [];
+  let prevented = false;
+  loadSearchHandler('onSubmit', {
+    loading, appliedSearchTerm, currentPage, searchTerm: ' AC 은행 ',
+    setCurrentPage: value => calls.push(['page', value]),
+    setAppliedSearchTerm: value => calls.push(['search', value]),
+    fetchQuotes: () => calls.push(['fetch']),
+  })({ preventDefault: () => { prevented = true; } });
+  assert.equal(prevented, true);
+  assert.deepEqual(calls, expected);
+}
+for (const [key, isComposing, keyCode, expected] of [
+  ['Enter', true, 13, true],
+  ['Enter', false, 229, true],
+  ['Enter', false, 13, false],
+  ['a', true, 65, false],
+]) {
+  let prevented = false;
+  loadSearchHandler('onKeyDown', {})({
+    key, keyCode, nativeEvent: { isComposing }, preventDefault: () => { prevented = true; },
+  });
+  assert.equal(prevented, expected);
+}
+
 assert.match(savedQuotesSource, /select\('\*', \{ count: 'exact' \}\)/);
 assert.match(savedQuotesSource, /dataQuery = dataQuery\.gte\('quote_date'/);
 assert.match(savedQuotesSource, /dataQuery = dataQuery\.in\('project_stage'/);
@@ -92,7 +157,7 @@ assert.match(savedQuotesSource, /fetchRequestIdRef\.current !== requestId/);
 assert.match(savedQuotesSource, /setLoading\(true\)/);
 assert.match(
   savedQuotesSource,
-  /setCurrentPage\(1\);\s*\}, \[debouncedSearchTerm, dateFilter, stageFilter, userFilter, lostReasonFilter, sortBy\]\);/,
+  /setCurrentPage\(1\);\s*\}, \[appliedSearchTerm, dateFilter, stageFilter, userFilter, lostReasonFilter, sortBy\]\);/,
 );
 assert.doesNotMatch(savedQuotesSource, /const filterQuotes =/);
 assert.doesNotMatch(

@@ -164,6 +164,10 @@ export function buildSavedQuoteSearchFilter(searchTerm: string, profileIds: stri
     'assigned_to_name',
   ];
   const filters = textColumns.map((column) => `${column}.ilike.${pattern}`);
+  if (/^₩?\s*(?:\d+|\d{1,3}(?:,\d{3})+)\s*원?$/.test(searchTerm.trim())) {
+    const amount = Number(searchTerm.replace(/[₩,\s원]/g, ''));
+    if (Number.isSafeInteger(amount)) filters.push(`total.eq.${amount}`);
+  }
   const uniqueProfileIds = [...new Set(profileIds.filter(Boolean))];
 
   if (uniqueProfileIds.length > 0) {
@@ -192,7 +196,7 @@ const SavedQuotesPage = () => {
   const queryClient = useQueryClient();
   const [quotes, setQuotes] = useState<SavedQuote[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -239,20 +243,15 @@ const SavedQuotesPage = () => {
   }, [isAdmin]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedSearchTerm(searchTerm), 250);
-    return () => window.clearTimeout(timer);
-  }, [searchTerm]);
-
-  useEffect(() => {
     fetchQuotes();
-  }, [currentPage, user?.id, isAdmin, userFilter, debouncedSearchTerm, dateFilter, sortBy, stageFilter, lostReasonFilter]);
+  }, [currentPage, user?.id, isAdmin, userFilter, appliedSearchTerm, dateFilter, sortBy, stageFilter, lostReasonFilter]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearchTerm, dateFilter, stageFilter, userFilter, lostReasonFilter, sortBy]);
+  }, [appliedSearchTerm, dateFilter, stageFilter, userFilter, lostReasonFilter, sortBy]);
 
   const activeFilterCount = [
-    searchTerm.trim() ? 'search' : null,
+    appliedSearchTerm ? 'search' : null,
     dateFilter ? 'date' : null,
     stageFilter !== 'all' ? 'stage' : null,
     lostReasonFilter !== 'all' ? 'lostReason' : null,
@@ -276,6 +275,7 @@ const SavedQuotesPage = () => {
 
   const resetFilters = () => {
     setSearchTerm('');
+    setAppliedSearchTerm('');
     setDateFilter('');
     setStageFilter('all');
     setLostReasonFilter('all');
@@ -361,7 +361,7 @@ const SavedQuotesPage = () => {
     try {
       const from = (currentPage - 1) * ITEMS_PER_PAGE;
       const to = from + ITEMS_PER_PAGE - 1;
-      const matchingProfileIds = await fetchMatchingProfileIds(debouncedSearchTerm);
+      const matchingProfileIds = await fetchMatchingProfileIds(appliedSearchTerm);
       if (fetchRequestIdRef.current !== requestId) return;
 
       let dataQuery = supabase
@@ -378,7 +378,7 @@ const SavedQuotesPage = () => {
         );
       }
 
-      const searchFilter = buildSavedQuoteSearchFilter(debouncedSearchTerm, matchingProfileIds);
+      const searchFilter = buildSavedQuoteSearchFilter(appliedSearchTerm, matchingProfileIds);
       if (searchFilter) {
         dataQuery = dataQuery.or(searchFilter);
       }
@@ -685,14 +685,6 @@ const SavedQuotesPage = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <p className="text-muted-foreground">로딩 중...</p>
-      </div>
-    );
-  }
-
   return (
     <PageShell maxWidth="7xl">
       <PageHeader
@@ -752,15 +744,40 @@ const SavedQuotesPage = () => {
               ? 'lg:grid-cols-[minmax(0,1.5fr)_180px_190px_190px_auto]'
               : 'lg:grid-cols-[minmax(0,1.5fr)_180px_190px_auto]'
           }`}>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="견적 제목, 견적번호, 업체명, 담당자 검색"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="h-10 rounded-full border-border bg-background pl-10 shadow-none"
-              />
-            </div>
+            <form
+              className="flex min-w-0 gap-2"
+              role="search"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (loading) return;
+                if (appliedSearchTerm === searchTerm.trim() && currentPage === 1) {
+                  void fetchQuotes();
+                } else {
+                  setCurrentPage(1);
+                  setAppliedSearchTerm(searchTerm.trim());
+                }
+              }}
+            >
+              <div className="relative min-w-0 flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  aria-label="발행 견적서 검색"
+                  aria-describedby="issued-quote-search-help"
+                  placeholder="제목, 번호, 업체, 담당자, 금액"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && (event.nativeEvent.isComposing || event.keyCode === 229)) {
+                      event.preventDefault();
+                    }
+                  }}
+                  className="h-10 rounded-full border-border bg-background pl-10 shadow-none"
+                />
+              </div>
+              <Button type="submit" disabled={loading} className="h-10 shrink-0 rounded-full">
+                검색
+              </Button>
+            </form>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -808,12 +825,16 @@ const SavedQuotesPage = () => {
               type="button"
               variant="outline"
               onClick={resetFilters}
-              disabled={activeFilterCount === 0}
+              disabled={activeFilterCount === 0 && !searchTerm}
               className="h-10 whitespace-nowrap rounded-full border-border bg-background shadow-none hover:bg-muted"
             >
               필터 초기화
             </Button>
           </div>
+
+          <p id="issued-quote-search-help" className="mt-2 text-xs text-muted-foreground">
+            엔터 또는 검색 버튼으로 검색합니다. 금액은 부가세 포함 총액 기준입니다. (예: 1,000,000원)
+          </p>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <span className="text-sm text-muted-foreground">상태</span>
@@ -891,12 +912,19 @@ const SavedQuotesPage = () => {
           </div>
         </SearchFilterBar>
 
-        {filteredQuotes.length === 0 ? (
+        {loading ? (
+          <Card className="rounded-lg border-border bg-card shadow-none">
+            <CardContent role="status" className="flex min-h-[260px] items-center justify-center gap-2 p-12 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              견적서를 불러오는 중...
+            </CardContent>
+          </Card>
+        ) : filteredQuotes.length === 0 ? (
           <Card className="rounded-lg border-border bg-card shadow-none">
             <CardContent className="flex min-h-[260px] flex-col items-center justify-center p-12 text-center">
               <FileText className="mb-3 h-9 w-9 text-muted-foreground/35" />
               <p className="mb-4 text-sm text-muted-foreground">
-                {quotes.length === 0 ? '저장된 견적서가 없습니다.' : '검색 결과가 없습니다.'}
+                {activeFilterCount > 0 ? '검색 결과가 없습니다.' : '저장된 견적서가 없습니다.'}
               </p>
               <Button onClick={() => navigate('/calculator?type=quote')} variant="outline" className="rounded-full border-border bg-background shadow-none hover:bg-muted">
                 견적서 작성하기
