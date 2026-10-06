@@ -56,7 +56,8 @@ const calculatePreviousYearCarryover = (
     .filter(r =>
       r.status === 'approved' &&
       new Date(r.start_date).getFullYear() < selectedYear &&
-      (r.leave_type === 'annual' || r.leave_type === 'monthly')
+      (r.leave_type === 'annual' || r.leave_type === 'monthly'
+        || (r.leave_type === 'summer' && r.deducts_annual_leave === true))
     )
     .reduce((s, r) => s + r.days, 0);
 

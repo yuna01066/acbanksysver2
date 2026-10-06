@@ -137,18 +137,25 @@ export const calculateBusinessDays = (start: string, end: string): number => {
 
 export const BALANCE_LEAVE_TYPES = new Set(['annual', 'monthly', 'half_am', 'half_pm']);
 
+// NULL/missing is a historical request: never infer a new policy from its dates.
+export const isAnnualBalanceRequest = (request: Pick<LeaveRequest, 'leave_type' | 'deducts_annual_leave'>) =>
+  request.deducts_annual_leave ?? BALANCE_LEAVE_TYPES.has(request.leave_type);
+
 // Preserve the existing personal leave calculation; history filters never feed this balance.
 export function calculateLeaveBalance(joinDate: string, policy: LeavePolicy, requests: LeaveRequest[], netAdjustment = 0) {
-  const annual = requests.filter(r => BALANCE_LEAVE_TYPES.has(r.leave_type));
+  const annual = requests.filter(isAnnualBalanceRequest);
   const approved = annual.filter(r => r.status === 'approved');
   const usedDays = approved.reduce((sum, r) => sum + Number(r.days), 0);
+  const summerUsedDays = approved.filter(r => r.leave_type === 'summer').reduce((sum, r) => sum + Number(r.days), 0);
   const usedMonthlyDays = approved.filter(r => ['monthly', 'annual'].includes(r.leave_type))
     .reduce((sum, r) => sum + Number(r.days), 0);
   const pendingDays = annual.filter(r => r.status === 'pending').reduce((sum, r) => sum + Number(r.days), 0);
   const totalDays = calculatePolicyBasedLeaveDays(joinDate, policy.grant_method, policy.grant_basis) + netAdjustment;
+  // New summer usage must not offset historical expiration and undo its deduction.
   const expiration = policy.auto_expire_enabled
-    ? calculateExpiredLeave(joinDate, policy.grant_basis, policy.auto_expire_type, usedDays, usedMonthlyDays)
+    ? calculateExpiredLeave(joinDate, policy.grant_basis, policy.auto_expire_type, usedDays - summerUsedDays, usedMonthlyDays)
     : { expiredDays: 0, expiringSoonDays: 0, expirationDate: null, details: [] };
+  expiration.expiringSoonDays = Math.max(0, expiration.expiringSoonDays - summerUsedDays);
   const today = format(new Date(), 'yyyy-MM-dd');
   const scheduledDays = approved.filter(r => r.start_date > today).reduce((sum, r) => sum + Number(r.days), 0);
   return { totalDays, usedDays, pendingDays, scheduledDays, expiration, remainingDays: totalDays - usedDays - expiration.expiredDays };

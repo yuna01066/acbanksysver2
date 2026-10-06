@@ -32,7 +32,7 @@ export const EXTENDED_LEAVE_TYPES: LeaveTypeConfig[] = [
   { key: 'marriage_child', label: '결혼 - 자녀', description: '신청 시 1일 부여', icon: Gem },
   { key: 'refresh', label: '리프레시', description: '3년 근속 시 30일 부여', icon: Sparkles },
   { key: 'emergency', label: '비상', description: '신청 시 1일 부여', icon: AlertTriangle },
-  { key: 'summer', label: '여름(바캉스)', description: '매년 3일 부여', icon: Sun },
+  { key: 'summer', label: '여름(바캉스)', description: '유급 · 승인 시 연차 차감', icon: Sun, isPaid: true },
   { key: 'condolence_close', label: '조의 - 부모/배우자/자녀', description: '신청 시 5일 부여', icon: Mail },
   { key: 'condolence_extended', label: '조의 - 조부모/형제/자매', description: '신청 시 3일 부여', icon: Mail },
   { key: 'sick', label: '병가', description: '신청 시 부여', icon: AlertTriangle },
@@ -263,6 +263,8 @@ const LeaveTypeCards: React.FC<LeaveTypeCardsProps> = ({ onSubmit, remainingDays
                   <X className="h-5 w-5 text-muted-foreground" />
                 </button>
               </div>
+
+              {selectedType?.key === 'summer' && <p className="mb-4 text-xs text-muted-foreground">신규 신청부터 승인 시 연차가 차감됩니다. 기존 신청과 잔액은 종전 기준을 유지합니다.</p>}
 
               {/* Selected range display */}
               <div className="mb-4">

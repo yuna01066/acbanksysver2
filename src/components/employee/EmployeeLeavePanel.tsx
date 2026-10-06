@@ -8,16 +8,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { CalendarDays, ChevronLeft, ChevronRight, Loader2, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
-import { type LeaveRequest, LEAVE_TYPES, useLeaveRequests } from '@/hooks/useLeaveRequests';
+import { LEAVE_TYPES, useLeaveRequests } from '@/hooks/useLeaveRequests';
 import LeaveRequestList from '@/components/leave/LeaveRequestList';
+import { isAnnualBalanceRequest } from '@/lib/leaveBalance';
 
 interface Props {
   userId: string;
 }
-
-const BALANCE_LEAVE_TYPES = new Set(['annual', 'monthly', 'half_am', 'half_pm']);
-
-const isAnnualBalanceRequest = (request: LeaveRequest) => BALANCE_LEAVE_TYPES.has(request.leave_type);
 
 const EmployeeLeavePanel: React.FC<Props> = ({ userId }) => {
   const { isAdmin, isModerator, user } = useAuth();
@@ -103,7 +100,7 @@ const EmployeeLeavePanel: React.FC<Props> = ({ userId }) => {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h3 id="employee-leave-history-heading" className="text-sm font-semibold">연차·휴가 기록</h3>
-            <p className="mt-1 text-xs text-muted-foreground">승인된 연차·월차·반차는 사용량과 잔여 연차에 반영됩니다.</p>
+            <p className="mt-1 text-xs text-muted-foreground">승인된 연차·월차·반차와 신규 기준 여름휴가는 사용량과 잔여 연차에 반영됩니다. 기존 여름휴가는 종전 기준을 유지합니다.</p>
           </div>
           <div className="flex w-fit rounded-md bg-muted p-1" role="group" aria-label="기록 표시 범위">
             <Button
@@ -190,6 +187,7 @@ const EmployeeLeavePanel: React.FC<Props> = ({ userId }) => {
               <Textarea className="mt-1" value={form.reason} onChange={event => setForm(current => ({ ...current, reason: event.target.value }))} />
             </div>
             <p className="text-xs text-muted-foreground">수동 등록 휴가는 즉시 승인되며, 이후 변경은 취소 기록으로 남습니다.</p>
+            {form.leaveType === 'summer' && <p className="text-xs text-muted-foreground">새로 등록하는 여름휴가는 유급이며 연차에서 차감됩니다. 이전 날짜로 등록해도 신규 신청 기준이 적용됩니다.</p>}
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setAddDialogOpen(false)}>닫기</Button>
               <Button onClick={handleAddLeave} disabled={formSaving || !form.startDate || !form.endDate}>

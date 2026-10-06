@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { type LeaveRequest, type LeaveCancellationRequest, LEAVE_TYPES, LEAVE_STATUS } from '@/hooks/useLeaveRequests';
 import { EXTENDED_LEAVE_TYPES } from './LeaveTypeCards';
+import { isAnnualBalanceRequest } from '@/lib/leaveBalance';
 
 interface LeaveUsageHistoryProps {
   requests: LeaveRequest[];
@@ -132,8 +133,9 @@ const LeaveUsageHistory: React.FC<LeaveUsageHistoryProps> = ({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <Badge variant="outline" className="text-xs">{getLeaveLabel(req.leave_type)}</Badge>
+                    {req.leave_type === 'summer' && <Badge variant="outline">{req.deducts_annual_leave === true ? '유급 · 연차 차감' : '기존 기준 유지'}</Badge>}
                     <span className={`text-xs px-2 py-0.5 rounded-full ${status.color}`}>{status.label}</span>
-                    {req.status === 'approved' && req.start_date > format(new Date(), 'yyyy-MM-dd') && <Badge variant="outline">예정 · 사용 반영</Badge>}
+                    {req.status === 'approved' && req.start_date > format(new Date(), 'yyyy-MM-dd') && <Badge variant="outline">{isAnnualBalanceRequest(req) ? '예정 · 사용 반영' : '예정'}</Badge>}
                     {pendingCancellation && <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">취소 승인 대기</Badge>}
                   </div>
                   <p className="text-sm">
