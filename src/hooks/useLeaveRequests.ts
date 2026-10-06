@@ -11,6 +11,7 @@ export interface LeaveRequest {
   user_id: string;
   user_name: string;
   leave_type: string;
+  deducts_annual_leave?: boolean | null;
   start_date: string;
   end_date: string;
   days: number;
