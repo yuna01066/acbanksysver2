@@ -8,6 +8,13 @@
       "when": 1790146619326,
       "tag": "0000_issued_quote_revision",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791270559121,
+      "tag": "0001_summer_leave_prospective_deduction",
+      "breakpoints": true
     }
   ]
 }
