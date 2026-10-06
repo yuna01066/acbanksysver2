@@ -4217,6 +4217,7 @@ export type Database = {
           approved_by_name: string | null
           created_at: string
           days: number
+          deducts_annual_leave: boolean | null
           end_date: string
           id: string
           leave_type: string
@@ -4234,6 +4235,7 @@ export type Database = {
           approved_by_name?: string | null
           created_at?: string
           days?: number
+          deducts_annual_leave?: boolean | null
           end_date: string
           id?: string
           leave_type?: string
@@ -4251,6 +4253,7 @@ export type Database = {
           approved_by_name?: string | null
           created_at?: string
           days?: number
+          deducts_annual_leave?: boolean | null
           end_date?: string
           id?: string
           leave_type?: string
