@@ -22,13 +22,6 @@
       "when": 1791363600000,
       "tag": "0002_issued_quote_rounding",
       "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1791349091558,
-      "tag": "0003_issued_quote_rounding",
-      "breakpoints": true
     }
   ]
 }
