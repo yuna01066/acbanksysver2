@@ -104,14 +104,6 @@ const toSavedQuoteItems = (items: unknown): SavedQuoteItem[] => {
     .map(item => ({ ...item } as SavedQuoteItem)));
 };
 
-const calculateSavedQuoteSubtotal = (items: SavedQuoteItem[]) => (
-  items.reduce((sum, item) => {
-    const totalPrice = Number(item.totalPrice) || 0;
-    const quantity = Number(item.quantity) || 1;
-    return sum + (totalPrice * quantity);
-  }, 0)
-);
-
 const PROCESSING_OPTIONS = [{
   id: 'raw-only',
   name: '원판 단독 구매'
@@ -1388,10 +1380,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
           createdAt: new Date().toISOString()
         });
 
-        const newSubtotal = calculateSavedQuoteSubtotal(items);
-        const roundedSubtotal = Math.round(newSubtotal / 100) * 100;
-        const newTax = Math.round(roundedSubtotal * 0.1);
-        const newTotal = roundedSubtotal + newTax;
+        const { subtotal: roundedSubtotal, tax: newTax, total: newTotal } = calculateQuoteTotals(items as Quote[]);
 
         const { error: updateError } = await supabase
           .from('saved_quotes')
@@ -1593,10 +1582,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
           });
         });
 
-        const newSubtotal = calculateSavedQuoteSubtotal(items);
-        const roundedSubtotal = Math.round(newSubtotal / 100) * 100;
-        const newTax = Math.round(roundedSubtotal * 0.1);
-        const newTotal = roundedSubtotal + newTax;
+        const { subtotal: roundedSubtotal, tax: newTax, total: newTotal } = calculateQuoteTotals(items as Quote[]);
 
         const { error: updateError } = await supabase
           .from('saved_quotes')

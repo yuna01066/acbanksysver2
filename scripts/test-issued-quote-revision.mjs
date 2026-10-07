@@ -1,6 +1,6 @@
 // Synthetic data only. Does not read environment credentials or contact Supabase.
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -12,6 +12,47 @@ const src = path.resolve('src');
 try {
   await esbuild.build({ entryPoints: [path.join(src, 'utils/issuedQuoteRevision.ts')], outfile: path.join(temp, 'revision.mjs'), bundle: true, format: 'esm', platform: 'node', alias: { '@': src } });
   const { restorePanelCalculation, hasPanelCalculationChanges, hasQuotePriceChanges, hasQuoteSpecChanges, calculateQuoteTotals, quoteSpecNames } = await import(pathToFileURL(path.join(temp, 'revision.mjs')));
+  await esbuild.build({ entryPoints: [path.join(src, 'utils/quoteAmounts.ts')], outfile: path.join(temp, 'amounts.mjs'), bundle: true, format: 'esm', platform: 'node' });
+  const { calculateAutomaticQuoteTotals, calculateManualQuoteTotals } = await import(pathToFileURL(path.join(temp, 'amounts.mjs')));
+  for (const [amount, expected] of [
+    [682800, { subtotal: 682800, tax: 68280, total: 751100 }],
+    [682849, { subtotal: 682800, tax: 68280, total: 751100 }],
+    [682850, { subtotal: 682900, tax: 68290, total: 751200 }],
+    [100000, { subtotal: 100000, tax: 10000, total: 110000 }],
+  ]) {
+    assert.deepEqual(calculateQuoteTotals([{ totalPrice: amount, quantity: 1 }]), expected);
+    assert.deepEqual(calculateAutomaticQuoteTotals([{ totalPrice: amount, quantity: 1 }]), expected);
+  }
+  assert.deepEqual(calculateManualQuoteTotals(751100), { subtotal: 682818, tax: 68282, total: 751100 });
+  for (const amount of [NaN, Infinity, -1]) assert.throws(() => calculateQuoteTotals([{ totalPrice: amount, quantity: 1 }]));
+  assert.throws(() => calculateQuoteTotals([{ totalPrice: Number.MAX_VALUE, quantity: 2 }]));
+  for (const amount of [NaN, Infinity, -1, 0]) assert.throws(() => calculateManualQuoteTotals(amount));
+  // Guard the real entry points against reintroducing independent sum-only formulas.
+  for (const file of ['contexts/QuoteContext.tsx', 'pages/InternalQuotePage.tsx', 'pages/SavedQuoteDetailPage.tsx']) {
+    assert.match(await readFile(path.join(src, file), 'utf8'), /calculateAutomaticQuoteTotals/);
+  }
+  const calculator = await readFile(path.join(src, 'components/PanelCalculator.tsx'), 'utf8');
+  assert.equal((calculator.match(/calculateQuoteTotals\(items as Quote\[\]\)/g) || []).length, 3, 'calculator revision and both item-add paths share totals');
+  assert.match(await readFile(path.join(src, 'components/quote-detail/QuoteTotalSection.tsx'), 'utf8'), /calculateManualQuoteTotals\(total\)/);
+  // Exercise the actual issuance persistence payload with an isolated transport stub.
+  await esbuild.build({ entryPoints: [path.join(src, 'services/issuedQuoteSaver.ts')], outfile: path.join(temp, 'saver.mjs'), bundle: true, format: 'esm', platform: 'node', alias: { '@': src }, plugins: [{
+    name: 'synthetic-persistence',
+    setup(build) {
+      build.onResolve({ filter: /^@\/(integrations\/supabase\/client|services\/documentFiles|services\/recipientUpsert)$/ }, args => ({ path: args.path, namespace: 'synthetic' }));
+      build.onLoad({ filter: /.*/, namespace: 'synthetic' }, args => ({ contents: args.path.endsWith('/client')
+        ? `export const supabase = { from(table) { if (table !== 'saved_quotes') throw Error('unexpected table'); return { insert(rows) { globalThis.__syntheticIssuedRows = rows; return { select() { return { single: async () => ({ data: { id: 'synthetic-issued' }, error: null }) }; } }; } }; } };`
+        : args.path.endsWith('/documentFiles') ? `export const createDocumentFileRecord = () => { throw Error('unexpected attachment'); };`
+        : `export const upsertRecipientFromQuoteRecipient = async () => ({ recipientId: null, status: 'skipped' });`, loader: 'js' }));
+    },
+  }] });
+  const { saveIssuedQuote } = await import(pathToFileURL(path.join(temp, 'saver.mjs')));
+  const issuedItems = [{ id: 'synthetic-issued-item', material: '제품 제작', totalPrice: 682800, quantity: 1 }];
+  await saveIssuedQuote({ userId: 'synthetic-owner', quotes: issuedItems, recipient: null, quoteNumber: 'SYNTHETIC-ONLY', quoteStyle: 'panel', ...calculateAutomaticQuoteTotals(issuedItems) });
+  const issuedRow = globalThis.__syntheticIssuedRows[0];
+  for (const values of [issuedRow, issuedRow.calculation_snapshot]) {
+    assert.deepEqual([values.subtotal, values.tax, values.total], [682800, 68280, 751100]);
+  }
+  delete globalThis.__syntheticIssuedRows;
   const sizes = [{ size: '4*8 (1220*2440)', quantity: 2, surface: '양면', colorMixingCost: 30000 }, { size: '대3*6 (920*1820)', quantity: 1, surface: '단면', colorMixingCost: 0 }];
   const item = { id: 'one', material: '아크릴 판', quality: 'Clear (클리어)', thickness: '5T', selectedColor: 'AC-A001', colorType: '',
     size: sizes.map(s => `${s.size} (${s.quantity}개)`).join(', '), surface: sizes.map(s => `${s.size}: ${s.surface}`).join(', '),
@@ -85,7 +126,10 @@ try {
         INSERT INTO panel_masters VALUES ('${owner}', 'glossy-color');
         INSERT INTO panel_pricing_versions VALUES ('${owner}', true);
         INSERT INTO color_options VALUES ('${owner}', '${owner}', 'AC-NEW 신규 컬러', true, true);`);
-      await db.exec(await readFile('supabase/migrations/20260923090000_issued_quote_revision.sql', 'utf8'));
+      const migrationDir = process.env.ACBANK_TEST_MIGRATION_DIR || 'supabase/migrations';
+      const migrations = (await readdir(migrationDir)).filter(name => /issued_quote_(revision|rounding)/.test(name) && name.endsWith('.sql')).sort();
+      assert.ok(migrations.length);
+      for (const name of migrations) await db.exec(await readFile(path.join(migrationDir, name), 'utf8'));
       const untouchedItem = { ...structuredClone(item), id: 'untouched', material: '제품 제작', totalPrice: 25000, quantity: 2 };
       await db.query('INSERT INTO saved_quotes(id,user_id,quote_number,items,subtotal,tax,total) VALUES($1,$2,$3,$4,360000,36000,396000)', [quoteId, owner, 'TEST-ONLY', JSON.stringify([item, untouchedItem])]);
       await db.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [owner]);
@@ -129,6 +173,71 @@ try {
       await assert.rejects(revision(after.stamp, { project_name: 'forbidden' }), /권한/);
       await db.exec('RESET ROLE; SET ROLE anon');
       await assert.rejects(revision(after.stamp, { project_name: 'anonymous' }), /permission denied/);
+      await db.exec('RESET ROLE; GRANT INSERT ON quote_activity_history TO authenticated');
+      await db.query("SELECT set_config('request.jwt.claim.sub',$1,false)", [owner]);
+      const syntheticItem = { id: 'synthetic', material: '제품 제작', totalPrice: 682800, quantity: 1 };
+      for (const total of [751100, 751080, 751099, 751081]) {
+        await db.query('UPDATE saved_quotes SET items=$1,subtotal=682800,tax=68280,total=$2,calculation_snapshot=NULL WHERE id=$3', [JSON.stringify([syntheticItem]), total, quoteId]);
+        await db.exec('SET ROLE authenticated');
+        const saved = await current();
+        const action = revision(saved.stamp, { project_name: 'synthetic title', recipient_memo: 'synthetic memo', items: [{ ...syntheticItem, itemTitle: 'title only' }] });
+        if ([751100, 751080].includes(total)) {
+          await action;
+          const result = await current();
+          assert.deepEqual([result.subtotal, result.tax, result.total], ['682800', '68280', String(total)]);
+        } else await assert.rejects(action, /견적 금액/);
+        await db.exec('RESET ROLE');
+      }
+      const seed = async (amounts = { subtotal: 682800, tax: 68280, total: 751100 }, snapshot = null) => {
+        await db.exec('RESET ROLE');
+        await db.query('UPDATE saved_quotes SET items=$1,subtotal=$2,tax=$3,total=$4,calculation_snapshot=$5 WHERE id=$6', [JSON.stringify([syntheticItem]), amounts.subtotal, amounts.tax, amounts.total, JSON.stringify(snapshot), quoteId]);
+        await db.exec('SET ROLE authenticated');
+        return current();
+      };
+      for (const amount of [682849, 682850, 100000]) {
+        const saved = await seed();
+        const items = [{ ...syntheticItem, totalPrice: amount }];
+        const totals = calculateQuoteTotals(items);
+        await revision(saved.stamp, { items, ...totals });
+        const result = await current();
+        assert.deepEqual([result.subtotal, result.tax, result.total], Object.values(totals).map(String));
+        await revision(result.stamp, { recipient_memo: 'unchanged financial values' });
+        assert.equal((await current()).total, result.total);
+      }
+      // Changed quantity, unit price and added/deleted items must recalculate, even without a panel spec edit.
+      for (const items of [
+        [{ ...syntheticItem, quantity: 2 }],
+        [{ ...syntheticItem, totalPrice: 682850 }],
+        [syntheticItem, { ...syntheticItem, id: 'added', totalPrice: 100000 }],
+      ]) {
+        const saved = await seed();
+        await assert.rejects(revision(saved.stamp, { items }), /품목 합계/);
+        await revision(saved.stamp, { items, ...calculateQuoteTotals(items) });
+        if (items.length === 2) {
+          const added = await current();
+          await assert.rejects(revision(added.stamp, { items: [syntheticItem] }), /품목 합계/);
+          await revision(added.stamp, { items: [syntheticItem], ...calculateQuoteTotals([syntheticItem]) });
+        }
+      }
+      const manual = calculateManualQuoteTotals(751100);
+      const manualSnapshot = { manualTotalAdjustment: { mode: 'vat_included_total_override', adjustedSubtotal: manual.subtotal, adjustedTax: manual.tax, adjustedTotal: manual.total } };
+      let saved = await seed();
+      await revision(saved.stamp, { ...manual, calculation_snapshot: manualSnapshot });
+      saved = await current();
+      await revision(saved.stamp, { recipient_memo: 'manual preserved' });
+      const preservedManual = await current();
+      assert.deepEqual([preservedManual.subtotal, preservedManual.tax, preservedManual.total], ['682818', '68282', '751100']);
+      for (const total of [751099, 751081, 751080]) {
+        saved = await seed();
+        await assert.rejects(revision(saved.stamp, { total }), /견적 금액|품목 합계/);
+      }
+      for (const field of ['subtotal', 'tax', 'total']) {
+        for (const value of [null, -1, 'NaN', 'Infinity', '-Infinity', ...(field === 'total' ? [0] : [])]) {
+          saved = await seed();
+          await assert.rejects(revision(saved.stamp, { [field]: value }), /견적 금액/);
+          assert.equal((await current()).stamp, saved.stamp);
+        }
+      }
       console.log('Isolated PostgreSQL: atomic history, RLS, conflicts, input validation passed');
     } finally { await db.close(); }
   }

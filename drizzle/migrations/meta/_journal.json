@@ -15,6 +15,13 @@
       "when": 1791270559121,
       "tag": "0001_summer_leave_prospective_deduction",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791363600000,
+      "tag": "0002_issued_quote_rounding",
+      "breakpoints": true
     }
   ]
 }

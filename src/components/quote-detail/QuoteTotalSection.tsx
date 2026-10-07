@@ -1,3 +1,4 @@
+import { calculateManualQuoteTotals } from '@/utils/quoteAmounts';
 import React, { useState, useEffect } from 'react';
 import { Input } from "@/components/ui/input";
 
@@ -50,13 +51,12 @@ const QuoteTotalSection: React.FC<QuoteTotalSectionProps> = ({
     setManualTotal(normalizedValue);
     const total = Math.round(parseCurrencyValue(normalizedValue));
 
-    if (total <= 0) {
+    if (!Number.isFinite(total) || total <= 0) {
       onTotalOverride?.(0, 0, 0);
       return;
     }
 
-    const newSubtotal = Math.round(total / 1.1);
-    const newTax = total - newSubtotal;
+    const { subtotal: newSubtotal, tax: newTax } = calculateManualQuoteTotals(total);
     onTotalOverride?.(newSubtotal, newTax, total);
   };
 
@@ -64,7 +64,7 @@ const QuoteTotalSection: React.FC<QuoteTotalSectionProps> = ({
     if (editMode === 'auto') {
       setEditMode('manual');
       setManualTotal(String(totalWithTax));
-      onTotalOverride?.(subtotal, tax, totalWithTax);
+      handleManualTotalChange(String(totalWithTax));
     } else {
       setEditMode('auto');
       setManualTotal('');
