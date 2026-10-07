@@ -1,3 +1,4 @@
+import { calculateAutomaticQuoteTotals } from '@/utils/quoteAmounts';
 import React, { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import {
   deleteStoredFile,
@@ -972,16 +973,8 @@ export const QuoteProvider: React.FC<QuoteProviderProps> = ({ children }) => {
     });
   };
 
-  const getTotalPrice = () => {
-    const total = quotes.reduce((sum, quote) => sum + (quote.totalPrice * quote.quantity), 0);
-    return Math.round(total / 100) * 100; // 100원 단위로 반올림
-  };
-
-  const getTotalPriceWithTax = () => {
-    const subtotal = getTotalPrice();
-    const totalWithTax = subtotal * 1.1; // 10% 부가세 추가
-    return Math.round(totalWithTax / 100) * 100; // 100원 단위로 반올림
-  };
+  const getTotalPrice = () => calculateAutomaticQuoteTotals(quotes).subtotal;
+  const getTotalPriceWithTax = () => calculateAutomaticQuoteTotals(quotes).total;
 
   return (
     <QuoteContext.Provider value={{

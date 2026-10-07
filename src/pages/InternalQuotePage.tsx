@@ -1,3 +1,4 @@
+import { calculateAutomaticQuoteTotals } from '@/utils/quoteAmounts';
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from "@/components/ui/card";
@@ -35,8 +36,6 @@ const InternalQuotePage = () => {
     removeQuote,
     updateQuoteQuantity,
     clearQuotes,
-    getTotalPrice,
-    getTotalPriceWithTax,
     generateQuoteNumber,
     markActiveDraftIssued,
     anonymousDraftResolutionRequired,
@@ -46,9 +45,7 @@ const InternalQuotePage = () => {
     return <QuoteEmptyState onBackToCalculator={() => navigate('/calculator?type=quote')} />;
   }
 
-  const subtotal = getTotalPrice();
-  const tax = subtotal * 0.1; // 10% 부가세
-  const totalWithTax = getTotalPriceWithTax();
+  const { subtotal, tax, total: totalWithTax } = calculateAutomaticQuoteTotals(quotes);
   const quoteStyle = detectQuoteStyleFromItems(quotes);
   const quoteStyleProfile = getQuoteStyleProfile(quoteStyle);
   const quoteNumber = recipient?.quoteNumber || generateQuoteNumber();
@@ -92,9 +89,7 @@ const InternalQuotePage = () => {
 
     setIsSaving(true);
     try {
-      const subtotal = getTotalPrice();
-      const tax = subtotal * 0.1;
-      const total = getTotalPriceWithTax();
+      const { subtotal, tax, total } = calculateAutomaticQuoteTotals(quotes);
 
       const result = await saveIssuedQuote({
         userId: user.id,
