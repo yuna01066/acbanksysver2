@@ -1,3 +1,4 @@
+import { calculateAutomaticQuoteTotals } from '@/utils/quoteAmounts';
 import type { Quote } from '@/contexts/QuoteContext';
 import { CASTING_QUALITIES, MATERIALS } from '@/types/calculator';
 import type { UsePriceCalculationProps } from '@/hooks/usePriceCalculation';
@@ -74,7 +75,5 @@ export const hasQuotePriceChanges = (before: Quote[], after: Quote[]) =>
 
 export const calculateQuoteTotals = (items: Pick<Quote, 'totalPrice' | 'quantity'>[]) => {
   if (!items.length || items.some(item => !Number.isFinite(item.totalPrice) || item.totalPrice < 0 || !Number.isInteger(item.quantity) || item.quantity < 1)) throw new Error('품목 금액과 수량을 확인해 주세요.');
-  const subtotal = Math.round(items.reduce((sum, item) => sum + item.totalPrice * item.quantity, 0) / 100) * 100;
-  const tax = Math.round(subtotal * 0.1);
-  return { subtotal, tax, total: subtotal + tax };
+  return calculateAutomaticQuoteTotals(items);
 };

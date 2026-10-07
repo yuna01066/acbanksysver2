@@ -1,3 +1,4 @@
+import { calculateAutomaticQuoteTotals } from '@/utils/quoteAmounts';
 import React, { useState, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -454,11 +455,8 @@ const SavedQuoteDetailPage = () => {
 
     try {
       const normalizedEditedItems = normalizeQuoteItems(editedItems);
-      const itemCalculatedSubtotal = Math.round(
-        normalizedEditedItems.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0) / 100
-      ) * 100;
-      const itemCalculatedTax = Math.round(itemCalculatedSubtotal * 0.1);
-      const itemCalculatedTotal = itemCalculatedSubtotal + itemCalculatedTax;
+      const { subtotal: itemCalculatedSubtotal, tax: itemCalculatedTax, total: itemCalculatedTotal } =
+        editedItemsTouched ? calculateAutomaticQuoteTotals(normalizedEditedItems) : quote;
 
       // 품목을 건드리지 않은 재수정에서는 저장된 금액을 기준으로 유지한다.
       // 수동 조정 견적은 품목 합계와 저장 총액이 다를 수 있으므로 자동 재계산하면 최초 산식 금액으로 되돌아간다.
@@ -903,11 +901,8 @@ const SavedQuoteDetailPage = () => {
   const EditGuard = isEditing ? 'fieldset' : 'div';
   
   // 편집 모드에서도 품목을 실제로 수정하기 전까지는 저장된 금액을 유지한다.
-  const itemAutoSubtotal = Math.round(
-    editedItems.reduce((sum, item) => sum + (item.totalPrice * item.quantity), 0) / 100
-  ) * 100;
-  const itemAutoTax = Math.round(itemAutoSubtotal * 0.1);
-  const itemAutoTotal = itemAutoSubtotal + itemAutoTax;
+  const { subtotal: itemAutoSubtotal, tax: itemAutoTax, total: itemAutoTotal } =
+    editedItemsTouched ? calculateAutomaticQuoteTotals(editedItems) : quote;
   const autoSubtotal = isEditing 
     ? (editedItemsTouched ? itemAutoSubtotal : Math.round(quote.subtotal))
     : Math.round(quote.subtotal);
