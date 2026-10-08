@@ -1340,7 +1340,7 @@ const PanelCalculator = ({ initialType = 'quote' }: PanelCalculatorProps) => {
             manualTotalAdjustment: calculationChanged ? null : (existingQuote.calculation_snapshot as Record<string, unknown>)?.manualTotalAdjustment || null,
             items: items.map(item => ({ id: item.id, totalPrice: item.totalPrice, quantity: item.quantity, calculationSnapshot: item.calculationSnapshot || null })),
           },
-        });
+        }, calculationChanged ? 'automatic' : 'preserve');
 
         alert('견적과 수정 이력이 저장되었습니다. PDF를 재출력하고 관련 발주·세금계산서를 확인해 주세요.');
         clearCalculatorRecoveryDraft();

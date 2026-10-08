@@ -19,11 +19,14 @@ try {
     [682849, { subtotal: 682800, tax: 68280, total: 751100 }],
     [682850, { subtotal: 682900, tax: 68290, total: 751200 }],
     [100000, { subtotal: 100000, tax: 10000, total: 110000 }],
+    [1494600, { subtotal: 1494600, tax: 149460, total: 1644100 }],
   ]) {
     assert.deepEqual(calculateQuoteTotals([{ totalPrice: amount, quantity: 1 }]), expected);
     assert.deepEqual(calculateAutomaticQuoteTotals([{ totalPrice: amount, quantity: 1 }]), expected);
   }
   assert.deepEqual(calculateManualQuoteTotals(751100), { subtotal: 682818, tax: 68282, total: 751100 });
+  assert.deepEqual(calculateAutomaticQuoteTotals(Array.from({ length: 125 }, () => ({ totalPrice: 0.4, quantity: 1 }))), { subtotal: 100, tax: 10, total: 100 });
+  assert.deepEqual(calculateAutomaticQuoteTotals([{ totalPrice: 4e-7, quantity: 125000000 }]), { subtotal: 100, tax: 10, total: 100 });
   for (const amount of [NaN, Infinity, -1]) assert.throws(() => calculateQuoteTotals([{ totalPrice: amount, quantity: 1 }]));
   assert.throws(() => calculateQuoteTotals([{ totalPrice: Number.MAX_VALUE, quantity: 2 }]));
   for (const amount of [NaN, Infinity, -1, 0]) assert.throws(() => calculateManualQuoteTotals(amount));
@@ -34,6 +37,19 @@ try {
   const calculator = await readFile(path.join(src, 'components/PanelCalculator.tsx'), 'utf8');
   assert.equal((calculator.match(/calculateQuoteTotals\(items as Quote\[\]\)/g) || []).length, 3, 'calculator revision and both item-add paths share totals');
   assert.match(await readFile(path.join(src, 'components/quote-detail/QuoteTotalSection.tsx'), 'utf8'), /calculateManualQuoteTotals\(total\)/);
+  const detailSource = await readFile(path.join(src, 'pages/SavedQuoteDetailPage.tsx'), 'utf8');
+  const overrideHandler = detailSource.match(/onTotalOverride=\{(\([^)]*\) => \{[\s\S]*?\n\s*\})\}/)?.[1];
+  assert.ok(overrideHandler);
+  const selectAmountMode = Function('setManualTotalOverride', 'setResetManualTotal', `return (${overrideHandler})`);
+  const intent = {};
+  const selectMode = selectAmountMode(value => { intent.manual = value; }, value => { intent.reset = value; });
+  selectMode(0, 0, 0, 'manual');
+  assert.deepEqual(intent.manual, { subtotal: 0, tax: 0, total: 0 }, 'empty manual input must not silently become automatic');
+  selectMode(0, 0, 0, 'automatic');
+  assert.equal(intent.manual, null);
+  assert.equal(intent.reset, true, 'explicit automatic reset must clear an existing saved manual adjustment');
+  selectMode(682818, 68282, 751100, 'manual');
+  assert.equal(intent.reset, false);
   // Exercise the actual issuance persistence payload with an isolated transport stub.
   await esbuild.build({ entryPoints: [path.join(src, 'services/issuedQuoteSaver.ts')], outfile: path.join(temp, 'saver.mjs'), bundle: true, format: 'esm', platform: 'node', alias: { '@': src }, plugins: [{
     name: 'synthetic-persistence',
@@ -46,6 +62,14 @@ try {
     },
   }] });
   const { saveIssuedQuote } = await import(pathToFileURL(path.join(temp, 'saver.mjs')));
+  await esbuild.build({ entryPoints: [path.join(src, 'services/issuedQuoteRevision.ts')], outfile: path.join(temp, 'save-revision.mjs'), bundle: true, format: 'esm', platform: 'node', alias: { '@': src }, plugins: [{
+    name: 'synthetic-revision-transport',
+    setup(build) {
+      build.onResolve({ filter: /^@\/integrations\/supabase\/client$/ }, args => ({ path: args.path, namespace: 'synthetic' }));
+      build.onLoad({ filter: /.*/, namespace: 'synthetic' }, () => ({ contents: 'export const supabase = { rpc: (...args) => globalThis.__syntheticRevisionTransport.rpc(...args), from: (...args) => globalThis.__syntheticRevisionTransport.from(...args) };', loader: 'js' }));
+    },
+  }] });
+  const { saveIssuedQuoteRevision } = await import(pathToFileURL(path.join(temp, 'save-revision.mjs')));
   const issuedItems = [{ id: 'synthetic-issued-item', material: '제품 제작', totalPrice: 682800, quantity: 1 }];
   await saveIssuedQuote({ userId: 'synthetic-owner', quotes: issuedItems, recipient: null, quoteNumber: 'SYNTHETIC-ONLY', quoteStyle: 'panel', ...calculateAutomaticQuoteTotals(issuedItems) });
   const issuedRow = globalThis.__syntheticIssuedRows[0];
@@ -127,7 +151,7 @@ try {
         INSERT INTO panel_pricing_versions VALUES ('${owner}', true);
         INSERT INTO color_options VALUES ('${owner}', '${owner}', 'AC-NEW 신규 컬러', true, true);`);
       const migrationDir = process.env.ACBANK_TEST_MIGRATION_DIR || 'supabase/migrations';
-      const migrations = (await readdir(migrationDir)).filter(name => /issued_quote_(revision|rounding)/.test(name) && name.endsWith('.sql')).sort();
+      const migrations = (await readdir(migrationDir)).filter(name => /issued_quote_(revision|rounding|server_amounts)/.test(name) && name.endsWith('.sql')).sort();
       assert.ok(migrations.length);
       for (const name of migrations) await db.exec(await readFile(path.join(migrationDir, name), 'utf8'));
       const untouchedItem = { ...structuredClone(item), id: 'untouched', material: '제품 제작', totalPrice: 25000, quantity: 2 };
@@ -194,6 +218,101 @@ try {
         await db.exec('SET ROLE authenticated');
         return current();
       };
+      // New clients send financial intent, never independently calculated DB columns.
+      let serverBefore = await seed();
+      const holeItems = [{ ...syntheticItem, totalPrice: 1494600 }];
+      const serverReply = await revision(serverBefore.stamp, {
+        amount_policy_version: 1, amount_mode: 'automatic', items: holeItems,
+      });
+      assert.deepEqual([serverReply.rows[0].result.subtotal, serverReply.rows[0].result.tax, serverReply.rows[0].result.total], [1494600, 149460, 1644100]);
+      assert.equal(serverReply.rows[0].result.amount_policy_version, 1);
+      const serverSaved = await current();
+      assert.deepEqual([serverSaved.subtotal, serverSaved.tax, serverSaved.total], ['1494600', '149460', '1644100']);
+      assert.deepEqual([serverSaved.calculation_snapshot.subtotal, serverSaved.calculation_snapshot.tax, serverSaved.calculation_snapshot.total], [1494600, 149460, 1644100]);
+      await assert.rejects(revision(serverBefore.stamp, { amount_policy_version: 1, amount_mode: 'automatic', items: holeItems }), /다른 사용자/);
+      assert.equal((await current()).stamp, serverSaved.stamp);
+      const serverHistoryCount = (await db.query('SELECT * FROM quote_versions')).rows.length;
+      await db.exec('RESET ROLE; REVOKE INSERT ON quote_activity_history FROM authenticated; SET ROLE authenticated');
+      await assert.rejects(revision(serverSaved.stamp, { amount_policy_version: 1, amount_mode: 'automatic', items: [{ ...syntheticItem, totalPrice: 100000 }] }), /permission denied/);
+      assert.equal((await current()).stamp, serverSaved.stamp);
+      assert.equal((await db.query('SELECT * FROM quote_versions')).rows.length, serverHistoryCount);
+      await db.exec('RESET ROLE; GRANT INSERT ON quote_activity_history TO authenticated; SET ROLE authenticated');
+      const mixedItems = [{ ...syntheticItem, totalPrice: 382780 }, { ...syntheticItem, id: 'shipping', totalPrice: 300000 }];
+      serverBefore = await seed();
+      await revision(serverBefore.stamp, { amount_policy_version: 1, amount_mode: 'automatic', items: mixedItems, calculation_snapshot: { total: 999, manualTotalAdjustment: { mode: 'fake' } } });
+      const mixedSaved = await current();
+      assert.deepEqual([mixedSaved.subtotal, mixedSaved.tax, mixedSaved.total], ['682800', '68280', '751100']);
+      assert.equal(mixedSaved.calculation_snapshot.total, 751100);
+      assert.equal(mixedSaved.calculation_snapshot.manualTotalAdjustment, null);
+      await revision(mixedSaved.stamp, { amount_policy_version: 1, amount_mode: 'manual', manual_total: 751080 });
+      const explicitManual = await current();
+      assert.deepEqual([explicitManual.subtotal, explicitManual.tax, explicitManual.total], Object.values(calculateManualQuoteTotals(751080)).map(String));
+      await revision(explicitManual.stamp, { amount_policy_version: 1, amount_mode: 'preserve', recipient_memo: 'manual title only' });
+      assert.deepEqual((await current()).calculation_snapshot, explicitManual.calculation_snapshot);
+      await revision((await current()).stamp, { amount_policy_version: 1, amount_mode: 'automatic' });
+      assert.equal((await current()).total, '751100');
+      assert.equal((await current()).calculation_snapshot.manualTotalAdjustment, null);
+      const fractionalItems = Array.from({ length: 125 }, (_, index) => ({ ...syntheticItem, id: `fraction-${index}`, totalPrice: 0.4 }));
+      await revision((await current()).stamp, { amount_policy_version: 1, amount_mode: 'automatic', items: fractionalItems });
+      assert.equal((await current()).subtotal, '100', 'UI decimal summation matches PostgreSQL numeric at rounding boundary');
+      for (const total of [null, -1, 0, 0.5, '751100', Number.MAX_SAFE_INTEGER + 1]) {
+        const stamp = (await current()).stamp;
+        await assert.rejects(revision(stamp, { amount_policy_version: 1, amount_mode: 'manual', manual_total: total }), /수동 총액/);
+        assert.equal((await current()).stamp, stamp);
+      }
+      serverBefore = await seed({ subtotal: 682800, tax: 68280, total: 751099 }, { legacy: 'keep', total: 751099 });
+      await revision(serverBefore.stamp, { amount_policy_version: 1, amount_mode: 'preserve', project_name: 'legacy title only' });
+      const legacyPreserved = await current();
+      assert.deepEqual([legacyPreserved.subtotal, legacyPreserved.tax, legacyPreserved.total, legacyPreserved.calculation_snapshot], ['682800', '68280', '751099', { legacy: 'keep', total: 751099 }]);
+      await assert.rejects(revision(legacyPreserved.stamp, { amount_policy_version: 1, amount_mode: 'preserve', items: holeItems }), /금액|품목/);
+      await assert.rejects(revision((await current()).stamp, { amount_policy_version: 2, amount_mode: 'automatic', items: holeItems }), /새로고침/);
+      serverBefore = await seed();
+      await assert.rejects(revision(serverBefore.stamp, { items: holeItems, subtotal: 1494600, tax: 149460, total: 1644060 }), error => error.code === 'PQA02' && /새로고침/.test(error.message));
+      assert.equal((await current()).stamp, serverBefore.stamp);
+      let rpcCalls = 0;
+      let forcedError = null;
+      globalThis.__syntheticRevisionTransport = {
+        async rpc(name, args) {
+          rpcCalls++;
+          assert.equal(name, 'save_issued_quote_revision');
+          assert.equal(args.quote_id, quoteId);
+          assert.equal(args.patch.amount_policy_version, 1);
+          for (const key of ['subtotal', 'tax', 'total']) assert.equal(key in args.patch, false, 'client does not write derived amount columns');
+          assert.match(args.patch.request_id, /^[\da-f-]{36}$/);
+          if (forcedError) return { data: null, error: forcedError };
+          try { return { data: (await revision(args.expected_updated_at, args.patch)).rows[0].result, error: null }; }
+          catch (error) { return { data: null, error: { code: error.code, message: error.message, details: error.detail } }; }
+        },
+        from(table) {
+          assert.equal(table, 'saved_quotes');
+          return { select() { return { eq() { return { single: async () => ({ data: { updated_at: (await current()).stamp }, error: null }) }; } }; } };
+        },
+      };
+      const clientResult = await saveIssuedQuoteRevision(quoteId, serverBefore.stamp, { items: holeItems, subtotal: 1494600, tax: 149460, total: 1644060 }, 'automatic');
+      assert.equal(clientResult.total, 1644100, 'server amounts replace the old sum-only client representation');
+      assert.equal(rpcCalls, 1);
+      assert.equal((await db.query('SELECT metadata FROM quote_activity_history ORDER BY metadata->>\'updatedAt\' DESC LIMIT 1')).rows[0].metadata.amountPolicyVersion, 1);
+      const manualClient = await saveIssuedQuoteRevision(quoteId, (await current()).stamp, { total: 751100 }, 'manual');
+      assert.deepEqual([manualClient.subtotal, manualClient.tax, manualClient.total], [682818, 68282, 751100]);
+      const consoleError = console.error;
+      const diagnostics = [];
+      console.error = (...args) => diagnostics.push(args);
+      try {
+        for (const [code, message, expected] of [
+          ['PQA02', '새로고침해 주세요.', /새로고침/],
+          ['22023', '허용되지 않은 견적 수정 필드입니다.', /DB에 아직 적용/],
+          ['PQA01', '수동 총액을 확인해 주세요.', /편집 내용은 유지.*확인번호/],
+        ]) {
+          forcedError = { code, message, details: '{"serverAmountPolicyVersion":1,"recipient_name":"PRIVATE-ROW-DETAILS","expected":{"total":1644100,"recipient_phone":"PRIVATE-ROW-DETAILS"}}' };
+          const count = rpcCalls;
+          const stamp = (await current()).stamp;
+          await assert.rejects(saveIssuedQuoteRevision(quoteId, stamp, { recipient_name: 'NOT-IN-DIAGNOSTICS', total: 0 }, 'manual'), expected);
+          assert.equal(rpcCalls, count + 1, 'failed or ambiguous saves never retry');
+          assert.equal((await current()).stamp, stamp);
+        }
+        assert.doesNotMatch(JSON.stringify(diagnostics), /NOT-IN-DIAGNOSTICS|PRIVATE-ROW-DETAILS/);
+      } finally { console.error = consoleError; delete globalThis.__syntheticRevisionTransport; }
+      console.log('Real save service + isolated PostgreSQL: server totals, manual intent, legacy preservation and version diagnostics passed');
       for (const amount of [682849, 682850, 100000]) {
         const saved = await seed();
         const items = [{ ...syntheticItem, totalPrice: amount }];

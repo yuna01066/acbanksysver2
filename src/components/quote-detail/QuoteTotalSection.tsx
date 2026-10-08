@@ -8,7 +8,7 @@ interface QuoteTotalSectionProps {
   totalWithTax: number;
   autoTotalWithTax?: number;
   isEditing?: boolean;
-  onTotalOverride?: (subtotal: number, tax: number, total: number) => void;
+  onTotalOverride?: (subtotal: number, tax: number, total: number, mode: 'manual' | 'automatic') => void;
   manualAdjustment?: {
     previousTotal?: number | null;
     adjustedTotal?: number | null;
@@ -51,13 +51,13 @@ const QuoteTotalSection: React.FC<QuoteTotalSectionProps> = ({
     setManualTotal(normalizedValue);
     const total = Math.round(parseCurrencyValue(normalizedValue));
 
-    if (!Number.isFinite(total) || total <= 0) {
-      onTotalOverride?.(0, 0, 0);
+    if (!Number.isSafeInteger(total) || total <= 0) {
+      onTotalOverride?.(0, 0, 0, 'manual');
       return;
     }
 
     const { subtotal: newSubtotal, tax: newTax } = calculateManualQuoteTotals(total);
-    onTotalOverride?.(newSubtotal, newTax, total);
+    onTotalOverride?.(newSubtotal, newTax, total, 'manual');
   };
 
   const handleToggleManual = () => {
@@ -68,7 +68,7 @@ const QuoteTotalSection: React.FC<QuoteTotalSectionProps> = ({
     } else {
       setEditMode('auto');
       setManualTotal('');
-      onTotalOverride?.(0, 0, 0); // signal to reset to auto
+      onTotalOverride?.(0, 0, 0, 'automatic');
     }
   };
 

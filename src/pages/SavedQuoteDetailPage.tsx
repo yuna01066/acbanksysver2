@@ -136,6 +136,7 @@ const SavedQuoteDetailPage = () => {
   const [quote, setQuote] = useState<SavedQuote | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [manualTotalOverride, setManualTotalOverride] = useState<ManualTotalOverride | null>(null);
+  const [resetManualTotal, setResetManualTotal] = useState(false);
   const [recipientData, setRecipientData] = useState<QuoteRecipient>({
     projectName: '',
     quoteNumber: '',
@@ -159,6 +160,8 @@ const SavedQuoteDetailPage = () => {
   const [editedItems, setEditedItems] = useState<any[]>([]);
   const editedItemsTouched = hasQuotePriceChanges(quote?.items || [], editedItems);
   const specsChanged = hasQuoteSpecChanges(quote?.items || [], editedItems);
+  const shouldRecalculateAmounts = editedItemsTouched || resetManualTotal;
+  const invalidManualTotal = !!manualTotalOverride && !specsChanged && (!Number.isSafeInteger(manualTotalOverride.total) || manualTotalOverride.total <= 0);
   const [specErrors, setSpecErrors] = useState<Record<string, string>>({});
   const [savingRevision, setSavingRevision] = useState(false);
   const savingRevisionRef = useRef(false);
@@ -449,6 +452,7 @@ const SavedQuoteDetailPage = () => {
   const handleSaveEdit = async () => {
     if (!id || !quote || savingRevisionRef.current) return;
     if (blockingSpecReason) { toast.error(blockingSpecReason); return; }
+    if (invalidManualTotal) { toast.error('VAT 포함 최종금액을 양의 원 단위 금액으로 입력해 주세요.'); return; }
     savingRevisionRef.current = true;
     setSavingRevision(true);
     let revisionSaved = false;
@@ -456,13 +460,13 @@ const SavedQuoteDetailPage = () => {
     try {
       const normalizedEditedItems = normalizeQuoteItems(editedItems);
       const { subtotal: itemCalculatedSubtotal, tax: itemCalculatedTax, total: itemCalculatedTotal } =
-        editedItemsTouched ? calculateAutomaticQuoteTotals(normalizedEditedItems) : quote;
+        shouldRecalculateAmounts ? calculateAutomaticQuoteTotals(normalizedEditedItems) : quote;
 
       // 품목을 건드리지 않은 재수정에서는 저장된 금액을 기준으로 유지한다.
       // 수동 조정 견적은 품목 합계와 저장 총액이 다를 수 있으므로 자동 재계산하면 최초 산식 금액으로 되돌아간다.
-      const autoCalculatedSubtotal = editedItemsTouched ? itemCalculatedSubtotal : Math.round(quote.subtotal);
-      const autoCalculatedTax = editedItemsTouched ? itemCalculatedTax : Math.round(quote.tax);
-      const autoCalculatedTotal = editedItemsTouched ? itemCalculatedTotal : Math.round(quote.total);
+      const autoCalculatedSubtotal = shouldRecalculateAmounts ? itemCalculatedSubtotal : quote.subtotal;
+      const autoCalculatedTax = shouldRecalculateAmounts ? itemCalculatedTax : quote.tax;
+      const autoCalculatedTotal = shouldRecalculateAmounts ? itemCalculatedTotal : quote.total;
 
       // 수동 오버라이드가 있으면 VAT 포함 최종금액 기준으로 역산한 값을 저장한다.
       let roundedSubtotal = autoCalculatedSubtotal;
@@ -509,7 +513,7 @@ const SavedQuoteDetailPage = () => {
       const projectNameForSave = getTextForSave('projectName', quote.project_name);
       const companyNameForSave = getTextForSave('companyName', quote.recipient_company);
 
-      await saveIssuedQuoteRevision(id, quote.updated_at, {
+      const savedRevision = await saveIssuedQuoteRevision(id, quote.updated_at, {
           project_name: formatQuoteProjectTitle({
             projectName: projectNameForSave,
             companyName: companyNameForSave,
@@ -543,7 +547,7 @@ const SavedQuoteDetailPage = () => {
             autoCalculatedTax,
             autoCalculatedTotal,
             manualTotalAdjustment: manualTotalAdjustment
-              ?? (!editedItemsTouched ? (quote.calculation_snapshot?.manualTotalAdjustment || null) : null),
+              ?? (!shouldRecalculateAmounts ? (quote.calculation_snapshot?.manualTotalAdjustment || null) : null),
             items: normalizedEditedItems.map(item => ({
               id: item.id,
               totalPrice: item.totalPrice,
@@ -557,8 +561,13 @@ const SavedQuoteDetailPage = () => {
           subtotal: roundedSubtotal,
           tax: newTax,
           total: newTotal
-        });
+        }, manualTotalOverride && !specsChanged ? 'manual' : shouldRecalculateAmounts ? 'automatic' : 'preserve');
       revisionSaved = true;
+      setQuote(current => current?.id === id ? {
+        ...current, items: normalizedEditedItems, updated_at: savedRevision.updated_at,
+        subtotal: savedRevision.subtotal, tax: savedRevision.tax, total: savedRevision.total,
+        calculation_snapshot: savedRevision.calculation_snapshot,
+      } : current);
       await cleanupPendingFiles(pendingFiles);
 
       if (user && pendingFiles.length > 0) {
@@ -578,6 +587,7 @@ const SavedQuoteDetailPage = () => {
       toast.success('견적서와 수정 이력이 저장되었습니다. PDF를 재출력하고 관련 발주·세금계산서를 확인해 주세요.');
       setIsEditing(false);
       setManualTotalOverride(null);
+      setResetManualTotal(false);
       setSpecErrors({});
       queryClient.invalidateQueries({ queryKey: ['quote-versions', id] });
       queryClient.invalidateQueries({ queryKey: ['quote-activity-history', id] });
@@ -902,15 +912,15 @@ const SavedQuoteDetailPage = () => {
   
   // 편집 모드에서도 품목을 실제로 수정하기 전까지는 저장된 금액을 유지한다.
   const { subtotal: itemAutoSubtotal, tax: itemAutoTax, total: itemAutoTotal } =
-    editedItemsTouched ? calculateAutomaticQuoteTotals(editedItems) : quote;
+    shouldRecalculateAmounts ? calculateAutomaticQuoteTotals(editedItems) : quote;
   const autoSubtotal = isEditing 
-    ? (editedItemsTouched ? itemAutoSubtotal : Math.round(quote.subtotal))
+    ? (shouldRecalculateAmounts ? itemAutoSubtotal : Math.round(quote.subtotal))
     : Math.round(quote.subtotal);
   const autoTax = isEditing 
-    ? (editedItemsTouched ? itemAutoTax : Math.round(quote.tax))
+    ? (shouldRecalculateAmounts ? itemAutoTax : Math.round(quote.tax))
     : Math.round(quote.tax);
   const autoTotal = isEditing 
-    ? (editedItemsTouched ? itemAutoTotal : Math.round(quote.total))
+    ? (shouldRecalculateAmounts ? itemAutoTotal : Math.round(quote.total))
     : Math.round(quote.total);
   
   const subtotal = (isEditing && manualTotalOverride && !specsChanged) ? manualTotalOverride.subtotal : autoSubtotal;
@@ -953,13 +963,14 @@ const SavedQuoteDetailPage = () => {
             onEdit={() => {
               setSpecErrors({});
               setManualTotalOverride(null);
+              setResetManualTotal(false);
               setEditedQuoteNotes(quote.quote_notes || '');
               setIsEditing(true);
             }}
             onSaveEdit={handleSaveEdit}
             isSaving={savingRevision}
-            saveEditDisabled={!!blockingSpecReason}
-            onCancelEdit={() => { if (savingRevision) return; setIsEditing(false); setManualTotalOverride(null); setSpecErrors({}); setEditedQuoteNotes(quote.quote_notes || ''); fetchQuote(); }}
+            saveEditDisabled={!!blockingSpecReason || invalidManualTotal}
+            onCancelEdit={() => { if (savingRevision) return; setIsEditing(false); setManualTotalOverride(null); setResetManualTotal(false); setSpecErrors({}); setEditedQuoteNotes(quote.quote_notes || ''); fetchQuote(); }}
             onToggleViewMode={toggleViewMode}
             viewMode={activeMode}
             showSavedQuoteActions={true}
@@ -1153,6 +1164,7 @@ const SavedQuoteDetailPage = () => {
                 <p>기존 총액 {quote.total.toLocaleString()}원 → 수정 총액 {totalWithTax.toLocaleString()}원 (증감 {(totalWithTax - quote.total).toLocaleString()}원)</p>
                 {specsChanged && <p>사양 변경으로 기존 수동 총액 조정이 해제됩니다. 변경하지 않은 품목은 기존 단가를 유지합니다.</p>}
                 {blockingSpecReason && <p role="alert" className="text-destructive">{blockingSpecReason}</p>}
+                {invalidManualTotal && <p role="alert" className="text-destructive">VAT 포함 최종금액을 양의 원 단위 금액으로 입력해 주세요.</p>}
               </div>}
               <QuoteTotalSection
                 subtotal={subtotal}
@@ -1161,11 +1173,13 @@ const SavedQuoteDetailPage = () => {
                 autoTotalWithTax={autoTotal}
                 isEditing={isEditing && !specsChanged}
                 manualAdjustment={activeMode === 'internal' && !specsChanged ? savedManualTotalAdjustment : null}
-                onTotalOverride={(s, t, total) => {
-                  if (total === 0) {
+                onTotalOverride={(s, t, total, mode) => {
+                  if (mode === 'automatic') {
                     setManualTotalOverride(null);
+                    setResetManualTotal(true);
                   } else {
                     setManualTotalOverride({ subtotal: s, tax: t, total });
+                    setResetManualTotal(false);
                   }
                 }}
               />
